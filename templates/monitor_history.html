@@ -1,0 +1,31 @@
+<!-- templates/monitor_history.html (migrated from display_history_page) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>History for {{ protocol }} Peer: {{ neighbor }}</title>
+    <!-- Styles -->
+</head>
+<body>
+    <h1>History for {{ protocol }} Peer: {{ hostname }} {{ neighbor }}</h1>
+    <a href="/monitor">← Back to Dashboard</a>
+
+    {% if current_status %}
+        <div>
+            <h3>Current Status</h3>
+            <p>State: <strong>{{ current_status.state or 'N/A' }}</strong></p>
+            <!-- Add more fields based on protocol -->
+        </div>
+    {% endif %}
+
+    <h3>State Change History</h3>
+    <table>
+        <!-- Headers based on protocol -->
+        {% for entry in history %}
+            <tr>
+                <!-- Columns from entry -->
+            </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

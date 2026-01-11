@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Check Progress - {{ task_id }}</title>
+    <link rel="stylesheet" type="text/css" href="/static/css/mystyle.css"> 
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .progress-bar-container { width: 80%; background-color: #f3f3f3; border-radius: 5px; margin: 20px 0; }
+        #progressBar { width: 0%; height: 30px; background-color: #4CAF50; text-align: center; line-height: 30px; color: white; border-radius: 5px; transition: width 0.5s; }
+        .task-info { margin-top: 10px; padding: 10px; border: 1px solid #ccc; background-color: #eee; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Network Check in Progress</h1>
+        <p>Task ID: <strong>{{ task_id }}</strong></p>
+        <p>Total Devices: <strong>{{ total_ips }}</strong></p>
+        <p id="statusMessage">Current Status: <b>Starting...</b></p>
+    </header>
+
+    <div class="progress-bar-container">
+        <div id="progressBar">0%</div>
+    </div>
+
+    <div class="task-info">
+        <p id="progressText">Starting checks on {{ total_ips }} devices.</p>
+        <p id="currentIp">Last IP: N/A</p>
+    </div>
+
+    <script>
+        // Variables passed from the FastAPI backend
+        const taskId = "{{ task_id }}";
+        const pollInterval = 2000; // Poll every 2 seconds
+
+        // CRITICAL: Ensure you include the /api/ prefix if your application is mounted there
+        const STATUS_URL = `/api/devices/status/${taskId}`;
+        const RESULTS_URL = `/api/devices/results/${taskId}`;
+
+        function checkStatus() {
+            fetch(STATUS_URL)
+                .then(response => {
+                    if (!response.ok) {
+                        // If 404 (Not Found) or 500 (Server Error)
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const statusDiv = document.getElementById('statusMessage');
+                    const progressBar = document.getElementById('progressBar');
+                    
+                    statusDiv.innerHTML = `Current Status: <b>${data.status}</b>`;
+
+                    if (data.status === "completed") {
+                        // CRITICAL STEP: Stop polling and redirect to the final results page
+                        clearInterval(pollTimer);
+                        statusDiv.innerHTML = "Processing complete. Redirecting to results...";
+                        // Perform the redirect to the new results page
+                        window.location.href = RESULTS_URL;
+                        
+                    } else if (data.status === "failed") {
+                        // Task failed unexpectedly
+                        clearInterval(pollTimer);
+                        statusDiv.innerHTML = `Task failed: ${data.message}`;
+                        document.getElementById('progressText').innerHTML = 'An unrecoverable error occurred. Check server logs.';
+                        
+                    } else if (data.status === "in_progress") {
+                        // Update progress bar
+                        progressBar.style.width = data.progress + '%';
+                        progressBar.innerText = data.progress + '%';
+                        
+                        document.getElementById('progressText').innerHTML = data.message;
+                        document.getElementById('currentIp').innerHTML = `Last IP: ${data.current_ip || 'N/A'}`;
+                    }
+                })
+                .catch(error => {
+                    // Handle network or unexpected fetch errors
+                    clearInterval(pollTimer);
+                    document.getElementById('statusMessage').innerHTML = `Error polling status: ${error.message}. Stopped polling.`;
+                });
+        }
+
+        // Start polling immediately upon page load
+        const pollTimer = setInterval(checkStatus, pollInterval);
+        checkStatus(); 
+
+    </script>
+
+</body>
+</html>

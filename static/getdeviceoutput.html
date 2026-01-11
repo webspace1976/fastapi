@@ -1,0 +1,209 @@
+
+<style>
+    /* Add any custom styling for your network graph */
+    .link {
+        stroke: #999;
+        stroke-opacity: 0.6;
+    }
+
+    .node {
+        fill: #ccc;
+        stroke: #fff;
+    }
+
+    .node text {
+        font-family: Arial, sans-serif;
+        font-size: 10px;
+    }
+
+    table, th, td {
+        border: 1px solid black;
+        border-collapse: collapse;
+    }
+    .flex-container {
+    display: flex;
+    }
+
+    .flex-container > div {
+        margin: 10px;
+        text-align: center;
+    }
+</style>
+
+        ==============================================================================
+<br>
+<br>
+<!-- <form method="post" enctype="multipart/form-data" action="scripts/getweboutput.py" target="_blank"> -->
+<form method="POST" action="/run-getweboutput">
+    
+    <input type="radio" name="check_type" value="regular">Regular Switch status/log:(multi ip supported by comma "," like 1.1.1.1,2.2.2.2 ):
+    <table>
+        <tr>
+            <td>Device IP address:    <input type="text" name="ipaddress" placeholder="x.x.x.x"></td>
+            <td>Device interface:    <input type="text" name="interface" size="40" placeholder="GigabitEthernet1/2/3"></td>
+        </tr>
+        <tr>
+            <td>User name:            <input type="text" name="uname"> </td>
+            <td>User password:        <input type="password" name="passwd"></td>
+        </tr>
+    </table>
+    Device check option :<br>
+    <input type="radio" name=vendor value="cisco_ios">cisco_ios
+    <input type="radio" name=vendor value="arista_eos">arista_eos
+    <input type="radio" name=vendor value="hp_comware">H3C hp_comware <br>
+    <input type="checkbox" name=check_option1 value="enable">Device status/uptime/firmware and power.<br>
+    <input type="checkbox" name=check_option2 value="enable">Device health check, environment status, power/temperature etc.<br>
+    <input type="checkbox" name=check_option3 value="enable">Device event logs (full)<br>
+    <input type="checkbox" name=check_option4 value="enable">Interface info: logs, config, status, lldp/cdp, mac address etc.<br>
+    <input type="checkbox" name=check_option5 value="enable">Self-defined commands, seperated by comma ","<br>
+    <input type="text" name="defined_cmd" size="100" placeholder="show version , show log | inc 1/2/3">
+
+    <br>
+    ==============================================================================<br><br>
+    <input type="radio" name="check_type" value="core">KDC/eNG Core Switch log check:
+    <br>
+    User name:            <input type="text" name="core_uname">
+    User password:        <input type="password" name="core_passwd">
+    <br>
+    <div class="flex-container">
+        <div>
+            Device IP address (Multi-Select): <br>
+            <select name="core_ipaddress" multiple style="width:300px;height:180px;" >
+                <option value="hp_comware:10.102.102.80">LAB-eNG-KEL-Core 10.102.102.80  </option>
+                <option value="hp_comware:10.102.102.79">LAB-eNG-KAM-Core 10.102.102.79    </option>
+                <option value="hp_comware:10.8.8.15">LAB-eNG-CC-Core 10.8.8.15 </option>
+                <option value="hp_comware:10.8.8.16">LAB-eNG-CW-Core 10.8.8.16 </option>
+                <option value="hp_comware:10.251.0.75">KDC-R4.7-Core-1 10.251.0.75 </option>
+                <option value="hp_comware:10.251.0.76">KDC-R4.23-Core-2 10.251.0.76 </option>
+                <option value="hp_comware:10.251.18.216">KDC-DMZ-KAM 10.251.18.216</option>
+                <option value="hp_comware:10.251.18.217">KDC-DMZ-KEL 10.251.18.217</option>
+                <option value="cisco_ios:10.26.101.127">NS-LGH-LGAC-01A-C9600-Core1 10.26.101.127 </option>
+                <option value="cisco_ios:10.26.101.128">NS-LGH-LGAC-PIMS-C9600-Core2 10.26.101.128 </option>
+                <option value="arista_eos:10.26.101.7">VGH-JPS3730-Core1 10.26.101.7</option>
+                <option value="arista_eos:10.26.101.8">VGH-JPNB9-Core-2 10.26.101.8</option>            
+            </select>
+        </div>   
+        <div><svg id="bgp-peer-topology" width="400" height="200"></svg></div>
+    </div>
+    
+    <br>
+    Core BGP_STATE_CHANGED check:<br>
+    <input type="checkbox" name=check_bgp value="enable">BGP peer IP address:<input type="text" name="bgp_ip"><br>
+    <input type="checkbox" name=core2_bgp value="enable">BGP check for Core2 - 20221025: As per Amir<br>
+    ==============================================================================<br><br>
+
+    <button type="submit">Submit</button>    
+    <!-- <input type="submit" value="Submit" /> <br>Don't click again too fast, page will display the result after  finished in 10-30 seconds, or check log file later.<br><br> -->
+
+</form>
+
+        ==============================================================================
+<br>
+
+<div id="bgp_ospf_peer_Status">
+    BGP/OSPF reference:<a href="/logs/core/arch/" target="_blank">peer statistics</a>
+</div>
+
+<script src="/static/js/d3.v7.min.js"></script>
+<script>
+    // Sample data representing BGP peer topology
+    var nodes = [
+        { id: 1, name: "ENG22-CW-Core" },
+        { id: 2, name: "ENG22-CC-Core" },
+        { id: 3, name: "ENG22-KAM-Core" },
+        { id: 4, name: "ENG22-KEL-Core" },
+        { id: 5, name: "KDC-R4.09-12908E-CORE1" },
+        { id: 6, name: "KDC-R4.25-12908E-CORE2" },
+
+        // Add more nodes as needed
+    ];
+
+    var links = [
+        { source: 1, target: 2 },
+        { source: 1, target: 3 },
+
+        { source: 2, target: 1 },
+        { source: 2, target: 4 },
+
+        { source: 3, target: 5 },
+        { source: 3, target: 1 },
+        { source: 3, target: 4 },
+
+        { source: 4, target: 6 },
+        { source: 4, target: 2 },
+        { source: 4, target: 3 },
+
+        { source: 5, target: 3 },
+        { source: 5, target: 6 },
+
+        { source: 6, target: 4 },
+        { source: 6, target: 5 },
+        // Add more links as needed
+    ];
+
+    // Initialize D3 force simulation
+    var simulation = d3.forceSimulation(nodes)
+        .force("link", d3.forceLink(links).id(d => d.id))
+        .force("charge", d3.forceManyBody().strength(-200))
+        .force("center", d3.forceCenter(100, 110));
+
+    // Create SVG elements for links and nodes
+    var svg = d3.select("#bgp-peer-topology");
+    var link = svg.selectAll(".link")
+        .data(links)
+        .attr("stroke", "green")
+        .enter().append("line")
+        .attr("class", "link");
+    var node = svg.selectAll(".node")
+        .data(nodes)
+        .enter().append("g")
+        .attr("class", "node")
+        .call(d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended));
+
+    node.append("circle")
+        .attr("r", 10)
+        .attr("fill", "#ccc")
+        .attr("stroke", "#fff")
+        //.attr("stroke-width", 1);
+
+    node.append("text")
+        .attr("dx", 15)
+        .attr("dy", 5)
+        //.attr("font-weight", "bold")
+        .attr("stroke", "blue")
+        .text(d => d.name);
+
+    // Update positions of nodes and links on each tick
+    simulation.on("tick", () => {
+        link.attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+
+        node.attr("transform", d => `translate(${d.x},${d.y})`);
+    });
+
+    //console.log(node)
+
+    // Drag functions for nodes
+    function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+    }
+
+    function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+
+    function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+    }
+</script>
+

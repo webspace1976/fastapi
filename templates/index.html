@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+
+<html>
+
+    <head>
+        <title>SOC Network-Tools Portal</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0",charset="utf-8">
+        <link rel="stylesheet" type="text/css" href="/static/css/mystyle.css">
+        <style>
+   
+            /* Style the navigation bar */
+            nav {
+                float: left;
+                width: 120px;
+                background-color: #f1f1f1;
+                height: 100%; /* Make the navbar full height */
+                overflow: auto; /* Enable scroll if needed */
+            }
+    
+            nav ul {
+                list-style-type: none;
+                padding: 0;
+            }
+    
+            nav li a {
+                display: block;
+                padding: 10px 20px;
+                text-decoration: none;
+                color: #333;
+            }
+    
+            nav li a:hover {
+                background-color: #ddd;
+            }
+
+            nav li a.active {
+                background-color: #04AA6D;
+            }
+
+            nav li a.deactive {
+                background-color: #fff; /* Default background color for non-active links */
+            }       
+    
+            /* Style the main content area */
+            main {
+                margin-left: 120px; /* Adjust this value to accommodate the navbar width */
+            }
+            
+            /* Style the loading message */
+            #loading-message {
+                display: none; /* Initially hidden */
+                text-align: center;
+                font-style: italic;
+                color: #777;
+            }            
+                    /* Style the iframe */
+        iframe {
+            width: 100%;
+            height: calc(120vh - 40px); /* Adjust for header height and padding */
+            border: none;
+        }
+        </style>        
+    </head>
+
+    <body>
+        <header><h1>SOC Network-Tools Portal</h1></header>
+
+<!-- Navigation Bar -->
+<nav>
+    <ul>
+        <!-- <li><a href="/orion" target="_blank" onclick="return setActiveLink(this)">Orion Alert</a></li>         
+        <li><a href="/orion_login" target="contentFrame" onclick="return setActiveLink(this)">Orion Alert</a></li>   -->      
+        <li><a href="/api/orion/check_form" target="contentFrame" onclick="return setActiveLink(this)">Orion Alert</a></li>
+        <!-- <li><a href="/orionmap" target="contentFrame" onclick="return setActiveLink(this)">Node Properties</a></li> -->
+        <li><a href="/api/devices/check_form" target="contentFrame" onclick="return setActiveLink(this)">eNG/KDC Core</a></li>
+        <li><a href="/logs" target="contentFrame" onclick="return setActiveLink(this)">Log file</a></li>
+        <li><a href="/static/bookmark.html" target="contentFrame" onclick="return setActiveLink(this)">BookMark</a></li>
+        <li><a href="/static/notes.html" target="contentFrame" onclick="return setActiveLink(this)">Notes</a></li>
+        <li><a href="/admin/alerts" target="contentFrame" onclick="return setActiveLink(this)">Alert Center</a></li>         
+
+
+
+        <!-- Add more pages as needed -->
+    </ul>
+</nav>
+
+<!-- Main Content Area with iframe -->
+<main>
+    <iframe id="contentFrame" name="contentFrame" src="/static/index_content.html" title="main display area"></iframe>
+</main>
+
+
+    <!-- Loading message -->
+    <div id="loading-message">Loading...</div>
+    
+    <script>
+    function setActiveLink(link) {
+        // Remove 'active' class from all links
+        var links = document.querySelectorAll('nav li a');
+        links.forEach(function(item) {
+            item.classList.remove('active');
+            item.classList.add('deactive');
+        });
+
+        // Add 'active' class to the clicked link
+        link.classList.add('active');
+        link.classList.remove('deactive');
+
+        return true; // Allow default link behavior
+    }        
+    </script>	
+
+    <footer>
+        CopyRight - IT analsyt - Network, Service Operations Centre
+    </footer>
+
+    </body>
+</html>

@@ -1,0 +1,27 @@
+<div style="padding:1px 16px;height:1000px;">
+    <button onclick="myIframe('iframe','/data/skillset.txt')">Network SkillSet</button>
+    <button onclick="myIframe('iframe','/data/knownissue.txt')">Network Known Issue</button>
+    <button onclick="myIframe('iframe','/data/tshoot.txt')">Tshoot Note</button>
+    <button onclick="myIframe('iframe','/data/info.txt')">Update info</button>
+    <button onclick="editFile()">Edit Selected</button>
+
+    <iframe src="" name="iframe" id="iframe" height="600px" width="100%" title="Iframe skillset">
+    </iframe>
+
+    <script>
+        let currentFile = "";
+
+        function myIframe(id, file_src) {
+            document.getElementById(id).src = file_src;
+            currentFile = file_src.split('/').pop(); // Extract the file name
+        }
+
+        function editFile() {
+            if (currentFile) {
+                window.location.href = `/edit?filename=${currentFile}`;
+            } else {
+                alert("Please select a file first!");
+            }
+        }
+    </script>
+</div>

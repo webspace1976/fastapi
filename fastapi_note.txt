@@ -1,0 +1,109 @@
+202601 export/import env: GitHub:
+
+sync_to_github.bat
+.gitignore
+
+
+Install Git and Python.
+
+setup_new_pc.bat
+
+Right-click in your folder and select Git Bash Here (or use CMD).
+
+Run: git clone https://github.com/webspace1976/FastAPI.git .
+
+Run setup_new_pc.bat (This builds the environment).
+
+Manually paste your .db files into the data/ folder.
+
+========================================
+
+202601 export/import env: Docker
+1. back python/fastapi requirement, prepare requirements.txt
+
+c:\inetpub\wwwroot\dev\fastapi>
+pip list --outdated
+pip freeze > requirements.txt
+
+2 prepare docker file
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+3. star
+docker-compose up -d
+
+4. stop
+docker-compose down
+
+==============
+pip install fastapi uvicorn jinja2 paramiko orionsdk
+
+c:\inetpub\wwwroot\dev\fastapi>pip show uvicorn
+
+c:\inetpub\wwwroot\dev\fastapi>python -m uvicorn main:app --reload --host 0.0.0.0 --port 5050
+
+
+C:\inetpub\wwwroot\dev\fastapi\
+│
+├── main.py                # FastAPI application
+├── requirement.txt		# python lib requirement
+├── templates\             # HTML files (migrated from your CGI website)
+│   ├── index.html
+│   ├── other_page.html
+│   └── ...
+├── static\                # Static files (CSS, JS, images, etc.)
+│   ├── css\
+│   ├── js\
+│   ├── images\
+│   └── ...
+└── scripts\               # Python scripts (migrated from CGI)
+    ├── script1.py
+    ├── script2.py
+    └── ...
+
+
+Replacing CGI with FastAPI Routes: Use @app.post() or @app.get() for endpoints. Handle form data with Form() instead of cgi.FieldStorage().
+HTML Rendering: Use Jinja2 templates for dynamic HTML (instead of inline print statements).
+Async Support: Make I/O-bound operations (e.g., Netmiko connections, DB queries) async if possible.
+Dependencies: Install FastAPI (pip install fastapi uvicorn jinja2), and run with uvicorn your_app:app --reload.
+Deployment: CGI runs on servers like Apache; FastAPI uses ASGI servers like Uvicorn/Gunicorn. For production, use Docker/NGINX.
+Security: Add authentication, input validation, and rate limiting in FastAPI.
+State Management: CGI is stateless; FastAPI can use sessions (e.g., via fastapi_sessions).
+Background Tasks: For long-running jobs (e.g., device polling), use FastAPI's BackgroundTasks.
+
+
+
+20251103
+soc-network-tools/
+├── main.py                 # FastAPI main application
+├── config.py              # Configuration settings
+├── models.py              # Pydantic models
+├── static/
+│   ├── css/
+│   │   └── mystyle.css
+│   ├── js/
+│   │   ├── my_javascript.js
+│   │   └── jquery-3.6.1.min.js
+│   └── icons/
+│       ├── Event-5.gif
+│       └── Event-10.gif
+├── templates/
+│   ├── base.html
+│   ├── index.html
+│   ├── monitor.html
+│   └── orion_check.html
+├── routers/
+│   ├── __init__.py
+│   ├── devices.py         # getweboutput.py functionality
+│   ├── monitor.py         # monitor.py functionality
+│   ├── orion.py           # orion_check.py functionality
+│   └── analysis.py        # analysis_sqlite.py functionality
+├── utils/
+│   ├── __init__.py
+│   ├── network.py         # mymodule.py functionality
+│   └── database.py        # Database operations
+└── data/
+    └── network_analysis.db
+
+VGH-JPNB9-Core-2

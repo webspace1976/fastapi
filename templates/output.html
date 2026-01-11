@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SOC Network-Tools Portal</title>
+    <link rel="stylesheet" type="text/css" href="/static/mystyle.css">
+    <!-- Add your <style> from original here -->
+</head>
+<body>
+    <header><h1>SOC Network-Tools Portal</h1></header>
+    <div style="padding:1px 16px;"><h2>{{ current_time }}</h2></div>
+    
+    {% if ip_count > 0 %}
+    <div style="display:flex;">
+        <div style="width:75%;">
+            <p>{{ ip_count }} Device queried: user name: {{ uname }} Check type: {{ check_type }}. 
+            <a href="{{ compare_log_url }}" target="_blank">compare_log</a></p>
+        </div>
+        <div style="width:25%;text-align:center;">
+            <button onclick="window.open('{{ bgp_ospf_url }}', '_blank')">BGP/OSPF all Peer-Mesh</button>
+        </div>
+    </div>
+    <div class="progress-container">
+        <div id="progressBar" class="progress-bar">0%</div>
+    </div>
+    <!-- Add your <script> for progress here -->
+    {% endif %}
+    
+    <!-- Render results here -->
+    {% for result in results %}
+    <div id="result_{{ result.ip }}" class="result">{{ result.output }}</div>
+    {% endfor %}
+    
+    <footer>CopyRight - IT analyst - Network, Service Operations Centre</footer>
+</body>
+</html>

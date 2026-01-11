@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time SSH CLI with xterm.js</title>
+    <!-- xterm.js CSS -->
+    <link rel="stylesheet" href="/static/lib/xterm/xterm.css" />
+    <style>
+        body {
+            font-family: monospace;
+            background-color: black;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+        #connect-form {
+            /* width: 80%; */
+            margin: 10px auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #connect-form input {
+            padding: 10px;
+            background-color: #1e1e1e;
+            color: white;
+            border: 1px solid #ccc;
+        }
+        #connect-form button {
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #terminal {
+            width: 100%;
+            height: 80vh;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .xterm-rows {
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="connect-form">
+        <div style="display: flex;">
+            <input type="text" id="ssh-host" name="hostname" placeholder="Enter IP address" required>
+            <input type="number" id="ssh-port" name="port" placeholder="Enter port (default: 22)" value="22" required>
+            <input type="text" id="ssh-username" name="username" placeholder="Enter username" required>
+            <input type="password" id="ssh-password" name="password" placeholder="Enter password" required>
+
+            <button id="connect-button">Connect</button>
+            <button id="logout-button" style="background-color: red;">Logout</button>
+        </div>
+
+    </div>
+
+    <div id="terminal"></div>
+
+    <!-- xterm.js Library -->
+    <script src="/static/lib/xterm/xterm.min.js"></script>
+    <script src="/static/lib/xterm/xterm-addon-fit.js"></script>
+
+    <script>
+        const connectButton = document.getElementById('connect-button');
+        let ws;
+
+        // Initialize xterm.js
+        const term = new Terminal();
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal'));
+        fitAddon.fit();
+
+        window.addEventListener('resize', () => fitAddon.fit()); // Auto-resize
+
+        let dataListener; // Store the data event listener
+        let keyListener;  // Store the key event listener
+
+        connectButton.addEventListener('click', () => {
+            const sshHost = document.getElementById('ssh-host').value;
+            const sshPort = document.getElementById('ssh-port').value;
+            const sshUsername = document.getElementById('ssh-username').value;
+            const sshPassword = document.getElementById('ssh-password').value;
+
+            if (!sshHost || !sshPort || !sshUsername || !sshPassword) {
+                alert("Please fill in all fields.");
+                return;
+            }
+
+            // Clear existing WebSocket connection if it exists
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+
+            // Remove existing terminal event listeners
+            if (dataListener) {
+                dataListener.dispose(); // Remove the data event listener
+            }
+            if (keyListener) {
+                keyListener.dispose(); // Remove the key event listener
+            }            
+
+            // Reset the terminal
+            term.clear(); // Clear the terminal screen
+            term.reset(); // Reset the terminal state            
+
+            const wsUrl = getQueryParam("wsUrl") || `ws://${window.location.hostname}:8765`;
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                term.write('✅ Connected to server. Establishing SSH connection...\r\n');
+                ws.send(`${sshHost}|${sshPort}|${sshUsername}|${sshPassword}`);
+            };
+
+            ws.onmessage = (event) => {
+                term.write(event.data.replace(/\n/g, '\r\n')); // Fix line breaks
+            };
+
+            ws.onclose = () => {
+                term.write('\r\n🔴 Disconnected. \r\n');
+                // no need to reconnect
+                // term.write('\r\n🔴 Disconnected. Reconnecting in 3s...\r\n');
+                // setTimeout(() => {
+                //     ws = new WebSocket(wsUrl);
+                // }, 3000);
+            };
+
+            ws.onerror = (error) => {
+                term.write(`\r\n🔴 WebSocket error: ${error.message}\r\n`);
+            };
+
+            // Reattach terminal event listeners
+            dataListener = term.onData((data) => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(data); // Send raw data
+                }
+            });
+
+            // Handle special keys (e.g., Ctrl+C, Ctrl+L)
+            keyListener = term.onKey(({ key, domEvent }) => {
+                if (domEvent.ctrlKey && key === 'c') {
+                    // Send Ctrl+C to the server
+                    ws.send('\x03');
+                } else if (domEvent.ctrlKey && key === 'l') {
+                    // Clear the terminal (Ctrl+L)
+                    term.clear();
+                }
+            });      
+        });
+
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const ip = getQueryParam("ip");
+            if (ip) {
+                document.getElementById("ssh-host").value = ip;
+            }
+        });
+
+            // Function to start the WebSocket server
+            async function startWebSocketServer() {
+                try {
+                    const response = await fetch("/start-websocket-server", {
+                        method: "POST",
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log(data.message);
+                    } else {
+                        console.error("Failed to start WebSocket server:", await response.text());
+                    }
+                } catch (error) {
+                    console.error("Error starting WebSocket server:", error);
+                }
+            }
+
+            // Call the function when the page loads
+            window.onload = startWebSocketServer;
+
+    // Logout button functionality
+    document.getElementById("logout-button").addEventListener("click", () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send("__exit__");
+        }
+    });
+    </script>
+</body>
+</html>

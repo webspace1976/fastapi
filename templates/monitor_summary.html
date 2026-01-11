@@ -1,0 +1,59 @@
+<!DOCTYPE html><html lang="en">
+<head><meta charset="UTF-8"><title>BGP & OSPF Monitoring Dashboard</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f8f9fa; color: #212529; margin: 0; }
+        h1, h2 { color: #343a40; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        table { border-collapse: collapse; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        th, td { border: 1px solid #dee2e6; padding: 10px; text-align: left; vertical-align: middle; }
+        th { background-color: #e9ecef; position: sticky; top: 0; }
+        a { color: #007bff; text-decoration: none; font-weight: bold; }
+        a:hover { text-decoration: underline; }
+        .container { max-width: 1600px; margin: auto; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .back-link { display: inline-block; margin: 20px 0; font-size: 1.1em; }
+        .status-down, .status-init, .status-exstart, .status-idle, .status-active, .status-connect { background-color: #f8d7da; color: #721c24; }
+        .status-full, .status-established { background-color: #d4edda; color: #155724; }
+        .recent-flap { background-color: #ffdddd !important; border-left: 4px solid #dc3545; }
+        .problem-peer { background-color: #fff3cd !important; border-left: 4px solid #ffc107; font-weight: bold; }
+        .group-header { background-color: #6c757d; color: white; font-size: 1.1em; padding: 10px 15px; }
+        .toggle-btn { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; }
+        .toggle-btn:hover { background: #5a6268; }
+        .collapsed .table-content { display: none; }
+        .toggle-icon { display: inline-block; width: 20px; text-align: center; }
+        .section-container { margin-bottom: 30px; border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden; }
+        .section-header { background-color: #e9ecef; display: flex; justify-content: space-between; align-items: center; }
+        .section-title { margin: 0; flex-grow: 1; }
+        .table-container { font-size: 12px; max-height: 500px; overflow-y: auto; }
+        .summary-tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #dee2e6; }
+        .tab-btn { padding: 10px 20px; background: #e9ecef; border: none; cursor: pointer; border-radius: 5px 5px 0 0; margin-right: 5px; }
+        .tab-btn.active { background: #6c757d; color: white; font-weight: bold; }
+        .problem-count { background-color: #dc3545; color: white; border-radius: 50%; width: 25px; height: 25px; display: inline-flex; justify-content: center; align-items: center; font-size: 0.8em; margin-left: 10px; }
+        .uptime-warning { color: #d63384; font-weight: bold; }
+        .no-problems { padding: 20px; text-align: center; color: #6c757d; font-style: italic; }
+        .filter-row { background-color: #f1f1f1; position: sticky; margin: 0; }
+        .filter-row input { width: 100%; padding: 0px; margin: 0; box-sizing: border-box; border: 1px solid #dee2e6; border-radius: 4px; }   
+    </style>    
+<script>{{ html_java_script | safe }} </script>
+</head>
+
+<div style='display:flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
+    <h2 style='margin:0'>BGP&OSPF Peer Analyzer</h2>
+    <div style='text-align: right; margin: 0; display:none;'>
+        <button class='toggle-btn' onclick='flushStatus()'>Flush Status</button>
+    </div>
+</div>
+
+<div class='summary-tabs'>
+    <button class='tab-btn' data-tab='problem-peers' onclick='showTab("problem-peers")'> Problem Peers <span class='problem-count'>{{ (problem_bgp|length) + (problem_ospf|length) }}</span></button>
+
+    <button class='tab-btn' data-tab='all-bgp' onclick='showTab("all-bgp")'>All BGP Peers {{ (bgp_peers|length) }}</button>
+
+    <button class='tab-btn' data-tab='all-ospf' onclick='showTab("all-ospf")'>All OSPF Peers {{ (ospf_peers|length) }}</button>
+</div>
+
+    {{ html_problem | safe }}
+
+    {{ html_bgp | safe }}
+
+    {{ html_ospf | safe }}
+
+</html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>SOC Network-Tools Portal</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0", charset="utf-8">
+        <script src="/static/js/my_javascript.js"></script>
+        <script src="/static/js/jquery-3.6.1.min.js"></script>
+        <script src="/static/js/plotly-2.24.1.min.js"></script>
+
+        <script src="https://unpkg.com/@popperjs/core@2"></script>
+        <script src="https://unpkg.com/tippy.js@6"></script>
+        <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
+
+        <link rel="stylesheet" type="text/css" href="/static/css/mystyle.css">
+    <style>
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: lightgreen;
+            -webkit-transition: .4s;
+            transition: 0.4s;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 10px;
+            width: 10px;
+            left: 2px;
+            bottom: 1px;
+            background-color: white;
+            -webkit-transition: .4s;
+            transition: .4s;
+        }
+        input:checked + .slider {
+            background-color: lightblue;
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px #2196F3;
+        }
+
+        input:checked + .slider:before {
+            -webkit-transform: translateX(26px);
+            -ms-transform: translateX(26px);
+            transform: translateX(26px);
+        }
+
+        /* Rounded sliders */
+        .slider.round {
+            border-radius: 20px;
+        }
+
+        .slider.round:before {
+            border-radius: 30%;
+        }
+    </style>      
+
+    </head>
+    <body>
+        <header><h1>SOC Network-Tools Portal</h1></header>
+
+
+        <div id="topContainer" class="container" style="justify-content:space-between;margin-left:1%;">  
+                <div style="width:50%; text-align: center;
+                    background-color: {{ 'green' if orion_status else 'red' }};
+                    color:white;font-weight:bold;"> 
+                    <div style="display: flex;flex-wrap: wrap; ">
+                        <div>
+                            <a href="https://{{ npm_server }}" target="_blank">{{ npm_server }} {{ npm_username }} : </a>
+                        </div>
+                        <div>
+                            {{ 'UP' if orion_status else 'DOWN' }}&nbsp&nbsp : Last checked: {{ last_execution_time }} 
+                        </div>
+                    </div>
+                </div>
+            <input type="checkbox" id="autoRefreshCheckbox" value="true" checked="checked" />
+            <span>Auto Refresh - 60 Sec</span>&nbsp;&nbsp;
+            <div id="searchCount">&nbsp;&nbsp;Search all:
+                <input type="text" id="filterInput" placeholder="Searching...">
+            </div>
+        </div>
+        <br>            
+
+        <div class="output">
+
+            <div id="output-left">
+                <div id="output-nodes" style="margin:0">
+                    <div style="display:flex;">
+                        <table id="nodeCountTable" style="width:100%;text-align: center;font-weight:bold;">
+                            <tbody>
+                                <tr>
+                                    <td style="width:15%;">Node: <span id="countNodeDown"></span></td>
+                        <!-- Data will be populated here by my_javasctipt.js : countTableRow('nodedownTable','countNodeDown'); -->
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                <div style="text-align: right;">
+                    <label for="nodeChart"><button id="nodeChartButton">Chart Display</button></label>    
+                </div>    
+                <div id="nodeChartDown" style="display:none">
+                    <!-- chart display function from my_javasctip : piePlot('nodedownTable',nodeChartDown') -->
+                </div>
+                    {{ node_table | safe }}
+                </div>
+
+                <br>
+                <div id="output-interface" style="margin:0;">
+                    <div style="display:flex;">
+                        <table id="interfaceCountTable" style="width:100%;text-align: center">
+                            <tbody>
+                                <td style="width:15%;font-weight:bold;">Interface: <span id="countInterfaceDown"></span></td>
+                            </tbody>
+                        </table>
+                    </div>                 
+
+                <!-- This div will be shown/hidden -->
+                    <div style="font-size: 12px;box-sizing: border-box;display: flex;justify-content: space-between;">
+                        <div><label for="interfaceStackButton"><button id="interfaceStackButton">Stack,Teraspan,Uplink</button></label></div>
+                        <div><label for="interfaceCoreButton"><button id="interfaceCoreButton">KDC, Core</button></label></div>
+                        <div><label for="interfaceChart"><button id="interfaceChartButton">Chart Display</button></label></div>
+                    </div>
+
+                    <div id="interfaceStackDown" style="display:none; margin-top:0;"></div>
+                    <div id="interfaceCoreDown" style="display:none; margin-top:0;"></div>
+                    <div id="interfaceChartDown" style="display:none; margin-top: 0;"  >
+						<!-- chart display from function piePlot() -->
+                    </div>
+
+                        {{ interface_table | safe }}
+
+                </div>
+            </div>
+
+            <div id="output-right">
+                <div id="output-netpath">
+                    {{ netpath_table | safe }}
+                </div><br>
+                <div id="output-apipoller">
+                    {{ apipoller_table | safe }}
+                </div><br>
+
+                <!-- This div will be shown/hidden
+                    <div style="font-size: 12px;box-sizing: border-box;display: flex;justify-content: space-between;">
+                        <div><a href="https://orion.net.mgmt/orion/netperfmon/alerts.aspx" target="_blank">Orion Alerts: 
+                            {{ alert_table | length }} 
+                        </a></div>
+                        <div><label for="event_stack_button"><button id="event_stack_button">Stack</button></label></div>
+                        <div><label for="event_power_button"><button id="event_power_button">Power</button></label></div>
+                        <div><label for="event_core_button"><button id="event_core_button">KDC, Core</button></label></div>
+                    </div>
+                    <div id="event_stack_button" style="display:none; margin-top:0;"></div>
+                    <div id="event_power_button" style="display:none; margin-top:0;"></div>
+                    <div id="event_core_button" style="display:none; margin-top:0;"></div> -->
+                <div style="font-size: 12px;box-sizing: border-box;display: flex;justify-content: space-between;">
+                    <div><a href="https://orion.net.mgmt/orion/netperfmon/alerts.aspx" target="_blank">Orion Alerts:  </a><span id="rowCount" style="font-weight:bold; color:blue;"></span> alerts
+                    </div>
+                    <div>
+                    <label for="severityFilter">Severity:</label>
+                    <select id="severityFilter" onchange="applyFilters()">
+                        <option value="all">All</option>
+                        <option value="3">Serious</option>
+                        <option value="2">Critical</option>
+                        <option value="1">Warning</option>
+                        <option value="0">Informational</option>
+                        <option value="4">Unknown</option>
+                    </select>
+
+                    <label for="messageFilter">Category:</label>
+                    <select id="messageFilter" onchange="applyFilters()">
+                        <option value="all">All Messages</option>
+                        <option value="stack">Stack</option>
+                        <option value="core">Core</option>
+                        <option value="kdc">KDC</option>
+                        <option value="power">Power</option>
+                        <option value="H/W">H/W</option>
+                    </select>
+                    </div>
+                </div>
+                <div id="output-alert">
+                    {{ alert_table | safe }}
+                </div>
+
+            </div>
+        </div>
+
+        <script>
+            // search filter: my_javascript.js
+            var filterInput = document.getElementById('filterInput');
+            filterInput.addEventListener('keyup', filterTable);
+            
+            // JavaScript for auto-refresh
+            setInterval(function () {
+                if (document.getElementById('autoRefreshCheckbox').checked) {
+                    location.reload();
+                }
+            }, 60000); // Refresh every 60 seconds
+
+
+            // JavaScript for dynamic table updates
+            countTableRow('nodedownTable', 'countNodeDown');
+            countClassOccurrences('nodedownTable', 'nodeCountTable');
+            countSite('nodedownTable','nodeCountTable')
+            toggleAndDrawChart('nodeChartButton', 'nodeChartDown','nodedownTable')
+
+            countTableRow('interfacedownTable', 'countInterfaceDown');
+            countClassOccurrences('interfacedownTable', 'interfaceCountTable');
+            toggleAndDrawChart('interfaceChartButton', 'interfaceChartDown','interfacedownTable')
+
+            toggleFilterRows(
+                    'interfaceStackButton',
+                    'interfacedownTable',
+                    ['Stack', 'Teraspan', 'Uplink']  // OR logic
+                );
+            toggleFilterRows(
+                    'interfaceCoreButton',
+                    'interfacedownTable',
+                    ['kdc', 'core']  // OR logic
+                );
+
+           /* toggleFilterRows(
+                    'event_power_button',
+                    'alertTable',
+                    ['power']  // OR logic
+                );
+            toggleFilterRows(
+                    'event_core_button',
+                    'alertTable',
+                    ['kdc', 'core']  // OR logic
+                );
+            toggleFilterRows(
+                    'event_stack_button',
+                    'alertTable',
+                    ['stack']  // OR logic
+                );                
+            */
+            // Toggle for links type via radio buttons
+            setupLinkRadioToggle('nodedownTable', 'toggleStateNode'); 
+            setupLinkRadioToggle('alertTable', 'toggleStateAlert');
+            setupLinkRadioToggle('interfacedownTable', 'toggleStateInterface');
+
+        function applyFilters() {
+            const sevFilter = document.getElementById('severityFilter').value;
+            // FIX: Changed 'categoryFilter' to 'messageFilter' to match your HTML ID
+            const msgFilter = document.getElementById('messageFilter').value.toLowerCase(); 
+            const table = document.getElementById('alertTable');
+            const countDisplay = document.getElementById('rowCount');
+            
+            if (!table) return;
+
+            const rows = table.getElementsByTagName('tr');
+            let rowsFound = 0;
+
+            // Start at 1 to skip header
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                const sevCell = row.querySelector('#severity');
+                const messageText = row.textContent.toLowerCase();
+
+                const sevValue = sevCell ? sevCell.getAttribute('value') : "";
+
+                const matchesSeverity = (sevFilter === 'all' || sevValue === sevFilter);
+                const matchesMessage = (msgFilter === 'all' || messageText.includes(msgFilter));
+
+                if (matchesSeverity && matchesMessage) {
+                    row.style.display = "";
+                    rowsFound++;
+                } else {
+                    row.style.display = "none";
+                }
+            }
+
+            // Update the counter - ensure it defaults to 'All' count on load
+            if (countDisplay) {
+                countDisplay.textContent = rowsFound;
+            }
+        }
+
+        // Initial count on load
+        document.addEventListener('DOMContentLoaded', function() {
+            applyFilters();
+        });
+
+        </script>
+    </body>
+</html>

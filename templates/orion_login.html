@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Orion Login</title>
+</head>
+<body>
+    <h2>Orion Check</h2>
+    <!-- <form method="post" enctype="multipart/form-data" action="/orion/run-orioncheck" target="_blank"> -->
+    <form method="post" enctype="multipart/form-data" action="/api/orion/check_output" target="_blank">
+
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}"> <!-- Add CSRF token -->
+
+        <div style="display: flex;justify-content: space-around;">
+            <div>
+                <table>
+                    <tr>
+                        <td><label for="npm_server">Orion Server:</label></td>
+                        <td><input type="text" name="npm_server" id="npm_server" placeholder="142.71.111.72" required></td>
+                    </tr>
+                    <tr>
+                        <td><label for="npm_uname">User name:</label></td>
+                        <td><input type="text" name="npm_uname" id="npm_uname" placeholder="phsabc\abc.xyz" required></td>
+                    </tr>
+                    <tr>
+                        <td><label for="npm_passwd">User password:</label></td>
+                        <td><input type="password" name="npm_passwd" id="npm_passwd" required></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <button type="submit">Submit</button>
+                        </td>
+                        <td>
+                            <a id="orionLink" href="" target="_blank" style="margin-left:10px;">Go to Orion</a>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div>
+                    Ref: <a href="https://orion.net.mgmt/Orion/F5/F5LTMPoolDetails.aspx?NetObject=F5P:14354" target="_blank">F5 ORION WEB Pool</a>
+                    <br>Service List (202512): <br>10.248.217.144  142.71.111.67  <b>142.71.111.72 - Recommend</b>
+                    <br><br>20250702 Ken: API Servers to use in order:
+                    <br>SPAPPORIKWEB4 10.248.217.101 API Server at KDC
+                    <br>SPAPPORIKME1 10.248.217.140 Primary Main Polling Engine at KDC
+                    <br>SPAPPORIJME2 142.71.111.74  Secondary Main Polling Engine at JPN3
+            </div>
+        </div>
+        <input type="hidden" name="redirect_udt" id="redirect_udt" value="">
+
+    </form>
+
+    <div style="margin-top: 20px;">
+        <main>
+            <iframe id="contentFrame" 
+                    name="contentFrame" 
+                    src="/api/orion/orion_analysis" 
+                    title="orion analysis"
+                    style="width: 100%; height: 800px; border: 1px solid #ddd; border-radius: 8px;">
+            </iframe>
+        </main>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const udtNodeId = urlParams.get('udt_node_id');
+        if (udtNodeId) {
+            document.getElementById('redirect_udt').value = udtNodeId;
+        }
+
+        function trimServerInput() {
+            const input = document.getElementById('npm_server');
+            input.value = input.value.trim();
+            updateOrionLink();
+        }
+
+        function updateOrionLink() {
+            const server = document.getElementById('npm_server').value.trim();
+            const link = document.getElementById('orionLink');
+            if (server) {
+                link.href = "https://" + server;
+                link.textContent = "Go to Orion (" + server + ")";
+            } else {
+                link.href = "#";
+                link.textContent = "Go to Orion";
+            }
+        }
+        window.onload = updateOrionLink;
+    </script>
+</body>
+</html>

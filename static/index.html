@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+
+<html>
+
+    <head>
+        <title>SOC Network-Tools Portal</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0",charset="utf-8">
+        <link rel="stylesheet" type="text/css" href="mystyle.css">
+        <style>
+   
+            /* Style the navigation bar */
+            nav {
+                float: left;
+                width: 120px;
+                background-color: #f1f1f1;
+                height: 100%; /* Make the navbar full height */
+                overflow: auto; /* Enable scroll if needed */
+            }
+    
+            nav ul {
+                list-style-type: none;
+                padding: 0;
+            }
+    
+            nav li a {
+                display: block;
+                padding: 10px 20px;
+                text-decoration: none;
+                color: #333;
+            }
+    
+            nav li a:hover {
+                background-color: #ddd;
+            }
+
+            nav li a.active {
+                background-color: #04AA6D;
+            }
+
+            nav li a.deactive {
+                background-color: #fff; /* Default background color for non-active links */
+            }       
+    
+            /* Style the main content area */
+            main {
+                margin-left: 120px; /* Adjust this value to accommodate the navbar width */
+            }
+            
+            /* Style the loading message */
+            #loading-message {
+                display: none; /* Initially hidden */
+                text-align: center;
+                font-style: italic;
+                color: #777;
+            }            
+                    /* Style the iframe */
+        iframe {
+            width: 100%;
+            height: calc(120vh - 40px); /* Adjust for header height and padding */
+            border: none;
+        }
+        </style>        
+    </head>
+
+    <body>
+        <header><h1>SOC Network-Tools Portal</h1></header>
+
+<!-- Navigation Bar -->
+<nav>
+    <ul>
+        <!-- <li><a href="scripts/orion_check.py" target="_blank" onclick="return setActiveLink(this)">Orion Alert</a></li> -->
+         <li><a href="login.html" target="contentFrame" onclick="return setActiveLink(this)">Orion Alert</a></li>
+        <li><a href="oriondataviz.html" target="contentFrame" onclick="return setActiveLink(this)">Node Properties</a></li>
+        <li><a href="scripts/monitor.py?auto_update=1" target="contentFrame" onclick="return setActiveLink(this)">KDC/eNG Core</a></li>
+         <!-- 20251031 update add loading feeback and dynamic data refresh -->
+        <!-- <li>
+        <a href="javascript:void(0)" 
+            onclick="loadMonitorDashboard()" 
+            id="monitor-link">
+            KDC/eNG Core
+        </a>
+        </li> -->
+        <li><a href="logs.html" target="contentFrame" onclick="return setActiveLink(this)">Log file</a></li>
+        <li><a href="bookmark.html" target="contentFrame" onclick="return setActiveLink(this)">BookMark</a></li>
+        <li><a href="notes.html" target="contentFrame" onclick="return setActiveLink(this)">Notes</a></li>
+
+
+        <!-- Add more pages as needed -->
+    </ul>
+</nav>
+
+<!-- Main Content Area with iframe -->
+<main>
+    <iframe id="contentFrame" name="contentFrame" src="index_content.html" title="main display area"></iframe>
+</main>
+
+
+    <!-- Loading message -->
+    <div id="loading-message">Updating network data... Please wait.</div>
+
+    <script>
+    function setActiveLink(link) {
+        // Remove 'active' class from all links
+        var links = document.querySelectorAll('nav li a');
+        links.forEach(function(item) {
+            item.classList.remove('active');
+            item.classList.add('deactive');
+        });
+
+        // Add 'active' class to the clicked link
+        link.classList.add('active');
+        link.classList.remove('deactive');
+
+        return true; // Allow default link behavior
+    }        
+
+    // 20251031 This triggers monitor.py with ?auto_update=1 and shows "Loading..." in portal. 
+    function loadMonitorWithUpdate() {
+        const frame = document.getElementById('contentFrame');
+        const loading = document.getElementById('loading-message');
+        
+        // Set active link
+        setActiveLink(document.getElementById('monitor-link'));
+
+        // Show loading
+        loading.style.display = 'block';
+        frame.src = 'about:blank'; // Clear iframe
+
+        // Load with auto-update
+        frame.onload = function() {
+            loading.style.display = 'none';
+        };
+        frame.src = 'scripts/monitor.py?auto_update=1';
+    }
+    </script>	
+
+    <footer>
+        CopyRight - IT analsyt - Network, Service Operations Centre
+    </footer>
+
+    </body>
+</html>

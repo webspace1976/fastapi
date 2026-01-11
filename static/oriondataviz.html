@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Visualization</title>
+  <script src="scripts/my_javascript.js"></script>
+  <script src="lib/chart_3.9.1.js"></script>
+  <script src="scripts/fetchReport.js"></script>
+</head>
+<style>
+/* Style for the tab class */
+.tab {
+  display: inline-block; /* Display the tabs horizontally */
+  margin-right: 20px; /* Adjust spacing between tabs */
+}
+
+/* Style for the tabTable class */
+.tabTable {
+  border-collapse: collapse; /* Collapse table borders */
+  width: 100%; /* Set table width to 100% */
+}
+
+/* Style for the table rows */
+.tabTable tr {
+  border-bottom: 1px solid #ddd; /* Add bottom border for table rows */
+}
+
+/* Style for the table cells */
+.tabTable td {
+  padding: 8px; /* Add padding to table cells */
+}
+
+/* Style for the links */
+.tabTable a {
+  color: blue; /* Set link color */
+  text-decoration: none; /* Remove underline from links */
+}
+
+/* Style for links on hover */
+.tabTable a:hover {
+  text-decoration: underline; /* Underline links on hover */
+}
+</style>
+<body>
+
+  <button onclick="fetchJson('data/NodesCustomProperties.json')">Orion Nodes Properties</button>
+  <button onclick="fetchJson('data/orion_nodedown_list_log.json')">Orion Nodes Down</button>
+  <button onclick="fetchJson('data/orion_interfacedown_list_log.json')">Orion Interface Down </button>
+  <button onclick="fetchJson('data/orion_event_list_log.json')">Orion Event Alert</button>  
+  <button onclick="fetchJson('logs/core/10.8.8.16_routing_info.json')">BGP/OSPF peer report</button>
+  <button onclick="fetchJsonToHtml('logs/core/10.8.8.16_routing_infos.json')">BGP/OSPF peer report V2</button>
+
+  <!--  
+  <button onclick="refreshPage()" style="background-color: aqua;">Refresh Page</button>-->
+  <button onclick="refreshIframeContent()" style="background-color: aqua;">Refresh Page</button>
+
+  <div style="display: flex	; ">
+    <div id="searchContainer" style="margin-right: 50px;">
+      <input type="text" id="searchInput" placeholder="Search...">
+      <button onclick="search()" >  &nbsp&nbsp Search</button>
+    </div>
+    <div>
+      <form id="checkform" method="post" enctype="multipart/form-data" action="scripts/orion_diag.py" onsubmit="return validateForm()" target="hidden-form">
+          Orion nodes database update<input type="button" onclick="myFunction()" value="Update">
+      </form>
+    </div>
+  </div>
+
+
+  <div id="selectContainers" style="display: flex;">
+    <div class="selectContainer" style="margin-right: 50px;">
+      <select class="selectKey"></select>
+      <select class="selectValue"></select>
+    </div>
+    <div id="addButtonContainer">
+      <button id="addButton">Add Key-Value Pair</button>
+    </div>
+  </div>
+  <div id="output-div"></div>
+
+  <div id="newContainer"></div>
+
+  <table id="jsonTable">
+    <thead>
+      <tr>
+        <th>Key</th>
+        <th>Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Table body will be dynamically generated here -->
+    </tbody>
+  </table>
+
+  <canvas id="myChart" width="150" height="80"></canvas>
+
+  <!-- Table to show filter results -->
+  <table id="filterResults">
+    <thead>
+      <tr>
+        <th>Node Name</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    function refreshIframeContent() {
+        parent.document.getElementById('contentFrame').contentWindow.location.reload();
+    }
+
+    let currentData = null;
+    let jsonData = null;
+
+    // Function to create chart
+    function createChart(labels, data, label) {
+      const ctx = document.getElementById('myChart').getContext('2d');
+      if (currentData) {
+        currentData.destroy();
+      }
+      currentData = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: label,
+            data: data,
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    // Function to add a new key-value pair selection
+    function addKeyValuePairSelection() {
+      const selectContainers = document.getElementById('newContainer');
+
+      // Create new select elements
+      const selectContainer = document.createElement('div');
+      selectContainer.classList.add('selectContainer');
+      const selectKey = document.createElement('select');
+      const selectValue = document.createElement('select');
+      selectKey.classList.add('selectKey');
+      selectValue.classList.add('selectValue');
+
+      // Append new select elements to the container
+      selectContainer.appendChild(selectKey);
+      selectContainer.appendChild(selectValue);
+      selectContainers.appendChild(selectContainer);
+
+      // Populate the new select elements with unique keys
+      populateSelectOptions(selectKey);
+
+      // Add event listeners to new select elements
+      selectKey.addEventListener('change', updateSelectValue);
+      selectValue.addEventListener('change', updateChart);
+    }
+
+    // Function to populate select options with unique keys
+    function populateSelectOptions(selectElement) {
+      const uniqueKeys = {};
+
+      // Collect all unique keys in the JSON data
+      jsonData.forEach(item => {
+        Object.keys(item).forEach(key => {
+          uniqueKeys[key] = true;
+        });
+      });
+
+      // Populate the select dropdown with unique keys
+      Object.keys(uniqueKeys).forEach(key => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = key;
+        selectElement.appendChild(option);
+      });
+    }
+
+    // Function to update selectValue based on selected key
+    function updateSelectValue() {
+      const selectKey = this;
+      const selectContainer = selectKey.parentElement;
+      const selectValue = selectContainer.querySelector('.selectValue');
+      const selectedKey = selectKey.value;
+
+      // Clear previous options
+      selectValue.innerHTML = '';
+
+      // Add "All" option
+      const allOption = document.createElement('option');
+      allOption.value = '';
+      allOption.textContent = 'All';
+      selectValue.appendChild(allOption);
+
+      // Populate selectValue with corresponding values based on selected key
+      const filteredData = filterData(selectContainer);
+      const uniqueValues = [...new Set(filteredData.map(item => item[selectedKey]))];
+      uniqueValues.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        selectValue.appendChild(option);
+      });
+
+      // Trigger chart update
+      updateChart.call(selectValue);
+    }
+
+    // Function to filter data based on selected key
+    function filterData(selectContainer) {
+      const selectContainers = document.querySelectorAll('.selectContainer');
+      let filteredData = jsonData;
+      selectContainers.forEach(container => {
+        const key = container.querySelector('.selectKey').value;
+        const value = container.querySelector('.selectValue').value;
+        if (key && value && container !== selectContainer) {
+          filteredData = filteredData.filter(item => item[key] === value);
+        }
+      });
+      return filteredData;
+    }
+
+    // Function to update chart based on selected values
+    function updateChart() {
+      const selectContainer = this.parentElement;
+      const selectKey = selectContainer.querySelector('.selectKey').value;
+      const selectValue = this.value;
+
+      // Filter data based on selected key-value pairs
+      let filteredData = jsonData;
+      const selectContainers = document.querySelectorAll('.selectContainer');
+      selectContainers.forEach(container => {
+        const key = container.querySelector('.selectKey').value;
+        const value = container.querySelector('.selectValue').value;
+        if (key && value) {
+          filteredData = filteredData.filter(item => item[key] === value);
+        }
+      });
+
+      // Count occurrences of each value for the selected key
+      const filterCounts = {};
+      const valueCounts = {};
+      filteredData.forEach(item => {
+        const value = item[selectKey];
+        valueCounts[value] = (valueCounts[value] || 0) + 1;
+      });
+
+      // Sort data by count in descending order
+      const sortedLabels = Object.keys(valueCounts).sort((a, b) => valueCounts[b] - valueCounts[a]);
+      const sortedData = sortedLabels.map(label => valueCounts[label]);
+
+      // Prepare data for chart
+      const label = `${selectKey}: ${selectValue || 'All'}`;
+      createChart(sortedLabels, sortedData, label);
+
+      // Update the table with filtered results
+      updateTable(filteredData);
+
+    }
+
+    function displayJsonInHtml(data, parentElement) {
+    // Create a new unordered list element
+    const ul = document.createElement('ul');
+    
+    // Iterate over the keys in the data object
+    for (const key in data) {
+        // Create a list item for each key-value pair
+        const li = document.createElement('li');
+        li.textContent = key + ': ';
+
+        // Check if the value is an object or array
+        if (typeof data[key] === 'object' && data[key] !== null) {
+            // If it's an object or array, recursively call displayJsonInHtml
+            displayJsonInHtml(data[key], li);
+        } else {
+            // If it's a primitive value, just display it
+            li.textContent += data[key];
+        }
+
+        // Append the list item to the unordered list
+        ul.appendChild(li);
+    }
+
+    // Append the unordered list to the parent element
+    parentElement.appendChild(ul);
+    }
+
+
+    function fetchJsonToHtml(fileJson) {
+    fetch(fileJson)
+      .then(response => response.json())
+      .then(data => {
+        // Display the JSON data as a table
+        const table = document.getElementById('jsonTable');
+        displayJsonAsTable(data, table);
+      })
+      .catch(error => {
+        console.error('Error fetching or parsing JSON data:', error);
+      });
+}
+
+
+    // Fetch the JSON data
+    function fetchJson(fileJson) { 
+    fetch(fileJson)
+      .then(response => response.json())
+      .then(data => {
+        jsonData = data;
+
+       // Access the BGP data array
+        const bgpData = data.BGP;
+
+      // Check if bgpData exists and is an array
+        if (Array.isArray(bgpData)) {
+          // Iterate over each BGP entry
+          bgpData.forEach(bgpEntry => {
+            // Process each BGP entry here
+            console.log(bgpEntry);
+
+            // Example: Accessing Peer data within each BGP entry
+            const peers = bgpEntry.Peer;
+            if (Array.isArray(peers)) {
+              peers.forEach(peer => {
+                // Process each peer entry here
+                console.log(peer);
+              });
+            }
+          });
+        } else {
+          console.error('BGP data is not an array or does not exist');
+        }
+
+
+        // Populate initial select elements with unique keys
+        const selectKey = document.querySelector('.selectKey');
+        const selectValue = document.querySelector('.selectValue');
+        populateSelectOptions(selectKey);
+
+        // Add "All" option to initial select element
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = 'All';
+        selectValue.appendChild(allOption);
+
+        // Add event listeners to initial select elements
+        selectKey.addEventListener('change', updateSelectValue);
+        selectValue.addEventListener('change', updateChart);
+
+        // Add event listener to add more key-value pair selections
+        const addButton = document.getElementById('addButton');
+        addButton.addEventListener('click', addKeyValuePairSelection);
+      })
+      .catch(error => {
+        console.error('Error fetching or parsing JSON data:', error);
+      });
+    }
+
+// Function to update table with filter results
+function updateTable(filteredData) {
+  const tableBody = document.querySelector('#filterResults tbody');
+  tableBody.innerHTML = '';
+
+  const nodesPerTab = 20;
+  const numTabs = Math.ceil(filteredData.length / nodesPerTab);
+
+  for (let i = 0; i < numTabs; i++) {
+    const tabStartIndex = i * nodesPerTab;
+    const tabEndIndex = Math.min(tabStartIndex + nodesPerTab, filteredData.length);
+    const tabData = filteredData.slice(tabStartIndex, tabEndIndex);
+
+    const tab = document.createElement('div');
+    tab.classList.add('tab');
+
+    const tabTable = document.createElement('table');
+    tabTable.classList.add('tabTable');
+    const tabBody = document.createElement('tbody');
+
+    tabData.forEach(item => {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      const link = document.createElement('a');
+      link.textContent = item.NodeName; // Assuming NodeName is a property of your data
+      link.href = "https://orion.net.mgmt" + item.DetailsUrl; // Constructing the correct URL
+      link.target = "_blank"; // Open link in a new tab
+      cell.appendChild(link);
+      row.appendChild(cell);
+      tabBody.appendChild(row);
+    });
+
+    tabTable.appendChild(tabBody);
+    tab.appendChild(tabTable);
+    tableBody.appendChild(tab);
+  }
+}
+
+// Function to search JSON data and display the whole property
+function search() {
+  const searchInput = document.getElementById('searchInput').value.toLowerCase();
+  const filteredData = jsonData.filter(item => {
+    for (let key in item) {
+      // Check if the value is a string before calling toLowerCase
+      if (typeof item[key] === 'string' && item[key].toLowerCase().includes(searchInput)) {
+        return true;
+      }
+    }
+    return false;
+  });
+
+  updateTable(filteredData);
+}
+
+
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            text-align: left;
+            padding: 4px 10px;
+            border-bottom: 1px solid #ccc;
+        }
+        a {
+            color: blue;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h2>{{ title }}</h2>
+    <p><a href="..">[To Parent Directory]</a></p>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Size</th>
+                <th>Date Modified</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+                <tr>
+                    <td>
+                        {% if item.is_dir %}
+                            <a href="{{ title }}{{ item.name }}/">[DIR] {{ item.name }}</a>
+                        {% else %}
+                            <a href="{{ title }}{{ item.name }}" target="_blank">{{ item.name }}</a>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.size }}</td>
+                    <td>{{ item.modified }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

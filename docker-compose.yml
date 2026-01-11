@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  fastapi_app:
+    build: .
+    container_name: fastapi_network_portal
+    ports:
+      - "5050:5050"
+    volumes:
+      # Maps your local data and logs so they persist even if the container is deleted
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./static/icons:/app/static/icons
+    environment:
+      - DB_PATH=/app/data/network_core.db
+      - DB_ORION_PATH=/app/data/orion_data.db
+    restart: always
+
+# Optional: Add a visualizer or a DB browser if needed later

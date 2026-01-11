@@ -1,0 +1,159 @@
+<link rel="stylesheet" type="text/css" href="/static/css/jquery.dataTables-1.13.6.min.css">
+<link rel="stylesheet" type="text/css" href="/static/css/fixedColumns.dataTables-4.3.0.min.css">
+<link rel="stylesheet" type="text/css" href="/static/css/buttons.dataTables-2.4.1.min.css">
+
+<style>
+    #analysisContainer { padding: 20px; background: #fff; border-radius: 8px; }
+    /* Fix table sizing for many columns */
+    th, td { font-size: 11px !important; padding: 8px !important; }
+    .dataTables_scrollHeadInner, .display { width: 100% !important; }
+    .status-up { color: #28a745; font-weight: bold; }
+    .status-down { color: #dc3545; font-weight: bold; }
+    .btn-filter-down { background-color: #dc3545; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-filter-all { background-color: #6c757d; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; }
+    .btn-filter-down:hover { background-color: #a71d2a; }
+</style>
+<script src="/static/js/jquery-3.6.1.min.js"></script>
+<script src="/static/js/ajax3.10.1.min.js"></script>
+<script src="/static/js/jquery.dataTables-1.13.6.min.js"></script>
+<script src="/static/js/dataTables.fixedColumns-4.3.1.min.js"></script>
+<script src="/static/js/dataTables.buttons-2.4.1.min.js"></script>
+<script src="/static/js/buttons.html5-2.4.1.min.js"></script>
+
+
+<div id="analysisContainer">
+    <table id="propsTable" class="display nowrap" style="width:100%">
+
+<div style="margin-bottom: 20px;">
+    <button id="btnShowDown" class="btn-filter-down">⚠️ Show Down Nodes Only</button>
+    <button id="btnShowAll" class="btn-filter-all">Show All Nodes</button>
+    
+    <!-- <button id="btnSyncNow" style="background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-left: 20px;">
+        🔄 Sync Orion Data
+    </button> -->
+    <span id="syncMsg" style="margin-left: 10px; font-weight: bold;"></span>
+</div>
+        <thead>
+            <tr>
+                <th>NodeName</th>
+                <th>NodeID</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>UP|Down Time</th>
+                <th>Seconds</th>
+                <th>StatusDescription</th>
+                <th>Site</th>
+                <th>SiteType</th>
+                </tr>
+        </thead>
+    </table>
+</div>
+
+<script>
+$(document).ready(function() {
+    // 1. Initialize the table and store it in a variable
+    var table = $('#propsTable').DataTable({
+        "ajax": "/api/orion/get_custom_properties_data",
+        "scrollX": true,           // Allow horizontal scroll
+        "fixedColumns": {
+            "left": 2              // Keep Site and HA visible while scrolling
+        },
+        "columnDefs": [
+                {
+                    "targets": [1,2,5], // The index of the columns want to hide nodeid,status,seconds,bilding,city (starting from 0)
+                    "visible": false,     // This hides the column
+                    "searchable": true    // Keep this true so you can still search for hidden data!
+                }
+            ],        
+        "columns": [
+            { 
+            "data": "NodeName",
+            "render": function(data, type, row) {
+                // 'row' contains all the data for this node
+                // row.DetailsUrl is the column from your Orion.Nodes table
+                let url = "https://orion.net.mgmt" + row.DetailsUrl;
+                
+                // If the URL exists, wrap the name in a link
+                if (url) {
+                    return `<a href="${url}" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">${data}</a>`;
+                }
+                return data;
+            }
+            },
+            { "data": "NodeID" },
+            { "data": "Status" },
+            { "data": "Duration" },
+            { "data": "DownTime", 
+            "render": function(data, type, row) {
+                if (!data) return "N/A";
+                
+                // This takes the first 19 characters: "2026-01-02T13:21:09"
+                // It cuts off the .6400000
+                return data.substring(0, 19).replace('T', ' '); 
+            } },
+            { "data": "Seconds" },
+            { 
+                "data": "StatusDescription",
+                "render": function(data) {
+                    let cls = data.includes('Up') ? 'status-up' : 'status-down';
+                    return `<span class="${cls}">${data}</span>`;
+                }
+            },
+            { "data": "Site" },
+            { "data": "SiteType" }
+            // Note: You can add all 48 here or use a loop to generate this list
+        ],
+        // "dom": 'Bfrtip',           // Enable Buttons, Filtering, Processing, Table, Info, Pagination
+        // "buttons": [
+        //     'copyHtml5',
+        //     'excelHtml5',          // Very useful for 48-column data analysis
+        //     'csvHtml5'
+        // ],
+        "order": [[5, "asc"]],  // Default sort by StatusDescription descending
+        "pageLength": 50,
+        "language": {
+            "search": "Global Search (Site/Ticket/Node):",
+            "loadingRecords": "Fetching from SQLite cache..."
+        }
+    });
+
+    // Sync Button Logic
+        $('#btnSyncNow').on('click', function() {
+            let btn = $(this);
+            btn.prop('disabled', true).text('⏳ Syncing...');
+            $('#syncMsg').text('Updating SQLite Cache...').css('color', 'black');
+
+            $.post("/api/orion/sync_now", function(response) {
+                if(response.status === "success") {
+                    $('#syncMsg').text('✅ Success!').css('color', 'green');
+                    table.ajax.reload(); // Refresh the table display
+                } else {
+                    $('#syncMsg').text('❌ ' + response.message).css('color', 'red');
+                }
+                btn.prop('disabled', false).text('🔄 Sync Orion Data');
+            });
+        });    
+    // 2. Button Logic: Filter for 'Down'
+        // This searches for "2" in column index 2 (Status) on page load
+        //table.column(2).search('2').draw();        
+        //'^2$' ensures the string starts (^) and ends ($) with exactly 2
+        table.column(2).search('^2$', true, false).draw();
+    // Ensure your "Show All" button clears this default
+        $('#btnShowAll').on('click', function() {
+            table.column(2).search('').draw();
+        });
+
+        // Your "Show Down" button logic remains the same
+        $('#btnShowDown').on('click', function() {
+            table.column(2).search('2').draw();
+        });  
+
+    /* This will reload the table data from the DB every 60 seconds
+    setInterval(function() {
+        console.log("Checking SQLite for status changes...");
+        // 'null, false' means: don't reset the paging or current search filter
+        table.ajax.reload(null, false); 
+    }, 60000);        
+    */
+});
+</script>

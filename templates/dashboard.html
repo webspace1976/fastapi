@@ -1,0 +1,194 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script>{% extends "base.html" %}
+{% block content %}
+<h1>BGP & OSPF Monitoring Dashboard</h1>
+
+{% if chart_data.labels %}
+<h3>BGP Down Events Over Time</h3>
+<div class="table-container">
+    <canvas id="bgpChart"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('bgpChart'), {
+    type: 'line',
+    data: {
+        labels: {{ chart_data.labels | tojson }},
+        datasets: [{
+            label: 'BGP Down Events',
+            data: {{ chart_data.data | tojson }},
+            borderColor: '#007bff',
+            backgroundColor: 'rgba(0,123,255,0.1)',
+            fill: true
+        }]
+    },
+    options: { scales: { y: { beginAtZero: true } } }
+});
+</script>
+{% endif %}
+
+<h3>BGP Peers</h3>
+<input type="text" placeholder="Filter by Device" onkeyup="filterTable('bgp-table', 0, this.value)">
+<button onclick="sortTable('bgp-table', 4, 'text')">Sort by State</button>
+<div class="table-container">
+    <table id="bgp-table">
+        <thead>
+            <tr>
+                <th>Device</th>
+                <th>Instance</th>
+                <th>Neighbor</th>
+                <th>Up/Down Time</th>
+                <th>State</th>
+                <th>Last Check</th>
+                <th>Log File</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for peer in bgp_peers %}
+            {% set row_classes = ["status-" + (peer.state | lower | replace(" ", "-"))] %}
+            {% if (peer.hostname, peer.neighbor_ip) in problem_peers_keys %}
+                {% set _ = row_classes.append("problem-peer") %}
+            {% endif %}
+            <tr class="{{ row_classes | join(' ') }}">
+                <td>{{ peer.hostname | e }}</td>
+                <td>{{ "BGP" if peer.vpn_instance == "Global" else "BGP." + peer.vpn_instance | e }}</td>
+                <td><a href="/history/bgp/{{ peer.hostname | e }}/{{ peer.neighbor_ip | e }}">{{ peer.neighbor_ip | e }}</a></td>
+                <td>{{ peer.up_down_time | e }}</td>
+                <td>{{ peer.state | e }}</td>
+                <td>{{ format_last_check(peer.last_updated) }}</td>
+                <td>{% if peer.log_file %}<a href="{{ LOG_BASE_URL }}{{ peer.log_file | e }}" target="_blank">{{ peer.log_file | e }}</a>{% else %}N/A{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h3>OSPF Peers</h3>
+<input type="text" placeholder="Filter by Device" onkeyup="filterTable('ospf-table', 0, this.value)">
+<button onclick="sortTable('ospf-table', 4, 'text')">Sort by State</button>
+<div class="table-container">
+    <table id="ospf-table">
+        <thead>
+            <tr>
+                <th>Device</th>
+                <th>Neighbor</th>
+                <th>Interface</th>
+                <th>Up/Down Time</th>
+                <th>State</th>
+                <th>Last Check</th>
+                <th>Log File</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for peer in ospf_peers %}
+            {% set row_classes = ["status-" + (peer.state | lower | replace(" ", "-"))] %}
+            {% if (peer.hostname, peer.neighbor_id) in problem_peers_keys %}
+                {% set _ = row_classes.append("problem-peer") %}
+            {% endif %}
+            <tr class="{{ row_classes | join(' ') }}">
+                <td>{{ peer.hostname | e }}</td>
+                <td><a href="/history/ospf/{{ peer.hostname | e }}/{{ peer.neighbor_id | e }}">{{ peer.neighbor_id | e }}</a></td>
+                <td>{{ peer.interface | e }}</td>
+                <td>{{ peer.up_down_time | e }}</td>
+                <td>{{ peer.state | e }}</td>
+                <td>{{ format_last_check(peer.last_updated) }}</td>
+                <td>{% if peer.log_file %}<a href="{{ LOG_BASE_URL }}{{ peer.log_file | e }}" target="_blank">{{ peer.log_file | e }}</a>{% else %}N/A{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if ospf_conflicts %}
+<h3>OSPF Router ID Conflicts</h3>
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Device</th>
+                <th>Process</th>
+                <th>Router ID</th>
+                <th>Timestamp</th>
+                <th>Log File</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for conflict in ospf_conflicts %}
+            <tr>
+                <td>{{ conflict.hostname | e }}</td>
+                <td>{{ conflict.process_id | e }}</td>
+                <td>{{ conflict.router_id | e }}</td>
+                <td>{{ conflict.timestamp | e }}</td>
+                <td><a href="{{ LOG_BASE_URL }}{{ conflict.log_file | e }}" target="_blank">{{ conflict.log_file | e }}</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<script>
+function sortTable(tableId, colIndex, type) {
+    const table = document.getElementById(tableId);
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.sort((a, b) => {
+        let aVal = a.cells[colIndex].textContent.trim();
+        let bVal = b.cells[colIndex].textContent.trim();
+        if (type === 'number') {
+            aVal = parseFloat(aVal) || 0;
+            bVal = parseFloat(bVal) || 0;
+        }
+        return aVal > bVal ? 1 : -1;
+    });
+    tbody.innerHTML = '';
+    rows.forEach(row => tbody.appendChild(row));
+}
+function filterTable(tableId, column, value) {
+    const table = document.getElementById(tableId);
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const cell = row.cells[column].textContent.toLowerCase();
+        row.style.display = cell.includes(value.toLowerCase()) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

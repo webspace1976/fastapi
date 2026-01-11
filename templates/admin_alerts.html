@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Alert Center</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/css/mystyle.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+        }
+        table {
+            border-collapse: collapse;
+            width: 95%;
+            margin: 20px auto;
+            font-size: 14px;
+            background-color: #fff;
+        }
+        th, td {
+            border: 1px solid #aaa;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #333;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .badge-info {
+            background: #007bff;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .badge-warning {
+            background: #ffc107;
+            color: black;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .badge-error {
+            background: #dc3545;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        #searchInput {
+            display: block;
+            margin: 10px auto;
+            padding: 6px;
+            width: 90%;
+            max-width: 400px;
+        }
+    </style>
+</head>
+
+<script>
+let currentPage = 1;
+const rowsPerPage = 100;
+
+function paginateTable(table) {
+    const rows = table.querySelectorAll("tbody tr");
+    const totalPages = Math.ceil(rows.length / rowsPerPage);
+
+    rows.forEach((row, i) => {
+        row.style.display = (i >= (currentPage - 1) * rowsPerPage && i < currentPage * rowsPerPage) ? "" : "none";
+    });
+
+    const pageInfo = document.getElementById("pageInfo");
+    if (pageInfo) {
+        pageInfo.textContent = `Page ${currentPage} / ${totalPages}`;
+    }
+}
+
+function paginateAllTables() {
+    const tables = document.querySelectorAll(".logTable");
+    tables.forEach(paginateTable);
+}
+
+function nextPage() {
+    currentPage++;
+    paginateAllTables();
+}
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        paginateAllTables();
+    }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+    paginateAllTables();
+});
+</script>
+
+
+<body>
+    <div style="display: flex; justify-content: space-around;">
+        <div><h1>🚨 Alert Log Center</h1></div>
+        <div><input type="text" id="searchInput" placeholder="Search log entries..."></div>
+    </div>
+
+    <div style="display: flex; font-size: small; position: sticky; top: 0; background: white; z-index: 999; padding: 8px; border-bottom: 1px solid #ccc;">
+        <form method="get" action="/admin/alerts" style="display:flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <label>Filter by Level:</label>
+            <select name="level">
+                <option value="">All</option>
+                <option value="INFO" {{ 'selected' if filter_level == 'INFO' else '' }}>INFO</option>
+                <option value="WARNING" {{ 'selected' if filter_level == 'WARNING' else '' }}>WARNING</option>
+                <option value="ERROR" {{ 'selected' if filter_level == 'ERROR' else '' }}>ERROR</option>
+            </select>
+
+            <label>Group by:</label>
+            <select name="group_by">
+                <option value="">None</option>
+                <option value="date" {{ 'selected' if group_by == 'date' else '' }}>Date</option>
+                <option value="module" {{ 'selected' if group_by == 'module' else '' }}>Module</option>
+            </select>
+
+            <label><input type="checkbox" id="autoRefresh" checked> Auto-refresh</label>
+
+            <button type="submit">Apply</button>
+            <a href="/admin/alerts?export=true" style="padding: 4px 8px; background: #ddd; text-decoration: none; border-radius: 3px;">⬇ Export CSV</a>
+        </form>
+
+            <button onclick="prevPage()">⬅ Prev</button>
+            <span id="pageInfo">Page 1</span>
+            <button onclick="nextPage()">Next ➡</button>
+        </div>
+    </div>
+
+    </form>    
+    </div>
+
+    {% for group, alerts in grouped_alerts.items() %}
+        <h3>{{ group }}</h3>
+        <table id="logTable" class="logTable" border="1" style="width:100%; font-size:x-small;">
+
+            <tr>
+                <th style="width: 12%;">Timestamp</th>
+                <th style="width: 10%;">Level</th>
+                <th>Message</th>
+                <th style="width: 15%;">Module</th>
+            </tr>
+            {% for alert in alerts %}
+            <tr>
+                <td>{{ alert.timestamp }}</td>
+                <td>
+                    {% if alert.level == "ERROR" %}
+                        <span class="badge-error">ERROR</span>
+                    {% elif alert.level == "WARNING" %}
+                        <span class="badge-warning">WARNING</span>
+                    {% else %}
+                        <span class="badge-info">{{ alert.level }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ alert.message }}</td>
+                <td>{{ alert.module }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endfor %}
+
+<script>
+    let refreshInterval = setInterval(() => {
+        const checkbox = document.getElementById("autoRefresh");
+        if (checkbox && checkbox.checked) {
+            location.reload();
+        }
+    }, 60000); // 60s
+
+    const input = document.getElementById('searchInput');
+    input.addEventListener('keyup', function () {
+        const filter = input.value.toLowerCase();
+        const rows = document.querySelectorAll('.logTable tbody tr');
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(filter) ? '' : 'none';
+        });
+    });
+</script>
+</body>
+</html>

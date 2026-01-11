@@ -1,0 +1,31 @@
+
+    <div id ="contentTop"  >
+        All data is collected from orion database spapporikme1.healthbc.org by cstmonitor.<br>
+        ==============================================================================
+        <form id="checkform" method="post" enctype="multipart/form-data" action="/scripts/fastapi_orion_check.py" onsubmit="return validateForm()">
+            <input type="checkbox" name=check_down value="enable">Orion realtime down list
+            <input type="checkbox" name=check_orion value="enable">Orion node/site statistic <br>
+            <input type="checkbox" name=check_alert value="enable">Orion event: "Alert trigged" check (last 200 events) - Support Network Node/interface health check<br>
+            <input type="checkbox" name=check_udt value="enable">Orion UserDeviceTracking <input type="text" name="udt_ip"> Endpoint IP
+            <br><input type="button" onclick="myFunction()" value="Check">
+        </form> 
+
+    </div>
+
+    <h3 align=center span-id="'dateTime'">    </h3>
+    
+    <div id="output" class="output"> 
+        <div id="output-left" > Here is output-left </div>
+        <div id="output-righ" > Here is output-right </div>
+    </div>
+	
+
+
+	<script>
+	function myFunction() {
+	  document.getElementById("checkform").submit();
+	}
+
+    document.getElementById('date-time').innerHTML=new Date;
+	</script>
+	

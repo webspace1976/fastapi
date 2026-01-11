@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head><title>Orion Session Log</title></head>
+<body>
+<h2>All Orion Login Sessions</h2>
+<table border="1">
+    <thead><tr><th>Time</th><th>Username</th><th>Server</th><th>Session ID</th><th>Access Count</th></tr></thead>
+    <tbody>
+        {% for s in sessions %}
+        <tr>
+            <td>{{ s.get("last_seen", "N/A")[:19].replace('T', ' ') }}</td>
+            <td>{{ s.username }}</td>
+            <td>{{ s.npm_server }}</td>
+            <td>{{ s.session_id }}</td>
+            <td>{{ s.count }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</body>
+</html>

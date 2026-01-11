@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BGP and OSPF Peer Maps</title>
+    <script src="/static/js//d3.v7.min.js"></script>
+    <script src="/static/js/my_d3peer.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        #visualization-container {
+            display: flex;
+            flex-wrap: nowrap;
+            justify-content: space-around;
+            position: sticky;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background-color: #fff;
+            padding: 0px;
+            border-bottom: 1px solid #ccc;
+            z-index: 1000;
+        }
+
+        .visualization-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .visualization-section label {
+            margin-bottom: 5px;
+        }
+
+        #mapDiv {
+            width: 100%;
+            top: 0%;
+        }
+
+        #mapDiv > svg {
+            border: 1px solid black;
+        }
+
+        #table-container {
+            width: 100%;
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        table, th, td {
+            border: 1px solid black;
+        }
+
+        th {
+            padding: 0px;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        td {
+            padding: 0 2px 0 3px;
+            font-size: 12px;
+            text-align: left;
+        }
+        p {
+            margin: 0;
+            margin-top: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div id="hostInfo" style="display: flex; flex-wrap: wrap ;align-content: flex-start; justify-content: space-between;"></div>
+
+    <div id="visualization-container">
+        <div id="bgpDiv" class="visualization-section">
+          
+            <label for="vpn-dropdown"><button id="toggle-bgp">Toggle Display</button> Select BGP VPN-Instance:
+                <select id="vpn-dropdown"></select>
+            </label>
+            <div id="mapDiv">
+                <svg id="bgp-visualization" width="450" height="300"></svg>
+            </div>
+        </div>
+        <div id="ospfDiv" class="visualization-section">
+           
+            <label for="ospf-dropdown"><button id="toggle-ospf">Toggle Display</button>Select OSPF Process:
+                <select id="ospf-dropdown"></select>
+            </label>
+            <div id="mapDiv">
+                <svg id="ospf-visualization" width="450" height="300"></svg>
+            </div>
+        </div>
+    </div>
+
+    <div id="content">
+        <div id="table-container"></div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const { ips } = getQueryParams();
+            if (!ips) {
+                console.error("No IPs provided in query parameters.");
+                return;
+            }
+
+            const ipList = ips.split(',');
+            const promises = ipList.map(ip => fetch(`/data/${ip}_routing_udt.json`).then(response => response.json()));
+
+            Promise.all(promises)
+                .then(dataArray => {
+                    const combinedData = combineData(dataArray);
+                    displayHostInfo(combinedData);
+                    displayTables(combinedData);
+                })
+                .catch(error => console.error('Error loading JSON:', error));
+        });
+
+
+        function combineData(dataArray) {
+            const combinedData = {
+                BGP: [],
+                OSPF: [],
+                hostname: [],
+                host_ip: []
+            };
+
+            dataArray.forEach(data => {
+                if (Array.isArray(data.BGP)) {
+                    combinedData.BGP.push(...data.BGP.map(instance => ({ ...instance, hostname: data.hostname, host_ip: data.host_ip })))
+                };
+                if (Array.isArray(data.OSPF)) {
+                    combinedData.OSPF.push(...data.OSPF.map(process => ({ ...process, hostname: data.hostname, host_ip: data.host_ip })))
+                };
+                if (data.BGP || data.OSPF) {
+                    combinedData.hostname.push(data.hostname);
+                    combinedData.host_ip.push(data.host_ip);
+                }
+            });
+
+            return combinedData;
+        }
+
+        function displayHostInfo(data) {
+            const content = data.hostname.map((hostname, index) => `
+                <div><strong>${hostname} (${data.host_ip[index]})</strong></div>
+            `).join('');
+            document.getElementById("hostInfo").innerHTML = content;          
+        }
+
+        document.getElementById('vpn-dropdown').addEventListener('change', function() {
+            filterTable('bgpPeerTable', this.value);
+        });
+
+        document.getElementById('ospf-dropdown').addEventListener('change', function() {
+            filterTable('ospfPeerTable', this.value);
+        });
+
+        // Add event listeners for toggle buttons
+        document.getElementById('toggle-bgp').addEventListener('click', function() {
+            const bgpVisualization = document.getElementById('bgp-visualization');
+            const bgpTableContainer = document.getElementById('bgpPeerTable');
+            if (bgpVisualization.style.display === 'none') {
+                bgpVisualization.style.display = 'block';
+                bgpTableContainer.style.display = 'block';
+            } else {
+                bgpVisualization.style.display = 'none';
+                bgpTableContainer.style.display = 'none';
+            }
+        });
+
+        document.getElementById('toggle-ospf').addEventListener('click', function() {
+            const ospfVisualization = document.getElementById('ospf-visualization');
+            const ospfTableContainer = document.getElementById('ospfPeerTable');
+            if (ospfVisualization.style.display === 'none') {
+                ospfVisualization.style.display = 'block';
+                ospfTableContainer.style.display = 'block';
+            } else {
+                ospfVisualization.style.display = 'none';
+                ospfTableContainer.style.display = 'none';
+            }
+        });
+
+</script>
+</body>
+</html>

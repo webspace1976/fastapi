@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SOC Dashboard - Changelog and Framework</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #343a40;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #343a40;
+            margin-top: 20px;
+        }
+        ul {
+            list-style-type: disc;
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+        .framework-columns {
+            display: flex;
+            gap: 20px;
+        }
+        .framework-column {
+            flex: 1;
+            min-width: 0;
+        }
+        .separator {
+            border-top: 1px solid #dee2e6;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Hello SOC</h1>
+
+    <!-- <div class="section">
+        <h2>20250701 FastAPI Web Framework Upgrade</h2>
+        <p>Upgrade to replace CGI with optimized code. Try it! :-)</p>
+    </div> -->
+
+    <div class="section">
+        <h2>Framework</h2>
+        <div class="framework-columns">
+            <div class="framework-column">
+                <h3><a href="http://ld027081.healthbc.org/" target="_blank" >CGI</a> - Production (202008 - Current)</h3>
+                <ul>
+                    <li>Backend:	Python 3.8, Sqlite3, netmiko, OrionSDK, json, etc.</li>
+                    <li>Frontend:	CGI, HTML5, CSS3, (jQuery, plotly), JavaScript, etc.</li>
+                </ul>
+            </div>
+            <div class="framework-column">
+                <h3><a href="http://ld027081.healthbc.org:5050" target="_blank" >FastAPI</a> - Development</h3>
+                <ul>
+                    <li>202507 - Current</li>
+                    <li>Python 3.8, Sqlite3, fastapi, uvicorn</li>
+                    <li>jinja2, paramiko, orionsdk</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Revision History</h2>
+        <div class="framework-columns">
+            <div class="framework-column">
+                <h3>CGI - LastUpdate: 20251101</h3>        
+                    <ul>
+                        <li><b>20251101: Core check: update sqlite3 database support</b></li>
+                        <li>20250929: orion_check: popup the site/stack name on sitedown/interface down table</li>
+                        <li>20250909: orion_check: updated "unrearchable" as "down" node; updated analysis_sqlite for OSPF peer.</li>
+                        <li>20250804: Core BGP/OSPF Peer Analyzer support Cisco and Arista.</li>
+                        <li><b>20250804: Core BGP/OSPF Peer Analyzer released.</b></li>
+                        <li>20250731: Fixed: WebSSH not working on remote</li>
+                        <li>20250730: Support sqlite database - Orion check.</li>
+                        <li>20250727: Support sqlite database - KDC/eNG Core peer Status|History anaysis, code optimized.</li>
+                        <li>20250711: mymodule.log_check update, support log BGP/OSPF summary.</li>
+                        <li>20250701: FastAPI web framework, replace CGI with code optimized.</li>
+                        <li>20250124: tableToScript() added to my_javascript.js: dynamic creation of showPeer for core_check-getweboutput.py. Code optimized.</li>
+                        <li>20241225: Bug fixed, bookmark, core switch check support LGH, OrionAlert updated, etc.</li>
+                        <li>20240411: Bug fixed, "Orion Nodes" added, etc.</li>
+                        <li>20230716: Support Orion down info with chart display.</li>
+                        <li>20230611: Support search option with JavaScript.</li>
+                        <li>20230520: Support JSON and class OrionSession, for log and query.</li>
+                        <li>20221126: Support ThreadPool; Compatibility/function problem, disable: SSH netmiko Auto-Detect, web-ssh, and SpeedTest.</li>
+                        <li>20221110: Support Orion event alert: network nodes and interface health check.</li>
+                        <li>20221007: Rebuild code and module for Orion page, add bookmark and Notes page.</li>
+                        <li>20210617: Support CSS3.</li>
+                    </ul>
+                    <h2>SOC Orion Dashboard</h2>
+                    <ul>
+                        <li>20200811: Initial: Orion Dashboard.</li>
+                        <li>20210420: Support node/interface down list; KDC/eNG core switch log check, BGP/OSPF neighbor list.</li>
+                        <li>20210520: Updated code for site down details, add IP tracert with UDT, UDT Endpoint.</li>
+                        <li>20210605: Added optional for IP tracing route with Orion UDT, SSH to each hop to verify host.</li>
+                    </ul>
+                    <h2>Check Network Device Status/Log</h2>
+                    <ul>
+                        <li>20200722: Initial: IIS server + Python 3.8, support Cisco/HPE device remote-SSH login check status/logs.</li>
+                        <li>20200728: Change HTML method from GET to POST, support enctype; add log file check option.</li>
+                        <li>20200808: KDC/eNG Core switch log check option, SSH Auto-Detect device type.</li>
+                        <li>20210411: Last updated: Fixed bugs (typo, Cisco paginated problem), support multi IP queried (by comma ",")</li>
+                        <li>20210530: Support H3C core switch BGP status check by BGP peer IP address.</li>
+                    </ul>                    
+                    <h2>Speed Test</h2>
+                    <ul>
+                        <li>20200821: Initial: Add speed-test options.</li>
+                        <li>20200909: Support IIS + PHP LibreSpeed Test.</li>
+                    </ul>
+                    <h2>Web SSH</h2>
+                    <ul>
+                        <li>20210615: Initial: Support web-ssh.</li>
+                        <li>20210620: Add wssh as Windows service.</li>
+                    </ul>                    
+            </div>
+
+            <div class="framework-column">
+                <h3>FastAPI - LastUpdate: 20250701</h3>
+                <ul>
+                    <li>20250701: FastAPI web framework, replace CGI with code optimized.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

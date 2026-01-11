@@ -1,0 +1,12 @@
+# Python environment
+venv/
+__pycache__/
+*.pyc
+
+# Local Data (Don't sync these to GitHub)
+data/
+logs/
+scripts-backup/
+
+# Sensitive Info
+.env
