@@ -1,3 +1,13 @@
+========================================
+20260111 windows folder permission
+:: 1. Give yourself full control of the new folder
+:: Replace 'tao.lin' with your actual Windows username
+icacls "C:\inetpub\fastapi" /grant PHSABC\tao.lin:(OI)(CI)F /T
+
+:: 2. Give the IIS service group access so the app can run
+icacls "C:\inetpub\fastapi" /grant "IIS_IUSRS":(OI)(CI)M /T
+
+========================================
 202601 export/import env: GitHub:
 
 sync_to_github.bat

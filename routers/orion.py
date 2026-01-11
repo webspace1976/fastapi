@@ -11,7 +11,7 @@ from typing import Any
 import pandas as pd
 
 # Local imports
-import scripts.fastapi_mymodule as mymodule
+import utils.fastapi_mymodule as mymodule
 import mainconfig as mainconfig
 from mainpydantic import OrionCheckRequest, OrionResponse
 from utils.session_manager import get_or_create_session_id
