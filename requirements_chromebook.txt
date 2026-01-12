@@ -1,0 +1,44 @@
+# Web Framework
+fastapi==0.115.8
+uvicorn[standard]==0.33.0
+pydantic==2.10.6
+python-multipart==0.0.20
+starlette==0.44.0
+Jinja2==3.1.5
+
+# Tasks & Utilities
+APScheduler==3.11.2
+fastapi-utils==0.8.0
+typing-inspect==0.9.0
+aiofiles==24.1.0
+python-dotenv==1.0.1
+watchfiles==0.24.0
+
+# Orion & Data
+orionsdk==0.4.0
+pandas==2.0.3
+numpy==1.24.4
+requests==2.31.0
+urllib3==1.25.9
+
+# Networking & Logs
+netmiko==3.1.1
+paramiko==3.4.0
+concurrent-log-handler==0.9.28
+scapy==2.4.5
+scp==0.14.5
+textfsm==1.1.3
+
+# Windows Specific
+# pywin32==311
+# wfastcgi==3.0.0
+
+# Support Libraries
+anyio==4.5.2
+certifi==2023.7.22
+chardet==3.0.4
+cryptography==41.0.3
+idna==2.10
+python-dateutil==2.9.0.post0
+six==1.16.0
+typing_extensions==4.12.2

@@ -1,3 +1,13 @@
+202601
+chromebook/ubunto
+   96  git clone https://github.com/webspace1976/FastAPI.git
+  115  sudo apt update && sudo apt upgrade -y
+  116  sudo apt install python3-pip python3-venv -y
+  101  python3 -m venv venv
+  120  source venv/bin/activate
+  126  pip3 install -r requirements_chromebook.txt 
+  127  pip show fastapi
+  (venv) vacotaolin@penguin:~/FastAPI$ sudo venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 5050
 ========================================
 20260111 windows folder permission
 :: 1. Give yourself full control of the new folder
@@ -20,7 +30,7 @@ setup_new_pc.bat
 
 Right-click in your folder and select Git Bash Here (or use CMD).
 
-Run: git clone https://github.com/webspace1976/FastAPI.git .
+Run: git clone https://github.com/webspace1976/FastAPI.git  
 
 Run setup_new_pc.bat (This builds the environment).
 

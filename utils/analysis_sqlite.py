@@ -6,14 +6,16 @@ sys.path.append("..")
 import mainconfig as mainconfig
 
 # Configure logging
-log_directory = mainconfig.LOGS_DIR
-log_file = os.path.join(log_directory, 'analysis_sqlite.log')
-logger = logging.getLogger('analysis')
-logger.setLevel(logging.ERROR)
-handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=3)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+# log_directory = mainconfig.LOGS_DIR
+# log_file = os.path.join(log_directory, 'analysis_sqlite.log')
+# logger = logging.getLogger('analysis')
+# logger.setLevel(logging.ERROR)
+# handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=3)
+# formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+# handler.setFormatter(formatter)
+# logger.addHandler(handler)
+
+logger = mainconfig.setup_module_logger(__name__)
 
 def setup_database(db_path):
     """Set up the SQLite database with corrected table schemas."""
