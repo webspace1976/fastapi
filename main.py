@@ -26,7 +26,7 @@ app = FastAPI(
 )
 
 # Import the function from  websocket_server_ds.py
-from scripts.websocket_server_ds import start_websocket_server_in_background
+from utils.websocket_server_ds import start_websocket_server_in_background
 
 #startup
 @app.on_event("startup")

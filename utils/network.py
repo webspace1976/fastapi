@@ -91,7 +91,7 @@ class NetworkDeviceManager:
         device_setting = {
             'device_type': os_type, 'ip': ip, 'username': self.username,
             'password': self.password, 'session_log': str(session_log_file), 
-            'timeout': 60, 'global_delay_factor': 3, 'fast_cli': False,
+            'timeout': 90, 'global_delay_factor': 2, 'fast_cli': False,
         }
         
         cmds = self._get_cmds(os_type)

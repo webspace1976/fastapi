@@ -30,9 +30,16 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 def get_db_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        if not os.path.exists(DB_PATH):
+            logger.warning(f"Database file not found at {DB_PATH}. Initialization may be required.")
+            return None
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        return conn
+    except sqlite3.Error as e:
+        logger.error(f"Database connection error: {e}")
+        return None
 
 @router.get("/", response_class=HTMLResponse)
 async def monitor_dashboard(request: Request):
@@ -468,54 +475,54 @@ def get_comprehensive_ospf_report(conn):
     return report
 
 #20251031
-# def get_peer_status(protocol: str, hostname: str, instance_name: str, neighbor: str) -> Optional[Dict]:
-#     """
-#     Return current peer status from the latest snapshot.
-#     """
-#     conn = get_db_connection()
-#     if conn is None:
-#         return None
+def get_peer_status(protocol: str, hostname: str, instance_name: str, neighbor: str) -> Optional[Dict]:
+    """
+    Return current peer status from the latest snapshot.
+    """
+    conn = get_db_conn()
+    if conn is None:
+        return None
 
-#     try:
-#         if protocol.lower() == 'bgp':
-#             row = conn.execute(
-#                 """
-#                 SELECT * FROM bgp_peer_status
-#                 WHERE hostname = ? AND vpn_instance = ? AND neighbor_ip = ?
-#                 ORDER BY last_snapshot_id DESC
-#                 LIMIT 1
-#                 """,
-#                 (hostname, instance_name, neighbor)
-#             ).fetchone()
+    try:
+        if protocol.lower() == 'bgp':
+            row = conn.execute(
+                """
+                SELECT * FROM bgp_peer_status
+                WHERE hostname = ? AND vpn_instance = ? AND neighbor_ip = ?
+                ORDER BY last_snapshot_id DESC
+                LIMIT 1
+                """,
+                (hostname, instance_name, neighbor)
+            ).fetchone()
 
-#         elif protocol.lower() == 'ospf':
-#             row = conn.execute(
-#                 """
-#                 SELECT * FROM ospf_peer_status
-#                 WHERE hostname = ? AND neighbor_address = ?
-#                 ORDER BY last_snapshot_id DESC
-#                 LIMIT 1
-#                 """,
-#                 (hostname, neighbor)
-#             ).fetchone()
-#         else:
-#             row = None
+        elif protocol.lower() == 'ospf':
+            row = conn.execute(
+                """
+                SELECT * FROM ospf_peer_status
+                WHERE hostname = ? AND neighbor_address = ?
+                ORDER BY last_snapshot_id DESC
+                LIMIT 1
+                """,
+                (hostname, neighbor)
+            ).fetchone()
+        else:
+            row = None
 
-#         if row is None:
-#             logger.info(f"No current status found for {protocol} peer: hostname={hostname}, neighbor={neighbor}")
-#         else:
-#             if protocol.lower() == 'bgp':
-#                 logger.info(f"{hostname} Found current status for {protocol} peer {neighbor}: state={row['state']}, verbose_uptime={row['up_down_time']}")
-#             elif protocol.lower() == 'ospf':
-#                 logger.info(f"{hostname} Found current status for {protocol} peer {neighbor}: state={row['state']}, verbose_uptime={row['verbose_uptime']}")
+        if row is None:
+            logger.info(f"No current status found for {protocol} peer: hostname={hostname}, neighbor={neighbor}")
+        else:
+            if protocol.lower() == 'bgp':
+                logger.info(f"{hostname} Found current status for {protocol} peer {neighbor}: state={row['state']}, verbose_uptime={row['up_down_time']}")
+            elif protocol.lower() == 'ospf':
+                logger.info(f"{hostname} Found current status for {protocol} peer {neighbor}: state={row['state']}, verbose_uptime={row['verbose_uptime']}")
 
-#         return dict(row) if row else None
+        return dict(row) if row else None
 
-#     except sqlite3.Error as e:
-#         logger.error(f"get_peer_status error: {e}")
-#         return None
-#     finally:
-#         conn.close()
+    except sqlite3.Error as e:
+        logger.error(f"get_peer_status error: {e}")
+        return None
+    finally:
+        conn.close()
 
 def parse_any_timestamp(ts_str, log_year=None):
     """Robust timestamp parser with enhanced error handling"""
