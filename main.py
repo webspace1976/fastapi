@@ -80,37 +80,6 @@ app.include_router(orion.router, prefix="/api/orion", tags=["Orion"])
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# --- Orion Check API ---
-# # app.include_router(orion_check_router, prefix="/orion")
-# @app.get("/orion_login", response_class=HTMLResponse)
-# async def get_device_output_form(request: Request):
-#     return templates.TemplateResponse("orion_login.html", {"request": request})
-
-# @app.post("/orion/run-orioncheck", response_class=HTMLResponse)
-# async def run_orioncheck_route(
-#     request: Request,
-#     npm_server: str = Form(...),
-#     npm_uname: str = Form(...),
-#     npm_passwd: str = Form(...),
-# ):
-#     session_id = get_or_create_session_id(request, npm_uname) 
-
-#     loop = asyncio.get_running_loop()
-
-#     rendered_html, final_session_id = await loop.run_in_executor(
-#         None,
-#         get_orion_dashboard_html,
-#         request,
-#         npm_server,
-#         npm_uname,
-#         npm_passwd,
-#         session_id,
-#     )
-
-#     # Now attach session_id cookie to actual response
-#     response = HTMLResponse(content=rendered_html)
-#     response.set_cookie(key="session_id", value=final_session_id, httponly=True, path="/")
-#     return response
 
 @app.get("/admin/session-log", response_class=HTMLResponse)
 async def show_all_session_logs(request: Request):
