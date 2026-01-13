@@ -1,0 +1,361 @@
+20251210
+INC4531366 FH - LMH - PACS issue ( Images not sending to PACS)
+Core -- SecOps 
+Maxim Tretiakov
+Work notes•12/10/2025 01:01:58
+The primary firewall was having issues, likely related to a memory leak bug. I have failed it over to the secondary node for now.
+Network Core team will investigate the actual cause tomorrow and will provide a further plan for a complete resolution.
+============================================
+20250205 socsupport@phsa.ca email test
+EOL of two sites: 1867 and 1885 West Broadway 
+Based on the results of INC3797053 and the information provided by Jovan, the following sites are EOL and require updates in Orion as needed:
+1867 & 1885 West Broadway are on EOL network equipment as the site lease was set to end since 5 years ago, and no equipment renewals were planned.
+WLC/AP is not Telus-owned – for any network/Wi-Fi outages (e.g., no Wi-Fi after a BC Hydro outage), the Network Core team will need to reset the Wi-Fi controller (Jasman or Ranjit).
+============================================
+20231213 INC2805336 SMP Clinic Kamloops 
+Jasman:
+has the issie confirmed with the user? becasue they dont use this as there primary connectivity service. ANd for the internet connection, someonme has to call radiant about this issue. 
+===========================================================================
+SouthEast Van Youth
+Leung, Jennifer [PHSA]
+Hi SOC,
+This is a community site.  The building is not VCH.  The office is leased to one user who works there a couple times a week and currently in Orion we have the TELUS ADSL service and Cisco 831.
+The building has periodic power shutdowns. There is no need to create a P2 or page out when the network device goes down.  There is no UPS and none needed at this office.  The user Joe Fortune would prefer no calls on the weekends regarding this “site” going down.
+Thanks,
+Jennifer Leung
+===========================================================================
+
+
+
+20220929
+
+
+
+
+
+
+
+INC1732035 BGP Neighbor State not Established or Active ENG22-KEL-Core 10.251.0.6 and established in a few minutes- Multiple events
+
+
+
+ENG22-KEL-Core 10.251.0.6 
+
+
+
+KDC-R4.7-Core-1 10.251.0.6
+
+
+
+KDC-R4.23-Core-2  10.251.0.4 10.251.0.5 10.251.136.81  10.251.136.97  
+
+
+
+
+
+
+
+Amir Khalili
+
+
+
+Work notes•09/14/2022 07:37:59
+
+
+
+Known issue on KDC core 2.
+
+
+
+All the peers are back and stable
+
+
+
+
+
+
+
+The incident log on this on, Amir checking, looks to be a known issue with the old KDC Core 2.  These will likely continue to occur intermittently until Core 2 replacement completes.
+
+
+
+
+
+
+
+Gordon Gilmour
+
+
+
+===========================================================================
+
+
+
+syslog
+
+
+
+
+
+
+
+Surrey Newton Home Health Switch SYSLOG Alert Syslog with Severity EMERGENCY - FH-NHH-01A-CoreSW01 (14:40:38)
+
+
+
+poe interfaces state changes:
+
+
+
+
+
+
+
+Tri-Cities Community and Residential Care Switch SYSLOG Alert Syslog with Severity EMERGENCY - FH-SBV-07A-CoreSw01 2022-03-08 14:32:15 
+
+
+
+Normal behavior, per INC1166769
+
+
+
+
+
+
+
+Jim Pattison Outpatient Care & Surgery Center - Switch SYSLOG Alert Syslog with Severity EMERGENCY FH-SOC-Core-SW01
+
+
+
+SyslogEmergency10/16/2022 7:14:46 AMkernel: [1582690.382507] Uhhuh. NMI received for unknown reason 3d on CPU 1.
+
+
+
+A known bug without negative impact, as per inc1298490
+
+
+
+
+
+
+
+601 West Broadway - Switch SYSLOG Alert Syslog with Severity EMERGENCY VCH-601WB-Core-1
+
+
+
+Syslog	Emergency 10/16/2022 2:00:46 PM	kernel: [68708959.742173] Dazed and confused, but trying to continue
+
+
+
+Syslog	Emergency 10/16/2022 2:00:46 PM	kernel: [68708959.671120] Do you have a strange power saving mode enabled?
+
+
+
+Syslog	Emergency 10/16/2022 2:00:46 PM	kernel: [68708959.596938] Uhhuh. NMI received for unknown reason 2d on CPU 1.
+
+
+
+INC1161104 , Amir - These error messages on your device pertain to BUG292312 which has not been fixed yet.
+
+
+
+
+
+
+
+Langley Shared Services Facility - Switch SYSLOG Alert Syslog with Severity EMERGENCY SSFCORESW01.fraserhealth.org
+
+
+
+Syslog	Emergency	11/2/2022 4:43:21 AM	FH-SSF-02A-CoreSw01 kernel: [5812675.442738] Uhhuh. NMI received for unknown reason 3d on CPU 1.
+
+
+
+
+
+
+
+===========================================================================
+
+
+
+vm physiscal memory
+
+
+
+Kamloops Data Centre DHCP Diskspace/Volume monitor - KDC Proteus2 Physical memory (11:55:21)
+
+
+
+VM physical memory normal usage, always more than 95%
+
+
+
+===========================================================================
+
+
+
+DHCP
+
+
+
+Vancouver General Hospital - BlueCat  Warning	 DHCP Range: 10.26.121.33-10.26.121.42 in VCHA: HD-Ratio Became High
+
+
+
+INC1791252 - core - Assigned toSergey Fedyushin
+
+
+
+
+
+
+
+Lions Gate Hospital - BlueCat  Warning	 DHCP Range: 139.173.107.1-139.173.107.250 in VCHA: HD-Ratio Became High
+
+
+
+INC1658685 - core - Assigned toSergey Fedyushin
+
+
+
+
+
+
+
+Powell River General Hospital - BlueCat  Warning DHCP Range: 10.29.93.129-10.29.93.185 in VCHA: HD-Ratio Became High
+
+
+
+INC1014948 Jeremy: Permanently ignore these alerts on this scope. It is a small, legacy WiFi scope that routinely maxes out the number of available IPs.
+
+
+
+
+
+
+
+===========================================================================
+
+
+
+UPS Temp
+
+
+
+PRB0041579 Temp Warning PHSA Children and Womens (CW) multiple UPS nodes 
+
+
+
+As per Paolo Pietravalle (Edge(:
+
+
+
+"E106 - no ac. Temp fine. Probe moved away from exhaust fan.
+
+
+
+B107 ac is cold. Moved temp probe but it should still see cool temperatures.
+
+
+
+Ab109 no ac. In an office in a small wall mount box. Warm but not in any danger.
+
+
+
+B4 - no ac. Hot.
+
+
+
+1L34 - ac on and cool in room. probe should see normal temps
+
+
+
+1F43 no ac in a cabinate in cardiology in their waiting room.
+
+
+
+Csb V2-242 - ac is fine temp is fine. probe should not be reading in the 30s.
+
+
+
+MHB-P3-314 - no ac. temp is warm."
+
+
+
+
+
+
+
+INC1986849 CW-1F43-UPS01
+
+
+
+Paolo Pietravalle: Rack is in a waiting room area of Cardiology and has no real access to HVAC. Unable to do anything to cool it down currently.
+
+
+
+
+
+
+
+Jan 4 2023 10:02:00 FH-LP-02A-UPS01 Pierre Lluncor Work notes 06/24/2022 13:44:15 no issues found. Closing ticket
+
+
+
+
+
+
+
+Jan 4 2023 09:59:00 PH-LANG-244-UPS-2 PRB0041759 INC1975561 Jennifer Leung boiler is broken. opened the door for cooloing. this is a storage room shared . facilities informed me that it will be at least another 2 weeks before the boiler in the building is repaired.
+
+
+
+
+
+
+
+Jan 4 2023 09:58:00 FH-NHH-01A-UPS02 INC1363707 Pierre Lluncor Work notes•04/05/2022 11:03:09 Reviewed - temperature is ok. No fault found. Closing ticket
+
+
+
+
+
+
+
+Jan 4 2023 09:55:00 NS-LGH-ACUTE-2-B-UPS-1. INC1456211 Philip Vogl: Yes the network closet is very hot. Cooling remediation will be done at a later date and will be very costly. Unable to resolve with a ticket and the room has been hot for years.
+
+
+
+
+
+
+
+FH-LMH-LAC-04A-UPS01 PRB0041586 Network Edge do not manage Heating and Cooling at our sites. HVAC is an FMO responsibility
+
+
+
+
+
+
+
+FH-LMH-LMWP-02A-UPS01 INC1350282 As per Kam Nizzar, If these switches reach the Warning levels of internal Temperature readings of 58 Degrees Celcius, the Syslog will report such events, and these Events that are being monitored by TSCST-SOC are worthwhile generating an Incident so that coordination can happen with VPP-IMITS-Network Edge and FMO
+
+
+
+
+
+
+
+FH-AFMC-01A-UPS01 PRB0041580 The only thing we can do for high\low temperature problems is log a risk. We do not manage Heating and Cooling at our sites. HVAC is an FMO responsibility. I will log a risk for each and update the tickets. That being said, we still need to have the Problem open as a known error with the risk recorded. That way when we continue to have incidents we can see if the problem was already identified and risk logged.
+
+
+
+
+
+
+
+Shannon
+
+
+

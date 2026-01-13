@@ -4,7 +4,8 @@ __pycache__/
 *.pyc
 
 # Local Data (Don't sync these to GitHub)
-data/
+data/core_archived
+data/orion_sessions
 logs/
 scripts-backup/
 

@@ -1,0 +1,490 @@
+20250522 python-fastapi best parties:
+5745
+
+
+Use os.path.join for all paths.
+
+    fname = os.path.split(fname)[1]
+
+    log_file_path = os.path.join(log_dir, fname)
+
+
+
+Use .get() for all dict access.
+
+            print_match = result_log.get("print_match", [])
+
+
+
+Use try/except for all file operations.
+
+
+
+Use logger.info() only if logger is not a list.
+
+Use str() on all non-string HTML fragments before joining.
+
+Always use .group(n) on a regex match object to get the matched string, not the object itself.
+
+ hostname_match = re.match(hostname_regex, stripped)
+
+ hostname = hostname_match.group(2)
+
+20250510 fastAPI initial: 
+
+- orion_check: nodes/interface down status, event status, webssh, all works. except- session management still not working well
+
+- logs, fastapi didnot support file/folder list like CGI, need add links for each file/dict
+
+- note: support edit and save on page 
+
+
+
+20240402 python venv
+
+
+
+C:\inetpub\wwwroot>python -m venv .venv
+
+
+
+C:\inetpub\wwwroot>.venv\Scripts\activate
+
+
+
+(.venv) C:\inetpub\wwwroot>pip install --upgrade paramiko
+
+
+
+(.venv) C:\inetpub\wwwroot>pip install flask
+
+
+
+
+
+
+
+
+
+
+
+20240214, updated core switch bgp/ospf peer state check
+
+
+
+getweboutput.py
+
+
+
+
+
+
+
+20240206, updated getwebouput.py
+
+
+
+#add two commands for core/eng switch bgp/ospf check
+
+
+
+172	cmd_core=['display log | inc change','display bgp peer ipv4','display ospf peer']
+
+
+
+
+
+
+
+20240131, add remove_non_ascii(data) fixed all non-ascII code display
+
+
+
+orion_check.py  
+
+
+
+ 307           row = remove_non_ascii(row)
+
+
+
+import json
+
+
+
+def remove_non_ascii(data):
+
+
+
+    if isinstance(data, dict):
+
+
+
+        return {remove_non_ascii(key): remove_non_ascii(value) for key, value in data.items()}
+
+
+
+    elif isinstance(data, list):
+
+
+
+        return [remove_non_ascii(item) for item in data]
+
+
+
+    elif isinstance(data, str):
+
+
+
+        return data.encode('ascii', 'ignore').decode('ascii')
+
+
+
+    else:
+
+
+
+        return data
+
+
+
+
+
+
+
+# Example JSON data
+
+
+
+json_data = '{"name": "John", "age": 30, "description": "Non-ASCII characters: é, ü"}'
+
+
+
+# Load JSON string into Python object (dictionary)
+
+
+
+parsed_data = json.loads(json_data)
+
+
+
+# Remove non-ASCII characters
+
+
+
+cleaned_data = remove_non_ascii(parsed_data)
+
+
+
+# Convert back to JSON string
+
+
+
+cleaned_json = json.dumps(cleaned_data, ensure_ascii=False)
+
+
+
+print(cleaned_json)
+
+
+
+
+
+
+
+20231119:
+
+
+
+orion_check.py  my_javasript.js:
+
+
+
+- add javascript function for node/site/interface down statistic
+
+
+
+
+
+
+
+20231102: 
+
+
+
+-	move function chartPlot from orion_check.py to loadJSONFileAndDisplayTable.js
+
+
+
+-	orion_check.py node/interface down display change chatPlot to piePlot
+
+
+
+
+
+
+
+20231025:
+
+
+
+getwebouput.py
+
+
+
+134                 interface_no=re.search(r'\d.*\d',interface)[0]  # grep the all from the first number to the last number
+
+
+
+136                 cmds.extend(cmd4)
+
+
+
+                # for cmd in cmd4:
+
+
+
+                    # cmds.extend(cmd)
+
+
+
+
+
+
+
+20231019 bug fixed:
+
+
+
+bookmark.html : add ServiceDesk contact
+
+
+
+notes.html : add Tshoot notes and update info tab
+
+
+
+geweboutput.py:
+
+
+
+292        getoutput(ip) # removed print function to fix the "None" output
+
+
+
+115		#filter interface name like interface="Serial0/0/0:23-Signaling"
+
+
+
+            interface=re.search(r'([^-\s]+)', interface)[0]
+
+
+
+
+
+
+
+20231016 bug fixed:
+
+
+
+orion_check.py:
+
+
+
+425	# check if the message contains any non-ASCII characters.
+
+
+
+        if re.search(r'[^\x00-\x7F]', row_alert['Message']) :
+
+
+
+            row_alert['Message']=re.sub(r'[^\x00-\x7F]','',row_alert['Message'])   
+
+
+
+
+
+
+
+20230721-24 bug fixed
+
+
+
+
+
+
+
+20230714-17#updated orion_check.py, function chartPlot(inputTable,outputDiv) support chart display with colors
+
+
+
+
+
+
+
+
+
+
+
+20230705-08 dev: 
+
+
+
+#function filterTable() 
+
+
+
+update to filter all tables in page
+
+
+
+#orion page: no more select option, display all down list (left side) and event list (right side)
+
+
+
+#updated orion_check.py, support orion server online/offline mode, read json file for dialpay
+
+
+
+#no working for orion_check.py while auto reflesh... 
+
+
+
+index.html: use jQuery .load()  to load nav.html at <div id="nav">
+
+
+
+     <script  src="scripts/jquery-3.6.1.min.js"></script>
+
+
+
+    <script> 
+
+
+
+    $(function(){
+
+
+
+      $("#nav").load("nav.html"); 
+
+
+
+    });
+
+
+
+    </script> 
+
+
+
+
+
+
+
+move orion_check.py to prodution page
+
+
+
+20230628
+
+
+
+// fixed loadJSONFileAndDisplayTable.js color scheme highlingh and recent 
+
+
+
+// add hidden-form in 
+
+
+
+
+
+
+
+20230627
+
+
+
+// chart display by javasctipt plotly, - node/interface down for now
+
+
+
+// replace timestamp by new timediff , update duration - current time
+
+
+
+fixed javascript didnot upda the fetch file, Date.now() generates the current timestamp, which is appended as a query parameter to the URL. Since the timestamp is always changing, the browser treats it as a unique URL and fetches the resource without relying on the cached version.
+
+
+
+  const url = filePath + "?" + Date.now(); // Append timestamp to the URL
+
+
+
+   fetch(url)   .then(response =>  {
+
+
+
+      if (!response.ok) {
+
+
+
+        throw new Error('Failed to fetch the JSON file.');
+
+
+
+      }
+
+
+
+      return response.json();
+
+
+
+    })
+
+
+
+
+
+
+
+C:\inetpub\wwwroot>git commit -m  "20230626"
+
+
+
+C:\inetpub\wwwroot>git pull
+
+
+
+
+
+
+
+20200908
+
+
+
+Web Platform Installer:https://www.microsoft.com/web/downloads/platform.aspx
+
+
+
+install php 7.4speedtest:
+
+
+
+https://github.com/librespeed/speedtest speedtest-maser.zip
+
+
+
+copy 5 file to webserver 
+
+
+
+empty.php
+
+
+

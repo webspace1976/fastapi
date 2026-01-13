@@ -1,0 +1,332 @@
+Fortinet
+https://ftanalyzer.phsa.ca/
+https://kdc-ftanalyzer.phsa.ca/
+
+src_ip="10.128.135.132" event_action="deny" 
+dst_ip="10.1.38.83" event_action="deny"
+
+dst_ip="52.159.113.5" or src_ip="52.159.113.5" threat_action="blocked"
+
+Palo Alto Panorama web interface
+https://10.1.80.28/?#monitor::::monitor/logs/traffic
+(addr in '52.159.113.5 ') and (action neq allow)
+
+https://10.1.80.28/?#monitor::::monitor/logs/url
+(url eq bccdc)
+(url eq NuGet.org)
+
+Cisco Switch commands WIRELESS APS troubleshooting
+
+
+!!SECTION-1_********CHECKING SWITCH UPTIME*************!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 	show version | include uptime
+
+!!SECTION-2_*!*********CHECKING SWITCH IOS VERSION + REASON FOR RESTART IF ANY******!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	show version
+
+!!!!!SECTION-3_**********CHECKING INTERFACE RUNNING CONFIG*************!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+	show running-config interface GigabitEthernet2/0/38
+
+!!!!SECTION-4_*!*********CHECKING INTERFACE LOG AND STATUS*************!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+	show interface status | include GigabitEthernet2/0/38
+
+	show ip int brief | include GigabitEthernet2/0/38
+	
+	show log | include GigabitEthernet2/0/38
+
+!!!!!SECTION-5_**********CABLE TEST**CHECKING STP-VLAN-PHYSICAL CONNECTION+ TRANSCIEVER + ERRORS********!!!!!!!!!!!!!!!!!!!!!!!!
+
+	show spanning-tree interface GigabitEthernet2/0/38
+
+	test cable-diagnostics tdr interface GigabitEthernet2/0/38
+
+	show cable-diagnostics tdr interface GigabitEthernet2/0/38
+
+	show interfaces transceiver GigabitEthernet2/0/38
+
+	show interface counters errors | include 2/0/38
+	
+	show interface GigabitEthernet2/0/38 | include Last input|Last output|Last clearing
+
+!!!!!SECTION-6_*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+!!!!SECTION-7_********TELUS REQUESTED COMMANDS!!FOR APS********!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+		
+	show running-config interface GigabitEthernet2/0/38	
+	
+	show cdp neighbors GigabitEthernet 2/0/38
+	
+	show power inline GigabitEthernet2/0/38
+
+	show interface GigabitEthernet2/0/38 switchport
+
+	show cdp neighbors GigabitEthernet2/0/38 detail
+
+	show interface GigabitEthernet2/0/38
+	
+	show env all
+
+!!!!SECTION-8_**********CHECKING INTERFACE UPS AND DOWNS + INPUT OUTPUT ERRORS************!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
+	show logging | include GigabitEthernet2/0/38 | include "changed state to up" | uniq
+	
+	show logging | include GigabitEthernet2/0/38 | include "changed state to down" | uniq
+
+	show interface GigabitEthernet2/0/38 | include Last input|Last output|Last clearing
+
+
+!!!!SECTION-9_*!!!*********ARP+MAC-ADDRESS-TABLE+DHCP SNOOPING DATABASE+ DHCP BINDING+BPDU GUARD*****!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+	
+
+	show mac address-table interface GigabitEthernet2/0/38
+	
+	show ip arp | include GigabitEthernet2/0/38
+
+	show ip dhcp binding interface GigabitEthernet2/0/38
+
+	show ip dhcp snooping interface GigabitEthernet2/0/38
+	
+	show logging | include BLOCK_BPDUGUARD
+
+
+!!!!SECTION-10_*!********PORT SECURITY+ DAI+ IP Source GUARD+ *****!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	
+	show port-security interface GigabitEthernet2/0/38
+
+	show ip arp inspection interface GigabitEthernet2/0/38
+
+	show ip dhcp snooping interface GigabitEthernet2/0/38
+
+	show ip verify source interface GigabitEthernet2/0/38
+
+	show ip arp | include GigabitEthernet2/0/38
+
+
+
+!!!!SECTION-11_*!********CHECKING LAYER 3 *****!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+	show ip interface GigabitEthernet2/0/38
+
+	show logging
+
+!!!!SECTION-12_*!********CHECKING LAYER 3 *****!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+	show ip interface GigabitEthernet2/0/38
+
+	show logging
+
+
+!!!SECTION-2_*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------
+	HP Switch commands WIRELESS APS troubleshooting
+
+
+	
+	display version | include Up Time
+
+	display version
+
+	display current-configuration interface GigabitEthernet2/0/38
+
+	display interface GigabitEthernet2/0/38
+
+	display poe interface GigabitEthernet2/0/38
+
+	display lldp neighbor GigabitEthernet2/0/38
+
+	display lldp neighbor verbose GigabitEthernet2/0/38
+
+	diagnose interface GigabitEthernet2/0/38 cable-diagnostics tdr
+
+	display interface GigabitEthernet2/0/38 description
+
+	display interface GigabitEthernet2/0/38 brief
+
+	display ip interface GigabitEthernet2/0/38
+
+	display stp interface GigabitEthernet2/0/38
+
+	display arp | include GigabitEthernet2/0/38
+
+	display mac-address GigabitEthernet2/0/38
+
+	display mac-address GigabitEthernet2/0/38
+
+	display arp-inspection interface GigabitEthernet2/0/38
+
+	display dhcp snooping binding interface GigabitEthernet2/0/38
+
+	display dhcp snooping interface GigabitEthernet2/0/38
+
+	display port-security GigabitEthernet2/0/38
+
+	display source-checking interface GigabitEthernet2/0/38
+
+	display logbuffer | include BLOCK_BPDUGUARD
+
+	display interface GigabitEthernet2/0/38
+
+	display interface GigabitEthernet2/0/38 | include Last input|Last output|Last clearing
+
+	display logbuffer | include GigabitEthernet2/0/38 | include "changed state to up" | uniq
+
+	display logbuffer | include GigabitEthernet2/0/38 | include "changed state to down" | uniq
+
+	display logbuffer | include GigabitEthernet2/0/38
+
+	display error-statistics GigabitEthernet2/0/38
+
+	display environment all
+
+	display logbuffer
+
+------------------------------------------------------------------------------------------------------------------------------------
+show version | include uptime
+show interface GigabitEthernet2/0/38 | include errors
+show interfaces transceiver GigabitEthernet2/0/38
+show interfaces description | include GigabitEthernet2/0/38
+show ip interface GigabitEthernet2/0/38
+
+
+
+show mac address-table interface GigabitEthernet2/0/38
+show ip arp | include GigabitEthernet2/0/38
+show ip dhcp binding interface GigabitEthernet2/0/38
+show ip verify source interface GigabitEthernet2/0/38
+show port-security interface GigabitEthernet2/0/38
+show ip dhcp snooping interface GigabitEthernet2/0/38
+show ip arp inspection interface GigabitEthernet2/0/38
+show interface GigabitEthernet2/0/38 status
+show spanning-tree interface GigabitEthernet2/0/38
+show interface counters errors
+show interface GigabitEthernet2/0/38 | include Last input|Last output|Last clearing
+show logging | include GigabitEthernet2/0/38 | include "changed state to up" | uniq
+show logging | include GigabitEthernet2/0/38 | include "changed state to down" | uniq
+
+
+
+
+
+show version
+show power inline GigabitEthernet2/0/38
+show interface GigabitEthernet2/0/38 switchport
+show cdp neighbors GigabitEthernet2/0/38 detail
+show running-config interface GigabitEthernet2/0/38
+show interface GigabitEthernet2/0/38
+show logging | include 2/0/38
+show spanning-tree interface GigabitEthernet2/0/38
+show interface status | include GigabitEthernet2/0/38
+show env all
+show mac address-table interface GigabitEthernet2/0/38
+test cable-diagnostics tdr interface GigabitEthernet2/0/38
+show mac address interface GigabitEthernet2/0/38
+show interfaces GigabitEthernet2/0/38
+show cdp neighbors
+show log
+show power inline GigabitEthernet2/0/38
+show logging
+show cdp neighbors GigabitEthernet2/0/38 detail
+show interface status
+show spanning-tree interface GigabitEthernet2/0/38
+show environment all
+show logging | include BLOCK_BPDUGUARD
+------------------------------------------------------------------------------------------------------
+
+HP Switch commands WIRELESS APS troubleshooting
+
+display system-information | include Up Time
+display version
+dis poe interface GigabitEthernet2/0/38
+dis cu interface GigabitEthernet2/0/38
+dis lldp neighbors GigabitEthernet2/0/38 detail
+dis cu interface GigabitEthernet2/0/38
+dis interface GigabitEthernet2/0/38
+
+display logbuffer | include 2/0/38
+display stp interface GigabitEthernet2/0/38
+display poe interface GigabitEthernet2/0/38
+display interface GigabitEthernet2/0/38
+display lldp neighbors GigabitEthernet2/0/38 verbose
+display current-configuration interface GigabitEthernet2/0/38
+display interface GigabitEthernet2/0/38
+display interface GigabitEthernet2/0/38 brief
+display mac-address GigabitEthernet2/0/38
+
+diagnose cable-diagnostics tdr GigabitEthernet2/0/38
+display mac-address GigabitEthernet2/0/38
+
+display interface GigabitEthernet2/0/38
+display lldp neighbors
+display logbuffer
+display poe interface GigabitEthernet2/0/38
+display logbuffer
+display lldp neighbors GigabitEthernet2/0/38 verbose
+display interface
+display mac-address GigabitEthernet2/0/38
+diagnose power-over-ethernet show-inline-status
+display logbuffer | include BPDU_Guard
+dis environment
+
+
+
+----------------------------------------------------------------------------------------------------
+
+
+-----------------------
+
+Basic Information and Status:
+
+show version | include uptime: Check device uptime.
+show interface GigabitEthernet2/0/38: View detailed information about the interface.
+show interfaces transceiver GigabitEthernet2/0/38: Check transceiver module information.
+show interfaces description | include GigabitEthernet2/0/38: Display interface description.
+show ip interface GigabitEthernet2/0/38: Show IP information for the interface.
+Layer 2 Troubleshooting:
+
+show mac address-table interface GigabitEthernet2/0/38: Check MAC address table for the interface.
+show ip arp | include GigabitEthernet2/0/38: View ARP entries related to the interface.
+show port-security interface GigabitEthernet2/0/38: Check port security configuration.
+show ip dhcp snooping interface GigabitEthernet2/0/38: Verify DHCP snooping settings.
+show ip arp inspection interface GigabitEthernet2/0/38: Inspect ARP traffic on the interface.
+show ip dhcp binding interface GigabitEthernet2/0/38: View DHCP bindings for the interface.
+show ip verify source interface GigabitEthernet2/0/38: Verify IP source guard configuration.
+show spanning-tree interface GigabitEthernet2/0/38: Check spanning tree status.
+show interface counters errors: Display interface error counters.
+show interface GigabitEthernet2/0/38 status: Show interface status.
+Troubleshooting Logs:
+
+show logging | include GigabitEthernet2/0/38 | include "changed state to up" | uniq: View unique logs for interface state changes to "up."
+show logging | include GigabitEthernet2/0/38 | include "changed state to down" | uniq: View unique logs for interface state changes to "down."
+Additional Information:
+
+show env all: Check environmental information.
+show interfaces GigabitEthernet2/0/38 | include Last input|Last output|Last clearing: Display interface statistics and last clear time.
+show interfaces GigabitEthernet2/0/38: View detailed information about the interface.
+show cdp neighbors: Check CDP (Cisco Discovery Protocol) neighbors.
+show log: View system log messages.
+show power inline GigabitEthernet2/0/38: Check PoE (Power over Ethernet) status.
+show logging: View system logs.
+show cdp neighbors GigabitEthernet2/0/38 detail: Display detailed information about CDP neighbors.
+show interface status: Show interface status.
+show environment all: View environmental information.
+show logging | include BLOCK_BPDUGUARD: Check logs related to BPDU Guard.
+This order follows a logical flow from basic device information to interface-specific troubleshooting and includes relevant log checks. Please adjust the commands as needed for your specific troubleshooting scenario.
+
+
+----tdr
+this was the command "Log in to the switch using an account with administrator privileges.
+Enter the system view by typing system-view and pressing Enter.
+Enter the interface view by typing interface gigabitEthernet 1/0/17 and pressing Enter.
+Run the TDR test command by typing virtual-cable-test tdr and pressing Enter."

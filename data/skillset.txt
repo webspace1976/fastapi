@@ -1,0 +1,200 @@
+20220929 
+SOC SharePoint site
+
+http://our.healthbc.org/sites/gateway/team/TSCSTHub/Shared%20Documents/Forms/AllItems.aspx    
+
+ 
+
+ServiceNow (SNOW)
+
+https://healthbc.service-now.com
+
+ 
+
+Skype (SOC Bridge)
+
+https://lync.hssbc.ca/hssbc/tscst-shiftmanager/RCBNQKS6
+
+SOC Bridge: 604-297-9099  Part. Code: 34285916#
+
+Email: TSCST-Shiftmanager@hssbc.ca  &  TSCST-Support@hssbc.ca  
+
+ 
+
+Citrix remote access to the network and applications
+
+https://remoteapps.healthbc.org
+
+ 
+
+Webmail
+
+https://webmail.healthbc.org
+
+ 
+
+RingerOps
+
+https://spsoctoolsj01/ringerops#   (You will have to register – we’ll walk you through this tool so standby)
+
+ 
+
+ 
+
+Skills list  - (Technical)
+
+ 
+
+ 
+
+eNG/KDC-Other network gear access:
+
+o   Required to validate access to eNG/KDC core switches.
+
+o   Required to validate access to all network gear (HP,CISCO,ARISTA,3COM,BLUE CAT, Orion Monitoring tool, Zabbix Monitoring tool)
+
+o   Required to validate access to secret server as we have three different credentials for some old switches like 3COM and HP for Fraser health
+
+ 
+
+BlueCat
+
+o   Need to know how to check devices in BlueCat
+
+o   Need to know how to check DHCP range in BlueCat
+
+o   Need to know how to check if DCHP range belongs to wireless network or wired network in BlueCat
+
+o   Need to know how to check if an IP is reserved, free, assigned in BlueCat
+
+o   Need to know how to check an IP lease time in Bluecat
+
+ 
+
+Network devices in Orion
+
+o   Need to be familiar on how to check Interface node details in Orion, for example Gig 1/0/1: percentage utilization, utilization RX/TX, interface error and discards, average response time, packet loss
+
+o   Need to be familiar on how to check live traffic in Orion using the interface chart in Orion, for example Cerner link data chart, traffic chart in Orion from eNG core switch
+
+o   Need to be familiar on how to pull the traffic or data report in Orion (RX and TX) in Excel sheet or in HTML form (Interface data report)
+
+o   Need to be familiar on how to check node details in Orion (Host-Name,IP address, Physical location of the device)
+
+o   Need to be familiar on how to check CPU history Trend, Memory history trend in Orion.
+
+o   Need to be familiar on how to check user device tracking in Orion
+
+o   Need to be familiar on how to track node or end devices in Orion from device tracking summary
+
+o   Need to be familiar on how to check WAN link utilization in Orion e.g History or live trend in Orion
+
+o   Need to be familiar on how check hardware health in Orion
+
+o   Need to be familiar on how to check CST Netpath in Orion
+
+o   Need to be familiar on how to check Switch temperature in Orion
+
+ 
+
+UPS:
+
+o   Should know how to check UPS logs, UPS runtime, UPS Temperature , if UPS is on battery or on AC Power
+
+ 
+
+Basic switching Network analyst must know for (HP,Cisco,Arista,3COM)
+
+o   How to Telnet/SSH to switch router or any network device
+
+o   How to check neighbouring device
+
+o   How to check mac address, ARP entries, vlan
+
+o   How to check switch temp
+
+o   How to check switch IOS Version, switch uptime, CRC, Input errors
+
+o   How to check interface
+
+-        Interface details ,Up/Down, Interface error,
+
+o   How to check the logs (Reverse logs and front logs)
+
+o   How to run the cable test for switch interface (HP&Cisco)
+
+o   How to traceroute an IP address
+
+o   How to do telnet/SSH to switch router or any network device
+
+o   How to check switch interface status
+
+o   How to check failover happened in the event of primary core down.
+
+o   How to check if interface is ADMIN down.
+
+o   How to check routes
+
+o   How to check switch stack ports
+
+o   How to check IRF ports
+
+o   How to check network device hardware health e.g Power supply, switch interface  module, switch module
+
+o   How to check switch interface transceiver TX/RX light level
+
+o   How to check switch interface traffic utilization
+
+o   How to check fabric module
+
+o   How to check switch inventory
+
+o   How to check VRRP
+
+o   How to check VLAN
+
+o   How to check BGP,OSPF
+
+ 
+
+Ringers daily task:
+
+o   Familiar with how to manage, organize cases, schedule breaks coverage, attendance
+
+o   Familiar with how to complete the Runbook
+
+o   Familiar with How to manage P1/P2 in RingerOps (Outage Started, Outage Ended, Pageout time, HA Impact etc)
+
+o   Familiar with how to check the MOP in ringer folder
+
+o   Familiar with what to do in event of node down
+
+o   Familiar with what to do in event of interface down
+
+o   Familiar with how to check BC hydro, and FortisBC outage MAP in event of site down or site on UPS battery
+
+o   Familiar with how to follow-up with TELUS in event of any vendor managed device activity
+
+ 
+
+ 
+
+Skill Sets  (SOC Main Toolsets)
+
+o   Remote Office hardware
+
+o   Outlook, Teams, Skype
+
+o   Wiki, general info,
+
+o   Service Now
+
+o   Sharepoint  – MOPS  - Please ensure you master the steps in the following MOPS: 
+
+093
+
+201
+009
+207
+152
+051
