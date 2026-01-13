@@ -133,11 +133,8 @@ $(document).ready(function() {
                 btn.prop('disabled', false).text('🔄 Sync Orion Data');
             });
         });    
-    // 2. Button Logic: Filter for 'Down'
-        // This searches for "2" in column index 2 (Status) on page load
-        //table.column(2).search('2').draw();        
-        //'^2$' ensures the string starts (^) and ends ($) with exactly 2
-        table.column(2).search('^2$', true, false).draw();
+    // 2. Button Logic: Filter for 'Down' and 'unreachable' nodes (Status = 2 or 12)
+        table.column(2).search('2', true, false).draw();
     // Ensure your "Show All" button clears this default
         $('#btnShowAll').on('click', function() {
             table.column(2).search('').draw();

@@ -5,7 +5,7 @@
 #                       version history:
 #################################################################################################
 
-import time, sys, os,re, json, urllib.parse, requests, warnings
+import time, sys, os,re, json, copyreg, requests, warnings
 from datetime import datetime
 from orionsdk import SwisClient
 from netmiko import ConnectHandler, SSHDetect
@@ -23,48 +23,8 @@ import routers.monitor as monitor
 import mainconfig as mainconfig
 logger = mainconfig.setup_module_logger(__name__)
 log_dir = mainconfig.CORE_LOGS_DIR    
-
-
-
 curr_dir= os.path.dirname(__file__)
 log_dir = os.path.abspath(os.path.join(curr_dir, '..', 'logs'))
-
-class OrionSession:
-   
-    def __init__(self, npm_server, username, password):
-        self.npm_server = npm_server
-        self.username = username
-        self.password = password
-        self.swis = None
-
-    def connect(self):
-        try:
-            self.swis = SwisClient(self.npm_server, self.username, self.password)
-            print("Connected to Orion server.",self.npm_server)
-        except requests.exceptions.RequestException as ex:
-            print("Error connecting to Orion server:",self.npm_server)
-
-    def query(self, query):
-        if self.swis is not None:
-            try:
-                result = self.swis.query(query)
-                self.last_activity = time()
-                # ... save session ...
-                return result or {'results': []}  # Default empty on None
-            except requests.exceptions.RequestException as ex:
-                logger.error(f"Error executing query: {str(ex)}")  # Use error, not info
-                return {'results': []}  # Return default instead of None
-        else:
-            print("Not connected to Orion server.")
-
-    def create(self, entity, properties):
-        if self.swis is not None:
-            try:
-                return self.swis.create(entity, properties)
-            except requests.exceptions.RequestException as ex:
-                print("Error creating entity: {0}".format(str(ex)))
-        else:
-            print("Not connected to Orion server.")
 
 def load_json_file(file_path):
     """Load and return JSON data from a file, with error handling."""

@@ -13,5 +13,5 @@ echo [3/3] Starting FastAPI...
 echo ---------------------------------------------------
 :: Running without --reload for manual execution stability
 :: python.exe -m uvicorn main:app --host 0.0.0.0 --port %PORT%
-C:\inetpub\fastapi\venv\Scripts\python -m uvicorn main:app --host 0.0.0.0 --port %PORT%
+C:\inetpub\fastapi\venv\Scripts\python -m uvicorn main:app --reload --host 0.0.0.0 --port %PORT%
 
