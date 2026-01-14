@@ -4,7 +4,7 @@ import logging
 import os, time
 from datetime import datetime
 import mainconfig as mainconfig
-# from routers.orion import OrionSession
+
 logger = mainconfig.setup_module_logger(__name__)
 
 class OrionDatabaseManager:
@@ -89,7 +89,21 @@ class OrionDatabaseManager:
             (EntityDetailsUrl TEXT, Status TEXT, TriggerCount TEXT, StatusDescription TEXT, ObjectType TEXT, ObjectName TEXT, 
             AlertMessage TEXT, RelatedNodeCaption TEXT,  Vendor TEXT, ObjectSubType TEXT, IPAddress TEXT,TriggerTimeStamp TEXT,
              PRIMARY KEY (EntityDetailsUrl))''')
-        
+
+        # 5. Orion.Topology Table
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS [Orion.Topology] 
+            (SourceNodeID TEXT, 
+            SourceNodeName TEXT, 
+            SourceInterface TEXT, 
+            TargetNodeID TEXT, 
+            TargetNodeName TEXT, 
+            TargetInterface TEXT, 
+            SourceSite TEXT,              -- Added Site field
+            TargetSite TEXT,              -- Added Site field        
+            LayerType TEXT,
+            LastUpdate TEXT,
+            PRIMARY KEY (SourceNodeID, TargetNodeID, SourceInterface))''')
+
         self.conn.commit()
 
     def upsert_node(self, node_data):
@@ -306,6 +320,41 @@ class OrionDatabaseManager:
             # Log the first data point to help debug column mismatches
             self.logger.debug(f"Sample Data: {nodes_data[0]}")
 
+    def upsert_topology(self, topology_data):
+        """Inserts or updates a record in Orion.Topology."""
+        data_rows = "SourceNodeID, SourceNodeName, SourceInterface, TargetNodeID, TargetNodeName, TargetInterface, SourceSite, TargetSite, LayerType, LastUpdate"
+        placeholders = ', '.join(['?'] * len(data_rows.split(', ')))        
+        query = f'''INSERT INTO [Orion.Topology] ({data_rows}) 
+                 VALUES ({placeholders})
+                 ON CONFLICT(SourceNodeID, TargetNodeID, SourceInterface) DO UPDATE SET 
+                    TargetNodeName=excluded.TargetNodeName,
+                    TargetInterface=excluded.TargetInterface,
+                    SourceSite=excluded.SourceSite,
+                    TargetSite=excluded.TargetSite,
+                    LayerType=excluded.LayerType,
+                    LastUpdate=excluded.LastUpdate
+                 '''
+
+        try:
+            for row in topology_data:
+                values = (
+                    str(row.get('SourceNodeID', '')),
+                    str(row.get('SourceNodeName', '')),
+                    str(row.get('SourceInterface', '')),
+                    str(row.get('TargetNodeID', '')),
+                    str(row.get('TargetNodeName', '')),
+                    str(row.get('TargetInterface', '')),
+                    str(row.get('SourceSite', '')),
+                    str(row.get('TargetSite', '')),
+                    str(row.get('LayerType', '')),
+                    str(row.get('LastUpdateUtc', ''))
+                )
+                self.cursor.execute(query, values)
+            self.conn.commit()
+            logger.debug(f"Successfully: upsert_topology synced {len(topology_data)} topology records.")
+        except Exception as e:
+            self.conn.rollback()
+            logger.error(f"SQL Upsert Failed: {e} | Query: {query} | topology Data: {row}")
    
     def import_history_record(self, node_id, start_time, end_time, duration, StatusDescription):
         """Now correctly part of the class, so 'self' refers to the DB instance."""
@@ -362,6 +411,10 @@ def sync_orion_data(rendered_data):
         NodesCustomPropertiess_data = rendered_data.get("NodesCustomProperties")
         if NodesCustomPropertiess_data:
             db_conn.upsert_nodes_properties(NodesCustomPropertiess_data)
+
+        topology_data = rendered_data["sites_topology"]
+        if topology_data:
+            db_conn.upsert_topology(topology_data)  
 
     except Exception as e:
         logger.error(f"Error syncing Orion data: {e}")

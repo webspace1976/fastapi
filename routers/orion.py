@@ -14,7 +14,7 @@ import pandas as pd
 import utils.fastapi_mymodule as mymodule
 import mainconfig as mainconfig
 from mainpydantic import OrionCheckRequest, OrionResponse
-from utils.session_manager import get_or_create_session_id, get_or_create_session_id_hash
+from utils.session_manager import OrionSession, get_or_create_session_id, get_or_create_session_id_hash
 from utils.orion_db_manager import sync_orion_data
 from utils.orion_db_manager import OrionDatabaseManager
 
@@ -30,7 +30,8 @@ curr_dir= os.path.dirname(__file__)
 log_dir=os.path.abspath(os.path.join(curr_dir, '..', 'logs'))
 data_dir=os.path.abspath(os.path.join(curr_dir, '..', 'data'))
 icon_dir = mainconfig.ICONS_DIR
-session_dir = os.path.abspath(os.path.join(data_dir, 'orion_sessions'))  # Directory to store session files
+# session_dir = os.path.abspath(os.path.join(data_dir, 'orion_sessions'))  # Directory to store session files
+session_dir = mainconfig.SESSION_DIR  # Directory to store session files
 SESSION_LOG_FILE = os.path.join(session_dir, "orion_session_log.json")
 
 DB_ORION_PATH = mainconfig.DB_ORION_PATH
@@ -63,199 +64,203 @@ swis_nodesevent = mainconfig.swis_nodesevent
 swis_nodes_eventhistory = mainconfig.swis_nodes_eventhistory
 swis_nodeduration = mainconfig.swis_nodeduration
 
-class OrionSession:
-    SESSION_DIR = session_dir  # Directory to store session files
-    if not os.path.exists(SESSION_DIR):
-        os.mkdir(SESSION_DIR)
+# class OrionSession:
+#     SESSION_DIR = session_dir  # Directory to store session files
+#     if not os.path.exists(SESSION_DIR):
+#         os.mkdir(SESSION_DIR)
 
-    def __init__(self, npm_server, username, password, timeout=3600):
-        self.npm_server = npm_server
-        self.username = username
-        self.password = password
-        self.timeout = timeout  # Session timeout in seconds
-        self.swis = None
-        self.session = None
-        self.last_activity = None  # Track the last activity time
-        self.session_id = None
+#     def __init__(self, npm_server, username, password, timeout=3600):
+#         self.npm_server = npm_server
+#         self.username = username
+#         self.password = password
+#         self.timeout = timeout  # Session timeout in seconds
+#         self.swis = None
+#         self.session = None
+#         self.last_activity = None  # Track the last activity time
+#         self.session_id = None
 
-    def connect(self, session_id=None):
-        self.session_id = session_id
-        # Use a consistent naming convention
-        session_file = os.path.join(str(mainconfig.SESSION_DIR), f"{self.session_id}.pickle")
-
-        try:
-            # Check if server is reachable first (for the popup error)
-            import requests
-            requests.get(f"https://{self.npm_server}:17778", verify=False, timeout=3)
-            
-            # If file exists, load it (CGI behavior)
-            if os.path.exists(session_file):
-                with open(session_file, "rb") as f:
-                    self.session, self.last_activity = pickle.load(f)
-                self.swis = SwisClient(self.npm_server, self.username, self.password, session=self.session)
-            else:
-                # Create new and SAVE it to the deterministic filename
-                self.swis = SwisClient(self.npm_server, self.username, self.password)
-                self._create_new_session(session_file) 
-
-        except Exception as e:
-            # If login fails, delete that specific file so it doesn't stay corrupted
-            if os.path.exists(session_file):
-                os.remove(session_file)
-            raise ConnectionError(str(e))
-
-    # def connect(self, session_id=None):
-    #     logger.debug(f"Connecting to Orion server: {self.npm_server}")
-    #     try:
-    #         is_new_session = False
-
-    #         # Generate a new session ID if not provided
-    #         if session_id is None:
-    #             self.session_id = str(uuid.uuid4())
-    #             is_new_session = True
-    #             logger.debug(f"Debug: Generated new session_id: {self.session_id}")
-    #         else:
-    #             self.session_id = session_id
-    #             logger.debug(f"Debug: Using existing session_id: {self.session_id}")
-
-    #         # session_file = os.path.join(self.SESSION_DIR, self.session_id)
-    #         session_file = os.path.join(str(session_dir), f"{session_id}.pickle")
-
-    #         # Before loading or creating, verify the server is actually reachable
-    #         try:
-    #             self.swis = SwisClient(self.npm_server, self.username, self.password)
-    #             # Test credentials
-    #             self.swis.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
-    #         except requests.exceptions.RequestException as e:
-    #             # If connection fails, delete the old session file so it doesn't get reused
-    #             if os.path.exists(session_file):
-    #                 os.remove(session_file)
-    #             # This error message will appear in your browser popup
-    #             raise ConnectionError(f"Cannot reach {self.npm_server}. Please check IP/Credentials. Error: {str(e)}")
-
-    #         if os.path.exists(session_file):
-    #             try:
-    #                 with open(session_file, "rb") as f:
-    #                     self.session, self.last_activity = pickle.load(f)
-    #                 logger.debug(f"Debug: Loaded session from file: {session_file}")
-                    
-    #                 # Create SwisClient with the stored session
-    #                 # Use the instance's npm_server, username, password
-    #                 self.swis = SwisClient(
-    #                     self.npm_server, 
-    #                     self.username, 
-    #                     self.password, 
-    #                     session=self.session
-    #                 )
-    #                 logger.debug("Debug: SwisClient created with stored session")
-                    
-    #             except (pickle.UnpicklingError, EOFError) as e:
-    #                 logger.warning(f"Debug: Corrupted session file: {session_file}. Error: {e}")
-    #                 os.remove(session_file)
-    #                 self._create_new_session(session_file)
-    #                 is_new_session = True
-    #             except Exception as e:
-    #                 logger.error(f"Debug: Failed to create SwisClient: {e}")
-    #                 self._create_new_session(session_file)
-    #                 is_new_session = True
-    #         else:
-    #             logger.error(f"Debug: Session file not found: {session_file}. Creating new session.")
-    #             self._create_new_session(session_file)
-    #             is_new_session = True
-
-    #         # Log session activity
-    #         self._log_session_activity(is_new_session)
-
-    #     except ConnectionError:
-    #         # Re-raise our custom connection error to trigger the UI popup
-    #         raise
-    #     except Exception as ex:
-    #         logger.error(f"Error connecting to Orion server: {str(ex)}")
-    #         # Raise generic error as a ConnectionError for the UI
-    #         raise ConnectionError(f"System Error: {str(ex)}")
-
-    def _create_new_session(self, session_file):
-        """Helper to create a new session"""
-        self.session = requests.Session()
-        self.session.verify = False
-        self.swis = SwisClient(self.npm_server, self.username, self.password, session=self.session)
-        self.last_activity = time()
+#     def connect(self, session_id=None):
+#         # FORCE the use of the session_id passed from the router
+#         self.session_id = session_id        
         
-        # Save the new session
-        with open(session_file, "wb") as f:
-            pickle.dump((self.session, self.last_activity), f)
-        logger.debug(f"Debug: Saved new session to file: {session_file}")
+#         # Use a consistent naming convention
+#         session_file = os.path.join(self.SESSION_DIR, f"{self.session_id}.pickle")
 
-    def _log_session_activity(self, is_new_session):
-        """Helper to log session activity"""
-        session_metadata = {
-            "timestamp": datetime.now().isoformat(),
-            "session_id": self.session_id,
-            "npm_server": self.npm_server,
-            "username": self.username,
-            "is_new_session": is_new_session
-        }
-
-        # Append to persistent log
-        log_file = os.path.join(session_dir, "orion_session_log.json")
-        try:
-            if os.path.exists(log_file):
-                with open(log_file, "r") as f:
-                    history = json.load(f)
-            else:
-                history = []
-
-            history.append(session_metadata)
-
-            with open(log_file, "w") as f:
-                json.dump(history, f, indent=2)
-
-        except Exception as e:
-            logger.error(f"[SESSION LOGGING ERROR] {e}")
+#         try:
+#             # Check if server is reachable first (for the popup error)
+#             check_client = SwisClient(self.npm_server, self.username, self.password)
+#             check_client.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
             
-    def is_session_expired(self):
-        """Check if the session has expired based on the timeout."""
-        if self.last_activity is None:
-            logger.debug("Debug: Session expired because last_activity is None")
-            return True
-        elapsed_time = time() - self.last_activity
-        expired = elapsed_time > self.timeout
-        # logger.debug(f"Debug: Elapsed time since last activity: {elapsed_time} seconds. Expired: {expired}")
-        return expired
+#             # If validation passed, check if we can reuse the session file
+#             if os.path.exists(session_file):
+#                 with open(session_file, "rb") as f:
+#                     self.session, self.last_activity = pickle.load(f)
+#                 self.swis = SwisClient(self.npm_server, self.username, self.password, session=self.session)
+#             else:
+#                 # Create a fresh session and save it
+#                 self.swis = check_client # Reuse the validated client
+#                 self._create_new_session(session_file)
 
-    def refresh_session(self):
-        """Refresh the session if it has expired."""
-        if self.is_session_expired():
-            logger.debug("Debug: Session expired. Reconnecting...")
-            self.connect()
-        else:
-            if self.swis is not None:
-                logger.debug("Debug: Session is still valid.")
+#         except Exception as e:
+#             # If login fails (wrong UN/PW), delete the pickle so it can't be used again
+#             if os.path.exists(session_file):
+#                 os.remove(session_file)
+#             # RAISE ConnectionError so the router displays the alert popup
+#             raise ConnectionError(f"Login Failed: {str(e)}")
 
-    def query(self, query):
-        if self.swis is not None:
-            try:
-                result = self.swis.query(query)
-                self.last_activity = time()  # Update the last activity time
-                # Save the updated session to the file
-                session_file = os.path.join(self.SESSION_DIR, self.session_id)
-                with open(session_file, "wb") as f:
-                    pickle.dump((self.session, self.last_activity), f)
-                return result
-            except requests.exceptions.RequestException as ex:
-                logger.debug(f"Error executing query: {str(ex)}")
-        else:
-            logger.error("Not connected to Orion server.")
+#     # def connect(self, session_id=None):
+#     #     logger.debug(f"Connecting to Orion server: {self.npm_server}")
+#     #     try:
+#     #         is_new_session = False
 
-    def create(self, entity, properties):
-        if self.swis is not None:
-            try:
-                self.last_activity = time()  # Update the last activity time
-                return self.swis.create(entity, properties)
-            except requests.exceptions.RequestException as ex:
-                logger.error(f"Error creating entity: {str(ex)}")
-        else:
-            logger.error("Not connected to Orion server.")
+#     #         # Generate a new session ID if not provided
+#     #         if session_id is None:
+#     #             self.session_id = str(uuid.uuid4())
+#     #             is_new_session = True
+#     #             logger.debug(f"Debug: Generated new session_id: {self.session_id}")
+#     #         else:
+#     #             self.session_id = session_id
+#     #             logger.debug(f"Debug: Using existing session_id: {self.session_id}")
+
+#     #         # session_file = os.path.join(self.SESSION_DIR, self.session_id)
+#     #         session_file = os.path.join(str(session_dir), f"{session_id}.pickle")
+
+#     #         # Before loading or creating, verify the server is actually reachable
+#     #         try:
+#     #             self.swis = SwisClient(self.npm_server, self.username, self.password)
+#     #             # Test credentials
+#     #             self.swis.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
+#     #         except requests.exceptions.RequestException as e:
+#     #             # If connection fails, delete the old session file so it doesn't get reused
+#     #             if os.path.exists(session_file):
+#     #                 os.remove(session_file)
+#     #             # This error message will appear in your browser popup
+#     #             raise ConnectionError(f"Cannot reach {self.npm_server}. Please check IP/Credentials. Error: {str(e)}")
+
+#     #         if os.path.exists(session_file):
+#     #             try:
+#     #                 with open(session_file, "rb") as f:
+#     #                     self.session, self.last_activity = pickle.load(f)
+#     #                 logger.debug(f"Debug: Loaded session from file: {session_file}")
+                    
+#     #                 # Create SwisClient with the stored session
+#     #                 # Use the instance's npm_server, username, password
+#     #                 self.swis = SwisClient(
+#     #                     self.npm_server, 
+#     #                     self.username, 
+#     #                     self.password, 
+#     #                     session=self.session
+#     #                 )
+#     #                 logger.debug("Debug: SwisClient created with stored session")
+                    
+#     #             except (pickle.UnpicklingError, EOFError) as e:
+#     #                 logger.warning(f"Debug: Corrupted session file: {session_file}. Error: {e}")
+#     #                 os.remove(session_file)
+#     #                 self._create_new_session(session_file)
+#     #                 is_new_session = True
+#     #             except Exception as e:
+#     #                 logger.error(f"Debug: Failed to create SwisClient: {e}")
+#     #                 self._create_new_session(session_file)
+#     #                 is_new_session = True
+#     #         else:
+#     #             logger.error(f"Debug: Session file not found: {session_file}. Creating new session.")
+#     #             self._create_new_session(session_file)
+#     #             is_new_session = True
+
+#     #         # Log session activity
+#     #         self._log_session_activity(is_new_session)
+
+#     #     except ConnectionError:
+#     #         # Re-raise our custom connection error to trigger the UI popup
+#     #         raise
+#     #     except Exception as ex:
+#     #         logger.error(f"Error connecting to Orion server: {str(ex)}")
+#     #         # Raise generic error as a ConnectionError for the UI
+#     #         raise ConnectionError(f"System Error: {str(ex)}")
+
+#     def _create_new_session(self, session_file):
+#         """Helper to create a new session"""
+#         self.session = requests.Session()
+#         self.session.verify = False
+#         self.swis = SwisClient(self.npm_server, self.username, self.password, session=self.session)
+#         self.last_activity = time()
+        
+#         # Save the new session
+#         with open(session_file, "wb") as f:
+#             pickle.dump((self.session, self.last_activity), f)
+#         logger.debug(f"Debug: Saved new session to file: {session_file}")
+
+#     def _log_session_activity(self, is_new_session):
+#         """Helper to log session activity"""
+#         session_metadata = {
+#             "timestamp": datetime.now().isoformat(),
+#             "session_id": self.session_id,
+#             "npm_server": self.npm_server,
+#             "username": self.username,
+#             "is_new_session": is_new_session
+#         }
+
+#         # Append to persistent log
+#         log_file = os.path.join(session_dir, "orion_session_log.json")
+#         try:
+#             if os.path.exists(log_file):
+#                 with open(log_file, "r") as f:
+#                     history = json.load(f)
+#             else:
+#                 history = []
+
+#             history.append(session_metadata)
+
+#             with open(log_file, "w") as f:
+#                 json.dump(history, f, indent=2)
+
+#         except Exception as e:
+#             logger.error(f"[SESSION LOGGING ERROR] {e}")
+            
+#     def is_session_expired(self):
+#         """Check if the session has expired based on the timeout."""
+#         if self.last_activity is None:
+#             logger.debug("Debug: Session expired because last_activity is None")
+#             return True
+#         elapsed_time = time() - self.last_activity
+#         expired = elapsed_time > self.timeout
+#         # logger.debug(f"Debug: Elapsed time since last activity: {elapsed_time} seconds. Expired: {expired}")
+#         return expired
+
+#     def refresh_session(self):
+#         """Refresh the session if it has expired."""
+#         if self.is_session_expired():
+#             logger.debug("Debug: Session expired. Reconnecting...")
+#             self.connect()
+#         else:
+#             if self.swis is not None:
+#                 logger.debug("Debug: Session is still valid.")
+
+#     def query(self, query):
+#         if self.swis is not None:
+#             try:
+#                 result = self.swis.query(query)
+#                 self.last_activity = time()  # Update the last activity time
+#                 # Save the updated session to the file
+#                 # session_file = os.path.join(self.SESSION_DIR, self.session_id)
+#                 session_file = os.path.join(self.SESSION_DIR, f"{self.session_id}.pickle")
+#                 with open(session_file, "wb") as f:
+#                     pickle.dump((self.session, self.last_activity), f)
+#                 return result
+#             except requests.exceptions.RequestException as ex:
+#                 logger.debug(f"Error executing query: {str(ex)}")
+#         else:
+#             logger.error("Not connected to Orion server.")
+
+#     def create(self, entity, properties):
+#         if self.swis is not None:
+#             try:
+#                 self.last_activity = time()  # Update the last activity time
+#                 return self.swis.create(entity, properties)
+#             except requests.exceptions.RequestException as ex:
+#                 logger.error(f"Error creating entity: {str(ex)}")
+#         else:
+#             logger.error("Not connected to Orion server.")
 
 def cleanup_session(session_file):
     if os.path.exists(session_file):
@@ -332,6 +337,10 @@ def generate_node_table(session):
             sitedown_list.append(f"{row_site.get('Site')}, {row_site.get('Address')}, {row_site.get('City')}, {row_site.get('DownCount')}/{row_site.get('TotalNodes')}")
     logger.debug(f"Debug: sitedown_list: {sitedown_list}")
     # 20250106 update site down logic to check from site table
+
+    query_sitetopology = mainconfig.swis_sitetopology
+    results_sitetopology = session.query(query_sitetopology)
+    results_sitetopology_data = results_sitetopology.get("results", [])
 
     query = swis_nodeduration
     results = session.query(query)
@@ -417,7 +426,7 @@ def generate_node_table(session):
     </table>
     """
 
-    return results_html, results_data, site_data
+    return results_html, results_data, site_data, results_sitetopology_data
 
 def generate_interface_table(session):
     query = swis_interfacdown
@@ -769,7 +778,12 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
     try:
         logger.debug("Debug: Starting main_all function")
         session_path = os.path.join(session_dir, f"{session_id}.json")
-        
+
+        # Initialize and attempt to connect
+        session = OrionSession(npm_server, username, password)
+        # connect() MUST throw an error if UN/PW is wrong or IP is down
+        session.connect(session_id)
+
         # Try to reuse OrionSession from file
         if os.path.exists(session_path):
             with open(session_path, "r") as f:
@@ -785,7 +799,7 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
                     session.connect(session_id=session_id)
         else:
             session = OrionSession(npm_server, username, password)
-            session.connect(session_id=session_id)
+            # session.connect(session_id=session_id)
 
         # Save session metadata (once)
         if not os.path.exists(session_path):
@@ -848,6 +862,7 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
             "alert_table": alert_table[1],  
             "netpath_table": netpath_table[1], 
             "apipoller_table": apipoller_table[1],  
+            "sites_topology": node_table[3],
             # add others if needed
         }
 
@@ -870,25 +885,28 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
 
         # Return both content and session_id (so FastAPI route can attach it)
         return rendered_html, session_id
-        # return HTMLResponse(content=rendered_html)
+    
     except Exception as e: # 20251110 Fix: Safe html.escape() with Default
         logger.error(f"Dashboard generation failed: {type(e).__name__}: {e}")
-        try:
-            with open("data/last_orion_dashboard.html", "r", encoding="utf-8") as f:
-                cached_html = f.read()
-            if cached_html and "<body>" in cached_html:
-                if "Connection" in str(e) or "timeout" in str(e).lower():
-                    stale_popup = f"""
-                    <div id="orionDownModal" style="display:block;position:fixed;z-index:9999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);">
-                        <div style="background:#fff;color:#b00;max-width:400px;margin:10% auto;padding:30px 10px;border-radius:8px;box-shadow:0 2px 10px #000;">
-                            <h2 style="background:#b00;"><a href="https://{ npm_server }" target="_blank">Orion Status  </a><br><button onclick="document.getElementById('orionDownModal').style.display='none';" style="margin-top:20px;margin-bottom:10px;padding:8px;">Unreachable or {html.escape(str(e))} </button></h2>
-                        </div>
-                    </div>
-                    """
-                return cached_html, session_id
-        except Exception as cache_err:
-            logger.error(f"Cache load failed: {cache_err}")
-        return f"<h2>Dashboard Error</h2><p>{html.escape(str(e))}</p>", session_id
+        # Do NOT return cached_html here. Raise the error to the router.
+        raise ConnectionError(str(e))
+    
+        # try:
+        #     with open("data/last_orion_dashboard.html", "r", encoding="utf-8") as f:
+        #         cached_html = f.read()
+        #     if cached_html and "<body>" in cached_html:
+        #         if "Connection" in str(e) or "timeout" in str(e).lower():
+        #             stale_popup = f"""
+        #             <div id="orionDownModal" style="display:block;position:fixed;z-index:9999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);">
+        #                 <div style="background:#fff;color:#b00;max-width:400px;margin:10% auto;padding:30px 10px;border-radius:8px;box-shadow:0 2px 10px #000;">
+        #                     <h2 style="background:#b00;"><a href="https://{ npm_server }" target="_blank">Orion Status  </a><br><button onclick="document.getElementById('orionDownModal').style.display='none';" style="margin-top:20px;margin-bottom:10px;padding:8px;">Unreachable or {html.escape(str(e))} </button></h2>
+        #                 </div>
+        #             </div>
+        #             """
+        #         return cached_html, session_id
+        # except Exception as cache_err:
+        #     logger.error(f"Cache load failed: {cache_err}")
+        # return f"<h2>Dashboard Error</h2><p>{html.escape(str(e))}</p>", session_id
 
 
 ############## data sync functions
@@ -988,7 +1006,7 @@ async def run_orioncheck_route(
         # Return a popup error if the server is down
         return HTMLResponse(content=f"""
             <script>
-                alert("Error: {ce}");
+                alert("ACCESS DENIED / SERVER DOWN\\n\\nError: {str(ce)}");
                 window.location.href = "/orion/login_page"; 
             </script>
         """, status_code=503)
@@ -1019,4 +1037,16 @@ async def get_custom_properties_data():
     except Exception as e:
         logger.error(f"Failed to fetch table data: {e}")
         return {"data": [], "error": str(e)}
+
+@router.get("/api/orion/topology")
+async def get_topology_data(site: str = None):
+    db = OrionDatabaseManager(mainconfig.DB_ORION_PATH)
+    db.connect()
+    # Filter by site if provided, otherwise return all
+    query = "SELECT * FROM [Orion.Topology]"
+    if site:
+        query += f" WHERE Site = '{site}'"
+    df = pd.read_sql_query(query, db.conn)
+    db.conn.close()
+    return {"data": df.to_dict(orient="records")}
 

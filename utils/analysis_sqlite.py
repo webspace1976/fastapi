@@ -557,7 +557,7 @@ def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
                         current_ospf_process["lastevents"][last_down_event["last_remote"]] = last_down_event.copy()
                         logger.debug(f"Set last down event for remote {last_down_event['last_remote']} in process {current_process}: {last_down_event}")
                     else:
-                        logger.warning(f"No valid last_remote found for last down event in process {current_process}")
+                        logger.warning(f"No valid last_remote found for last down event in process {current_process} : {temp_file_path} {line}")
 
         if vendor in ('cisco','arista'):
         # if vendor == 'cisco':

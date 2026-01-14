@@ -179,7 +179,7 @@ SELECT OAO.EntityDetailsUrl,OAO.AlertConfigurations.Severity, OND.Status,OAS.Tri
 FROM Orion.AlertStatus OAS 
 LEFT JOIN Orion.AlertObjects OAO ON OAO.AlertObjectID=OAS.AlertObjectID 
 LEFT JOIN orion.Nodes OND ON OND.Caption=OAO.RelatedNodeCaption 
-WHERE AlertMessage NOT LIKE '%OrionNCMVCHA logged in%'
+WHERE AlertMessage NOT LIKE '%OrionNCMVCHA logged in%' AND AlertMessage NOT LIKE '%system logged in%' 
 ORDER BY triggertimestamp DESC
 '''
 
@@ -283,6 +283,30 @@ SELECT UDT.EndpointID, UDT.IPAddress, CMI.NodeName, CMI.PortID, CMI.PortNumber, 
 FROM Orion.UDT.IPAddress UDT
 JOIN Orion.UDT.ConnectedMACsAndIPs CMI on UDT.RouterPortID = CMI.PortID
 '''
+
+swis_sitetopology='''
+SELECT 
+    SourceNode.Caption AS SourceNodeName,
+    SourceNode.NodeID AS SourceNodeID,
+    SourceInt.Caption AS SourceInterface,
+    TargetNode.Caption AS TargetNodeName,
+    TargetNode.NodeID AS TargetNodeID,
+    TargetInt.Caption AS TargetInterface,
+    NCP.Site AS SourceSite,         -- Pulling Site from Custom Properties
+    TargetCP.Site AS TargetSite,    -- Pulling Site for the destination node
+    t.LayerType,
+    t.LastUpdateUtc
+FROM Orion.TopologyConnections t
+INNER JOIN Orion.Nodes SourceNode ON t.SrcNodeID = SourceNode.NodeID
+INNER JOIN Orion.Nodes TargetNode ON t.DestNodeID = TargetNode.NodeID
+INNER JOIN Orion.NodesCustomProperties NCP ON t.SrcNodeID = NCP.NodeID
+INNER JOIN Orion.NodesCustomProperties TargetCP ON t.DestNodeID = TargetCP.NodeID
+LEFT JOIN Orion.NPM.Interfaces SourceInt ON t.SrcInterfaceID = SourceInt.InterfaceID
+LEFT JOIN Orion.NPM.Interfaces TargetInt ON t.DestInterfaceID = TargetInt.InterfaceID
+-- Optional: Filter for a specific site
+-- WHERE NCP.Site = '1190 Hornby (PHC)'
+'''
+
 # 20251023 UDT Queries for Endpoint Details including Device Inventory
 def swis_udt_all_query(node_id: int) -> str:
     swis_udt_all='''
