@@ -1015,6 +1015,66 @@ async def run_orioncheck_route(
         return HTMLResponse(content="<h2>An unexpected error occurred.</h2>", status_code=500)
 
 
+@router.get("/map_data")
+async def get_map_data(site: str = None):
+
+    if not site:
+        return {"nodes": [], "edges": []}
+    
+    db = OrionDatabaseManager(mainconfig.DB_ORION_PATH)
+    db.connect()
+    
+    # 1. Fetch Topology Links
+    query = "SELECT SourceNodeID, SourceNodeName, TargetNodeID, TargetNodeName, SourceInterface FROM [Orion.Topology]"
+    query += f" WHERE SourceSite LIKE '%{site}%' OR TargetSite LIKE '%{site}%'"
+
+    df = pd.read_sql_query(query, db.conn)
+    db.conn.close()
+
+    # 2. Build vis.js format
+    nodes = []
+    edges = []
+    seen_nodes = set()
+
+    for _, row in df.iterrows():
+        # Add Source Node
+        if row['SourceNodeID'] not in seen_nodes:
+            # Example logic: If name contains 'CORE', put at level 0
+            level = 0 if 'CORE' in row['SourceNodeName'].upper() else 1
+            nodes.append({
+                "id": row['SourceNodeID'], 
+                "label": row['SourceNodeName'], 
+                "level": level,  # Enforces vertical position
+                "shape": "box", 
+                "color": "#007bff"
+            })
+            seen_nodes.add(row['SourceNodeID'])
+
+            # nodes.append({"id": row['SourceNodeID'], "label": row['SourceNodeName'], "shape": "dot", "color": "#007bff"})
+            # seen_nodes.add(row['SourceNodeID'])
+        
+        # Add Target Node
+        if row['TargetNodeID'] not in seen_nodes:
+            nodes.append({
+                "id": row['TargetNodeID'], 
+                "label": row['TargetNodeName'], 
+                "shape": "box", 
+                "level": 2 if 'CORE' not in row['TargetNodeName'].upper() else 0
+            })
+            seen_nodes.add(row['TargetNodeID'])
+
+        # Add Edge (The Connection)
+        edges.append({
+            "from": row['SourceNodeID'], 
+            "to": row['TargetNodeID'], 
+            "label": row['SourceInterface'],
+            "font": {"size": 10, "align": "middle"},
+            "arrows": 'to' # Shows direction of connectivity
+        })
+
+    return {"nodes": nodes, "edges": edges}
+
+
 @router.get("/orion_analysis", response_class=HTMLResponse)
 async def get_analysis_page(request: Request):
     # This renders your orion_custom_properties.html file
@@ -1038,7 +1098,7 @@ async def get_custom_properties_data():
         logger.error(f"Failed to fetch table data: {e}")
         return {"data": [], "error": str(e)}
 
-@router.get("/api/orion/topology")
+@router.get("/topology")
 async def get_topology_data(site: str = None):
     db = OrionDatabaseManager(mainconfig.DB_ORION_PATH)
     db.connect()

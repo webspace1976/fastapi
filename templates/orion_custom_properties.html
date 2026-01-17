@@ -3,7 +3,7 @@
 <link rel="stylesheet" type="text/css" href="/static/css/buttons.dataTables-2.4.1.min.css">
 
 <style>
-    #analysisContainer { padding: 20px; background: #fff; border-radius: 8px; }
+    #nodeStatusTab { padding: 20px; background: #fff; border-radius: 8px; }
     /* Fix table sizing for many columns */
     th, td { font-size: 11px !important; padding: 8px !important; }
     .dataTables_scrollHeadInner, .display { width: 100% !important; }
@@ -12,22 +12,47 @@
     .btn-filter-down { background-color: #dc3545; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
     .btn-filter-all { background-color: #6c757d; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; }
     .btn-filter-down:hover { background-color: #a71d2a; }
+
+    .tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
+    .tab-link { padding: 10px 20px; cursor: pointer; border: none; background: none; font-weight: bold; color: #666; }
+    .tab-link.active { color: #007bff; border-bottom: 3px solid #007bff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
 </style>
+<script src="/static/js/my_javascript.js"></script>
 <script src="/static/js/jquery-3.6.1.min.js"></script>
 <script src="/static/js/ajax3.10.1.min.js"></script>
 <script src="/static/js/jquery.dataTables-1.13.6.min.js"></script>
 <script src="/static/js/dataTables.fixedColumns-4.3.1.min.js"></script>
 <script src="/static/js/dataTables.buttons-2.4.1.min.js"></script>
 <script src="/static/js/buttons.html5-2.4.1.min.js"></script>
+<script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 
+<div class="tabs">
+    <button class="tab-link active" onclick="openTab(event, 'nodeStatusTab')">🖥️ Node Status</button>
+    <button class="tab-link" onclick="openTab(event, 'topologyTab')">🕸️ Site Topology</button>
+</div>
 
-<div id="analysisContainer">
-    <table id="propsTable" class="display nowrap" style="width:100%">
+<div id="nodeStatusTab" class="tab-content active">
+    <table id="nodeTable" class="display nowrap" style="width:100%">
 
-<div style="margin-bottom: 20px;">
-    <button id="btnShowDown" class="btn-filter-down">⚠️ Show Down Nodes Only</button>
-    <button id="btnShowAll" class="btn-filter-all">Show All Nodes</button>
-    
+<div style="display: flex; font-size: 22px; margin: 0px;">
+    <div>
+        <button id="btnShowDown" class="btn-filter-down">⚠️ Show Down Nodes Only</button>
+    </div>
+    <div>
+        <button id="btnShowAll" class="btn-filter-all">Show All Nodes</button>
+    </div>
+    <!-- <div id="nodeSummary" style=" background: #fff; border: 1px solid #ddd; border-left: 5px solid #dc3545; padding: 15px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"> -->
+    <div style="margin-left: 10px; color: #666;"> NODE HEALTH :
+        <!-- <span id="stat-site-list">
+            Dynamically filled with site counts
+        </span> -->
+    </div>
+    <div style=" margin: 0;">
+        <span style="color: #dc3545; font-weight: bold;"><span id="stat-down">0</span><small style="color: #dc3545;"> Down</small></span>  | 
+        <span id="stat-total">0</span> <small style="color: #999;"> Total</small>
+    </div>
     <!-- <button id="btnSyncNow" style="background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-left: 20px;">
         🔄 Sync Orion Data
     </button> -->
@@ -49,10 +74,85 @@
     </table>
 </div>
 
+<div id="topologyTab" class="tab-content">
+    <div style="margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+        <label><strong>Site Topology Search:</strong></label>
+        <input type="text" id="topoSiteFilter" placeholder="Enter Site Name..." style="padding: 5px; width: 250px;">
+        
+        <button onclick="refreshMap()" class="btn-filter-all">🔍 Generate Map</button>
+        
+        <button onclick="resetMap()" class="btn-filter-all" style="background-color: #e9ecef; color: #333; border: 1px solid #ccc;">✖ Clear</button>
+
+        <select id="layoutSelect" onchange="refreshMap()" style="padding: 5px; margin-left: 10px;">
+            <option value="tree">Tree (Hierarchical)</option>
+            <option value="mesh">Mesh (Force-Directed)</option>
+        </select>
+
+    </div>
+
+    <div id="networkMap" style="display: none; height: 300px; width: 100%; border: 1px solid #ddd; background: #fff; margin-bottom: 20px; border-radius: 8px;"></div>
+
+    <table id="topoTable" class="display nowrap" style="width:100%">
+        <thead>
+            <tr>
+                <th>Source Site</th>
+                <th>Source Node</th>
+                <th>Source Interface</th>
+                <th>Target Site</th>
+                <th>Target Node</th>
+                <th>Target Interface</th>
+                <th>LayerType</th>
+            </tr>
+        </thead>
+    </table>
+</div>
+
 <script>
+function updateSummaryFromUI() {
+    // 1. Get the DataTable API instance
+    var table = $('#nodeTable').DataTable();
+    
+    // 2. Grab all rows currently in the table
+    var allData = table.rows().data();
+    
+    let totalNodes = 0;
+    let downNodes = 0;
+    let siteMap = {};
+
+    allData.each(function(row) {
+        totalNodes++;
+        
+        // Count Down Status
+        // if (row.Status && row.Status.toLowerCase().includes('down')) {
+        if (row.Status == 2 || row.Status == 12) {
+            downNodes++;
+        }
+        
+        // Group by Site Prefix (PHSA, FHA, VCH, etc.)
+        if (row.Site) {
+            let prefix = row.Site.split('-')[0].trim();
+            siteMap[prefix] = (siteMap[prefix] || 0) + 1;
+        }
+    });
+
+    // 3. Update the UI Elements
+    $('#stat-total').text(totalNodes);
+    $('#stat-down').text(downNodes);
+
+    let siteHtml = '';
+    // Sort sites by count descending
+    Object.entries(siteMap).sort((a,b) => b[1] - a[1]).forEach(([name, count]) => {
+        siteHtml += `<span style="background:#e9ecef; padding:3px 10px; border-radius:12px; border: 1px solid #dee2e6;">
+                        <strong>${name}:</strong> ${count}
+                     </span>`;
+    });
+    $('#stat-site-list').html(siteHtml);
+}
+
+    // 1. Your existing 'table' (orionTable) initialization remains here...
 $(document).ready(function() {
     // 1. Initialize the table and store it in a variable
-    var table = $('#propsTable').DataTable({
+    var nodeTable = $('#nodeTable').DataTable({
         "ajax": "/api/orion/get_custom_properties_data",
         "scrollX": true,           // Allow horizontal scroll
         "fixedColumns": {
@@ -118,32 +218,32 @@ $(document).ready(function() {
     });
 
     // Sync Button Logic
-        $('#btnSyncNow').on('click', function() {
-            let btn = $(this);
-            btn.prop('disabled', true).text('⏳ Syncing...');
-            $('#syncMsg').text('Updating SQLite Cache...').css('color', 'black');
+    $('#btnSyncNow').on('click', function() {
+        let btn = $(this);
+        btn.prop('disabled', true).text('⏳ Syncing...');
+        $('#syncMsg').text('Updating SQLite Cache...').css('color', 'black');
 
-            $.post("/api/orion/sync_now", function(response) {
-                if(response.status === "success") {
-                    $('#syncMsg').text('✅ Success!').css('color', 'green');
-                    table.ajax.reload(); // Refresh the table display
-                } else {
-                    $('#syncMsg').text('❌ ' + response.message).css('color', 'red');
-                }
-                btn.prop('disabled', false).text('🔄 Sync Orion Data');
-            });
-        });    
-    // 2. Button Logic: Filter for 'Down' and 'unreachable' nodes (Status = 2 or 12)
-        table.column(2).search('2', true, false).draw();
-    // Ensure your "Show All" button clears this default
-        $('#btnShowAll').on('click', function() {
-            table.column(2).search('').draw();
+        $.post("/api/orion/sync_now", function(response) {
+            if(response.status === "success") {
+                $('#syncMsg').text('✅ Success!').css('color', 'green');
+                table.ajax.reload(); // Refresh the table display
+            } else {
+                $('#syncMsg').text('❌ ' + response.message).css('color', 'red');
+            }
+            btn.prop('disabled', false).text('🔄 Sync Orion Data');
         });
+    });    
 
-        // Your "Show Down" button logic remains the same
-        $('#btnShowDown').on('click', function() {
-            table.column(2).search('2').draw();
-        });  
+    // 2. Button Logic: Filter for 'Down' and 'unreachable' nodes (Status = 2 or 12)
+    nodeTable.column(2).search('2', true, false).draw();
+    $('#btnShowAll').on('click', function() {
+        nodeTable.column(2).search('').draw();
+    });
+
+    // Your "Show Down" button logic remains the same
+    $('#btnShowDown').on('click', function() {
+        nodeTable.column(2).search('2').draw();
+    });  
 
     /* This will reload the table data from the DB every 60 seconds
     setInterval(function() {
@@ -152,5 +252,146 @@ $(document).ready(function() {
         table.ajax.reload(null, false); 
     }, 60000);        
     */
+
+    // 2. Initialize the Topology Table
+
+    var topoTable = $('#topoTable').DataTable({
+        "ajax": {
+            "url": "/api/orion/topology", // New API endpoint
+            "dataSrc": "data"
+        },
+        "columns": [
+            { "data": "SourceSite" },
+            { "data": "SourceNodeName" },
+            { "data": "SourceInterface" },
+            { "data": "TargetSite" },
+            { "data": "TargetNodeName" },
+            { "data": "TargetInterface" },
+            { "data": "LayerType" },
+            // { "data": "LayerType", "render": function(d) { return d == '2' ? 'Physical' : 'Logical'; } }
+        ],
+        "pageLength": 25
+    });
+
+    // Link the Site Filter for Topology
+    $('#topoSiteFilter').on('keyup', function() {
+        topoTable.search(this.value).draw();
+    // If the user clears the box manually, hide the map automatically
+        if ($(this).val().length === 0) {
+            $('#networkMap').slideUp();
+        }
+    });
+
+    // 3. Initialize Orion Node Status Table for Summary Updates
+    // var orionTable = $('#nodeTable').DataTable({ ... })
+    // NEW: Listen for the "xhr" event (when data comes back from Python)
+    nodeTable.on('xhr', function() {
+        // Use a tiny timeout to ensure the table has processed the data
+        setTimeout(updateSummaryFromUI, 200);
+    });
+    
+    // Optional: Update summary when the user searches/filters the table
+    nodeTable.on('search.dt', function() {
+        // If you want the summary to reflect ONLY filtered results, 
+        // change 'table.rows().data()' to 'table.rows({search:"applied"}).data()' in the function above.
+        updateSummaryFromUI();
+    });
+
 });
+
+function openTab(evt, tabName) {
+    $(".tab-content").removeClass("active");
+    $(".tab-link").removeClass("active");
+    $("#" + tabName).addClass("active");
+    $(evt.currentTarget).addClass("active");
+    
+    // If user clicks the Topology tab, load the map
+    if (tabName === 'topologyTab') {
+        const currentSearch = $('#topoSiteFilter').val(); // Only load if text exists
+        loadNetworkMap(currentSearch);
+    }
+
+    $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+}
+
+function loadNetworkMap(siteName) {
+    const mapDiv = $('#networkMap');
+
+    // If search is empty, hide the map and exit
+    if (!siteName || siteName.trim() === "") {
+        mapDiv.slideUp(); 
+        return;
+    }
+
+    $.getJSON("/api/orion/map_data", { site: siteName }, function(data) {
+        if (data.nodes && data.nodes.length > 0) {
+            // Show the map container with a smooth animation
+            $('#networkMap').slideDown(400, function() {
+            // vis.js needs the div to be visible before it can calculate sizes
+                var layoutType = $('#layoutSelect').val();
+                var container = document.getElementById('networkMap');
+                var directionValue = 'LR'; // 'UD' for Top-to-Bottom, 'LR' for Left-to-Right
+                var options = {
+                    layout: {
+                        hierarchical: {
+                            enabled: true,
+                            direction: directionValue,  // UD, DU, LR, RL
+                            sortMethod: 'hubsize',      // Automatically puts Core switches at the start, better for tree
+                            // sortMethod: 'directed'  // Better for network flow
+                            levelSeparation: 250,       // Distance between layers
+                            nodeSpacing:50,           // Distance between nodes in same layer
+                            treeSpacing: 120,
+                            blockShifting: true,
+                            edgeMinimization: true,
+                            parentCentralization: true,
+                        }
+                    },
+                    physics: { enabled: false }, // Must be false for Tree
+                    nodes: { shape: 'box', margin: 10 },
+                    edges: {
+                        smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.5 },
+                        arrows: { to: { enabled: true } }
+                    },
+                    interaction: {
+                        hover: true,
+                        navigationButtons: true, // Adds +/- zoom buttons to the UI
+                        keyboard: true
+                    }
+                };
+               // Create the network
+                if (layoutType === 'mesh') {
+                      options.layout = { hierarchical: false };
+                      options.physics = { enabled: true, stabilization: true };
+                }
+            new vis.Network(container, data, options); 
+            });
+        } else {
+            mapDiv.slideUp();
+            alert("No topology data found for: " + siteName);
+        }
+    });
+}
+
+function refreshMap() {
+    const siteSearch = $('#topoSiteFilter').val();
+    loadNetworkMap(siteSearch);
+}
+
+function resetMap() {
+    console.log("Resetting map and search filter...");
+    
+    // 1. Clear the input field
+    $('#topoSiteFilter').val('');
+    
+    // 2. Clear the DataTable search if you want the table to show everything again
+    if ($.fn.DataTable.isDataTable('#topoTable')) {
+        $('#topoTable').DataTable().search('').draw();
+    }
+    
+    // 3. Slide the map container up and empty it
+    $('#networkMap').slideUp(400, function() {
+        $(this).html(''); // Remove the canvas/map data to free memory
+    });
+}
+
 </script>
