@@ -296,7 +296,7 @@ def send_command(device_setting,cmds,output, logger=None):
     
     return output
 
-def core_check(log_dir, fname, ip, logger=None):
+def core_check(log_dir, fname, ip, nodeid, logger=None):
     html_output = []
     fname = os.path.split(fname)[1]
     icon_tag = ""
@@ -382,7 +382,13 @@ def core_check(log_dir, fname, ip, logger=None):
             <br>
             <table id="{ip}" style="width:100%;">
                 <tr>
-                    <th style="width:40%;"><b>{hostname}</b></th>
+                    <th style="width:50%;">
+                        <div style="display:flex;justify-content: space-around;">
+                            <div style="width:60%;margin-left:5px"><b>{hostname}</b></div>
+                            <div style="width:20%;margin-left:5px"><a href="https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:{nodeid}" target="_blank">Orion</a></div>
+                            <div style="margin-left:5px"><a href="/webssh?ip={ip}" target="_blank">webssh</a></div>
+                        </div>
+                    </th>
                     <th >{label}<a href=\"\\logs\\core_logs\\{fname}\" target=\"_blank\">{fname}</a></th>
                 </tr>
             """) 
@@ -399,7 +405,7 @@ def core_check(log_dir, fname, ip, logger=None):
             html_output.append(
                 "<tr><td ><img src=\"{}\" alt=\"\"/>BGP Global peers:{}, established:{}</td> <td>{}</td></tr>"
                 "<tr><td ><img src=\"{}\" alt=\"\"/>BGP VPN peers:{}, established:{}</td>    <td>{}</td></tr>"
-                "<tf><td ><img src=\"{}\" alt=\"\"/>OSPF peers:{}, Full:{}</td>              <td>{}</td></tr>"
+                "<tr><td ><img src=\"{}\" alt=\"\"/>OSPF peers:{}, Full:{}</td>              <td>{}</td></tr>"
                 "</table>"
             .format(
                 icon_bgp_ipv4, len(ipv4_peers), count_ipv4, vpnv4_issues_html,
@@ -1037,235 +1043,6 @@ def log_summary(log, hostname):
 
     # print(log,log_analysis)
     return "".join(log_analysis)
-
-
-# def log_summary(log):
-#     import re
-#     from collections import defaultdict
-
-#     if isinstance(log, list):
-#         log = "\n".join(log)
-
-#     log_analysis = []
-
-#     # Structures: {process: {neighbor: [(timestamp, interface, state)]}}
-#     bgp_states = defaultdict(lambda: defaultdict(list))
-#     ospf_states = defaultdict(lambda: defaultdict(list))
-
-#     # Regex patterns
-#     bgp_re = re.compile(
-#         r'(?P<timestamp>%\w+\s+\d+\s[\d:.]+)\s+(?P<year>\d{4}).*?'
-#         r'BGP/\d+/BGP_STATE_CHANGED:\s+(?P<instance>BGP[.\w]*):?\s+'
-#         r'(?P<neighbor>\d+\.\d+\.\d+\.\d+)\s+'
-#         r'(?:state|State)\s+(?:is|has)\s+changed\s+from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)',
-#         re.IGNORECASE
-#     )
-
-
-#     ospf_re = re.compile(
-#         r'(?P<timestamp>%\w+\s+\d+\s[\d:.]+)\s+(?P<year>\d{4}).*?OSPF_NBR_CHG:\s+OSPF\s+(?P<process>\d+)\s+Neighbor\s+(?P<neighbor>\d+\.\d+\.\d+\.\d+)\((?P<iface>[^)]+)\)\s+changed from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)',
-#         re.IGNORECASE
-#     )
-
-#     ospf_reason_re = re.compile(
-#         r"""
-#         (?P<timestamp>%\w+\s+\d+\s+[\d:.]+) \s+ (?P<year>\d{4}) .*?
-#         OSPF_NBR_CHG_REASON: .*? OSPF\s+(?P<process>\d+) .*?
-#         Router\s+[\d.]+\((?P<iface>[^)]+)\) .*?
-#         VPN\sname:\s+(?P<vpn_name>[\w-]+) ,? .*?   # VPN\sname:\s+(?P<vpn_name>\w+) ,? .*?
-#         Neighbor\saddress:\s+(?P<neighbor>[\d.]+) .*?
-#         changed\sfrom\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)
-#         """,
-#         re.IGNORECASE | re.VERBOSE
-#     )
-#     # ospf_reason_re = re.compile(
-#     #     r'(?P<timestamp>%\w+\s+\d+\s[\d:.]+)\s+(?P<year>\d{4}).*?OSPF_NBR_CHG_REASON:.*?OSPF\s+(?P<process>\d+).*?Neighbor address: (?P<neighbor>\d+\.\d+\.\d+\.\d+).*?\((?P<iface>[^)]+)\).*?changed from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)',
-#     #     re.IGNORECASE
-#     # )
-
-#     # ------------------------------------------------------------------
-#     # 2. NEW Cisco patterns
-#     # ------------------------------------------------------------------
-#     # 2-a  %OSPF-5-ADJCHG  (the most common)
-#     cisco_ospf_adjchg = re.compile(
-#         r'(?P<seq>\d+):\s+(?P<mon>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+(?P<tz>\w+):\s+%OSPF-\d+-(?P<type>\w+):\s+'
-#         r'Process\s+(?P<process>\d+),\s+Nbr\s+(?P<neighbor>\d+\.\d+\.\d+\.\d+)\s+on\s+(?P<iface>\S+)\s+'
-#         r'from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)',
-#         re.IGNORECASE
-#     )
-
-#     # 2-b  %BGP-5-ADJCHANGE  (Cisco)
-#     cisco_bgp_adjchg = re.compile(
-#         r'(?P<seq>\d+):\s+(?P<mon>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+(?P<tz>\w+):\s+%BGP-\d+-(?P<type>\w+):\s+'
-#         r'neighbor\s+(?P<neighbor>\d+\.\d+\.\d+\.\d+).*?(?P<state>Up|Down)',
-#         re.IGNORECASE
-#     )
-
-#     # 2-c  “show ip ospf events neighbor reverse generic” lines
-#     #      687  Nov 15 06:32:52.752: Generic:  ospf_external_route_sync  0x0
-#     cisco_ospf_event = re.compile(
-#         r'^\s*(?P<seq>\d+)\s+(?P<mon>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>[\d:.]+):\s+'
-#         r'Generic:\s+(?P<msg>.*?)',
-#         re.IGNORECASE
-#     )
-
-
-#     # Preprocess: Join lines that are part of the same log entry
-#     lines = []
-#     buffer = ""
-#     for line in log.splitlines():
-#         line = line.strip()
-#         if re.match(r"^%\w+\s+\d+\s[\d:.]+\s+\d{4}", line): # New log entry starts
-#             if buffer:
-#                 lines.append(buffer)
-#             buffer = line
-#         else:
-#             buffer += " " + line # Continuation of previous line
-#     if buffer:
-#         lines.append(buffer)
-
-
-#     for line in lines:
-#         line = line.strip()
-
-#         # BGP
-#         bgp_match = bgp_re.search(line)
-#         # print(f"Processing BGP line: {line}")
-#         if bgp_match:
-#             # print(f"Processing BGP line: {line}")
-#             g = bgp_match.groupdict()
-#             timestamp = f"{g['timestamp']} {g['year']}"
-#             instance = g['instance'].rstrip('.:') or "BGP"
-#             bgp_states[instance][g['neighbor']].append((timestamp, "-", g['old'].upper()))
-#             bgp_states[instance][g['neighbor']].append((timestamp, "-", g['new'].upper()))
-#             continue
-
-#         # OSPF standard
-#         ospf_match = ospf_re.search(line)
-#         if ospf_match:
-#             g = ospf_match.groupdict()
-#             vpn = 'N/A'
-#             timestamp = f"{g['timestamp']} {g['year']}"
-#             ospf_states[g['process']][g['neighbor']].append((timestamp, g['iface'], g['new'].upper(), vpn))
-#             continue
-
-#         # OSPF CHG_REASON
-#         ospf_reason_match = ospf_reason_re.search(line)
-#         if ospf_reason_match:
-#             g = ospf_reason_match.groupdict()
-#             timestamp = f"{g['timestamp']} {g['year']}"
-#             vpn = g.get('vpn_name', 'N/A')
-#             ospf_states[g['process']][g['neighbor']].append((timestamp, g['iface'], g['new'].upper(), vpn))
-#             continue
-
-
-#         # ---- Cisco ----------------------------------------------------
-#         # general Cisco patterns
-#         #  cisco bgp neighbor vpn vrf : 024113: Nov 6 00:48:44 PST: %BGP-5-ADJCHANGE: neighbor 10.73.119.241 vpn vrf VCHA-TC2 Up
-#         cisco_vpn_re = re.compile(r'neighbor\s+(\d+\.\d+\.\d+\.\d+).*vpn vrf (\w+-\w+)')
-#         if cisco_vpn_re.search(line):
-#             cisco_vpn_match = cisco_vpn_re.search(line)
-#             cisco_vpn_name = cisco_vpn_match.group(2)
-#             # instance = cisco_vpn_name
-#             # print(f"Debug: Cisco BGP event found {line}, {cisco_vpn_name}")  # Debug print
-
-#         # 1. OSPF ADJCHG
-#         m = cisco_ospf_adjchg.search(line)
-#         if m:
-#             g = m.groupdict()
-#             ts = f"{g['mon']} {g['day']} {g['time']} {g['tz']}"
-#             ospf_states[g['process']][g['neighbor']].append((ts, g['iface'], g['new'].upper(), 'N/A'))
-#             continue
-
-#         # 2. BGP ADJCHANGE
-#         m = cisco_bgp_adjchg.search(line)
-#         if m:
-#             g = m.groupdict()
-#             ts = f"{g['mon']} {g['day']} {g['time']} {g['tz']}"
-#             state = "ESTABLISHED" if g['state'] == "Up" else "DOWN"
-#             bgp_states["BGP"][g['neighbor']].append((ts, "-", state))
-#             continue
-
-#     # === BGP Summary ===
-#     if bgp_states:
-#         log_analysis.append("<h>BGP Current Summary</h>")
-#         bgp_all_states = set()
-#         for neighbors in bgp_states.values():
-#             for entries in neighbors.values():
-#                 bgp_all_states.update(state for _, _, state in entries)
-
-#         header = (
-#             "<tr><th style='width:15%'>Instance</th><th style='width:15%'>Neighbor</th><th style='width:20%'>Current</th><th>LastChange</th>"
-#             + "".join(f"<th>{state}</th>" for state in sorted(bgp_all_states))
-#             + "</tr>"
-#         )
-#         log_analysis.append("<table id='bgp_log_summary' border='1' style='width:100%;table-layout:auto'>" + header)
-
-#         for instance, neighbors in bgp_states.items():
-#             for neighbor, entries in neighbors.items():
-#                 # if cisco_vpn_name and instance == "BGP":
-#                 if cisco_vpn_name :
-#                     instance = cisco_vpn_name #20251031 get vpn instance name from cisco log parsing
-#                 else:
-#                     instance = instance.split('.')[1]  # Get base instance name for HPE BGP.1, BGP.2, etc.
-
-#                 current_ts, current_if, current_state = entries[-1]
-#                 state_counts = {state: 0 for state in bgp_all_states}
-#                 for _, _, state in entries:
-#                     state_counts[state] += 1
-#                 row_style = "style=background-color:Yellow" if current_state != "ESTABLISHED" else "style=background-color:lightgreen"
-#                 row = (
-#                     f"<tr {row_style}><td>{instance}</td><td>{neighbor}</td><td>{current_state}</td><td>{current_ts}</td>"
-#                     + "".join(f"<td>{state_counts[state]}</td>" for state in sorted(bgp_all_states))
-#                     + "</tr>"
-#                 )
-#                 log_analysis.append(row)
-
-#         log_analysis.append("</table>")
-
-#     # === OSPF Summary ===
-#     if ospf_states:
-#         log_analysis.append("<h>OSPF Current Summary</h>")
-#         ospf_all_states = set()
-#         for neighbors in ospf_states.values():
-#             for entries in neighbors.values():
-#                 ospf_all_states.update(state for _, _, state, _ in entries)
-
-#         header = (
-#             "<tr><th style='width:10%'>Process</th><th style='width:15%'>VPN</th><th style='width:15%'>Neighbor</th><th style='width:15%'>Interface</th><th style='width:5%'>Current</th><th>LastChange</th>"
-#             + "".join(f"<th>{state}</th>" for state in sorted(ospf_all_states))
-#             + "</tr>"
-#         )
-#         log_analysis.append("<table id='ospf_log_summary' border='1' style='width:100%;table-layout:auto'>" + header)
-
-#         for process, neighbors in ospf_states.items():
-#             for neighbor, entries in neighbors.items():
-#                 # print( entries)
-#                 current_ts, current_iface, current_state, _ = entries[-1]
-
-#                 # Find the most recent valid VPN name by searching backwards
-#                 last_known_vpn = 'N/A'
-#                 for _, _, _, vpn in reversed(entries):
-#                     if vpn != 'N/A':
-#                         last_known_vpn = vpn
-#                         break # Found it, stop searching
-
-#                 state_counts = {state: 0 for state in ospf_all_states}
-#                 for _, _, state, _ in entries:
-#                     state_counts[state] += 1
-                
-#                 row_style = "style=background-color:Yellow" if current_state != "FULL" else "style=background-color:lightgreen"
-#                 row = (
-#                     f"<tr {row_style}><td>{process}</td><td>{last_known_vpn}</td><td>{neighbor}</td><td>{current_iface}</td><td>{current_state}</td><td>{current_ts}</td>"
-#                     + "".join(f"<td>{state_counts[state]}</td>" for state in sorted(ospf_all_states))
-#                     + "</tr>"
-#                 )
-#                 log_analysis.append(row)
-
-#         log_analysis.append("</table>")
-
-#     # print(log_analysis)
-#     return "".join(log_analysis)
 
 # # 20251127 generate clickable html list
 def list_reports(report_dir):

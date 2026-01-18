@@ -26,7 +26,7 @@
 <script src="/static/js/dataTables.fixedColumns-4.3.1.min.js"></script>
 <script src="/static/js/dataTables.buttons-2.4.1.min.js"></script>
 <script src="/static/js/buttons.html5-2.4.1.min.js"></script>
-<script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script type="text/javascript" src="/static/js/vis-network-10.0.2.min.js"></script>
 
 <div class="tabs">
     <button class="tab-link active" onclick="openTab(event, 'nodeStatusTab')">🖥️ Node Status</button>
@@ -111,10 +111,10 @@
 </div>
 
 <div id="summaryTab" class="tab-content">
-    <div style="margin:0; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-        <label><strong>Node | Site Search:</strong></label>
+    <!--<div style="margin:0; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+         <label><strong>Node | Site Search:</strong></label> 
         <input type="text" id="topoSiteFilter" placeholder="Enter Name..." style="padding: 5px; width: 250px;">
-    </div>
+    </div>-->
 
     <table id="summaryTable" class="display nowrap" style="width:100%">
         <thead>
@@ -354,7 +354,7 @@ $(document).ready(function() {
         updateSummaryFromUI();
     });
 
-    var summaryTable = $('#summaryTable').DataTable({
+   var summaryTable = $('#summaryTable').DataTable({
         "ajax": "/api/orion/get_custom_properties_data",
         // "scrollX": true,           // Allow horizontal scroll
         // "fixedColumns": {
@@ -386,8 +386,15 @@ $(document).ready(function() {
             { "data": "NodeID" }
 
             // Note: You can add all 48 here or use a loop to generate this list
-        ]
+        ],
+        "pageLength": 50,
+        "language": {
+            "search": "Node | Site Search:",
+            "loadingRecords": "Fetching from SQLite cache..."
+        }
+
     });
+    
 
 
 });

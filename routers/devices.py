@@ -39,7 +39,7 @@ async def device_check(
     check_type: str = Form(...),
     core_uname: str = Form(...),
     core_passwd: str = Form(...),
-    # This will be a list of strings like ['cisco_ios:10.10.10.1', 'arista_eos:10.10.10.2']
+    # This will be a list of strings like ['cisco_ios:10.26.101.127:14539']
     core_ipaddress: List[str] = Form([]), 
 ):
     """

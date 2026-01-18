@@ -77,18 +77,18 @@ HPE_OSPF_REASON_REGEX = re.compile(
 
 # Core devices
 CORE_DEVICES = [
-    {"os": "hp_comware", "ip": "10.102.102.80", "name": "LAB-eNG-KEL-Core"},
-    {"os": "hp_comware", "ip": "10.102.102.79", "name": "LAB-eNG-KAM-Core"},
-    {"os": "hp_comware", "ip": "10.8.8.15", "name": "LAB-eNG-CC-Core"},
-    {"os": "hp_comware", "ip": "10.8.8.16", "name": "LAB-eNG-CW-Core"},
-    {"os": "hp_comware", "ip": "10.251.0.75", "name": "KDC-R4.7-Core-1"},
-    {"os": "hp_comware", "ip": "10.251.0.76", "name": "KDC-R4.23-Core-2"},
-    {"os": "hp_comware", "ip": "10.251.18.216", "name": "KDC-DMZ-KAM"},
-    {"os": "hp_comware", "ip": "10.251.18.217", "name": "KDC-DMZ-KEL"},
-    {"os": "cisco_ios", "ip": "10.26.101.127", "name": "NS-LGH-LGAC-01A-C9600-Core1"},
-    {"os": "cisco_ios", "ip": "10.26.101.128", "name": "NS-LGH-LGAC-PIMS-C9600-Core2"},
-    {"os": "arista_eos", "ip": "10.26.101.7", "name": "VGH-JPS3730-Core1"},
-    {"os": "arista_eos", "ip": "10.26.101.8", "name": "VGH-JPNB9-Core2"},
+    {"os": "hp_comware", "ip": "10.102.102.80", "name": "ENG-KEL-HUT8-5945-Core", "nodeid":"16110"},
+    {"os": "hp_comware", "ip": "10.102.102.79", "name": "ENG22-KAM-Core", "nodeid":"11128"},
+    {"os": "hp_comware", "ip": "10.8.8.15", "name": "ENG22-CC-Core", "nodeid":"11130"},
+    {"os": "hp_comware", "ip": "10.8.8.16", "name": "ENG22-CW-Core", "nodeid":"11127"},
+    {"os": "hp_comware", "ip": "10.251.0.75", "name": "KDC-R4.7-Core-1", "nodeid":"12682"},
+    {"os": "hp_comware", "ip": "10.251.0.76", "name": "KDC-R4.23-Core-2", "nodeid":"11434"},
+    {"os": "hp_comware", "ip": "10.251.18.216", "name": "KDC-DMZ-KAM-New", "nodeid":"16100"},
+    {"os": "hp_comware", "ip": "10.251.18.217", "name": "KDC-DMZ-HUT8-5945", "nodeid":"16112"},
+    {"os": "cisco_ios", "ip": "10.26.101.127", "name": "NS-LGH-LGAC-01A-C9600-Core1", "nodeid":"14539"},
+    {"os": "cisco_ios", "ip": "10.26.101.128", "name": "NS-LGH-LGAC-PIMS-C9600-Core2", "nodeid":"14540"},
+    {"os": "arista_eos", "ip": "10.26.101.7", "name": "VH-VGH-3730-7508R-Core1", "nodeid":"3158"},
+    {"os": "arista_eos", "ip": "10.26.101.8", "name": "VH-VGH-JPNB9-7508R-Core2", "nodeid":"3287"},
 ]
 
 # Core device commands

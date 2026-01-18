@@ -82,7 +82,7 @@ class NetworkDeviceManager:
         return cmd_core
 
     
-    def _run_single_check(self, os_type: str, ip: str) -> Dict:
+    def _run_single_check(self, os_type: str, ip: str , nodeid: str) -> Dict:
         """Synchronous (blocking) function to execute commands and analysis."""
         log_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         fname = f"{log_time}_{ip}_{self.username}.txt"
@@ -134,7 +134,7 @@ class NetworkDeviceManager:
 
         # --- PHASE 2: LOG ANALYSIS ---
         try:
-            analysis_html = core_check(str(LOG_OUTPUT_DIR), session_log_file.name, ip) 
+            analysis_html = core_check(str(LOG_OUTPUT_DIR), session_log_file.name, ip, nodeid) 
             
             # Update status only if analysis succeeds
             result.update({
@@ -163,15 +163,16 @@ class NetworkDeviceManager:
         check_args = []
         for item in self.iplist_with_os:
             try:
-                os_type, ip = item.split(':', 1)
-                check_args.append((os_type, ip))
+                # os_type, ip , nodeid = item.split(':', 1)
+                os_type, ip , nodeid = item.split(':')
+                check_args.append((os_type, ip, nodeid))
             except ValueError:
                 self.completed += 1
                 error_msg = f"Skipped invalid IP format: {item}."
                 self.results.append({"ip_string": item, "status": "failed", "error": error_msg})          
         
-        for os_type, ip in check_args:
-            future = loop.run_in_executor(self.executor, self._run_single_check, os_type, ip)
+        for os_type, ip , nodeid  in check_args:
+            future = loop.run_in_executor(self.executor, self._run_single_check, os_type, ip , nodeid )
             futures.append(future)
 
         # Process results as they complete
