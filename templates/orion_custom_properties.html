@@ -31,6 +31,7 @@
 <div class="tabs">
     <button class="tab-link active" onclick="openTab(event, 'nodeStatusTab')">🖥️ Node Status</button>
     <button class="tab-link" onclick="openTab(event, 'topologyTab')">🕸️ Site Topology</button>
+    <button class="tab-link" onclick="openTab(event, 'summaryTab')">Summary</button>
 </div>
 
 <div id="nodeStatusTab" class="tab-content active">
@@ -44,7 +45,7 @@
         <button id="btnShowAll" class="btn-filter-all">Show All Nodes</button>
     </div>
     <!-- <div id="nodeSummary" style=" background: #fff; border: 1px solid #ddd; border-left: 5px solid #dc3545; padding: 15px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"> -->
-    <div style="margin-left: 10px; color: #666;"> NODE HEALTH :
+    <div style="margin-left: 10px; color: #666;"> Node Health :
         <!-- <span id="stat-site-list">
             Dynamically filled with site counts
         </span> -->
@@ -75,7 +76,7 @@
 </div>
 
 <div id="topologyTab" class="tab-content">
-    <div style="margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+    <div style="margin:0; background: #f8f9fa; padding: 15px; border-radius: 8px;">
         <label><strong>Site Topology Search:</strong></label>
         <input type="text" id="topoSiteFilter" placeholder="Enter Site Name..." style="padding: 5px; width: 250px;">
         
@@ -97,15 +98,38 @@
             <tr>
                 <th>Source Site</th>
                 <th>Source Node</th>
+                <th>Source NodeID</th>
                 <th>Source Interface</th>
                 <th>Target Site</th>
                 <th>Target Node</th>
+                <th>Target NodeID</th>
                 <th>Target Interface</th>
                 <th>LayerType</th>
             </tr>
         </thead>
     </table>
 </div>
+
+<div id="summaryTab" class="tab-content">
+    <div style="margin:0; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+        <label><strong>Node | Site Search:</strong></label>
+        <input type="text" id="topoSiteFilter" placeholder="Enter Name..." style="padding: 5px; width: 250px;">
+    </div>
+
+    <table id="summaryTable" class="display nowrap" style="width:100%">
+        <thead>
+            <tr>
+                <th>Site</th>
+                <th>Node</th>
+                <th>NodeID</th>
+                <th>HA</th>
+                <th>SiteAddress</th>
+                <th>City</th>
+            </tr>
+        </thead>
+    </table>
+</div>
+
 
 <script>
 function updateSummaryFromUI() {
@@ -237,12 +261,12 @@ $(document).ready(function() {
     // 2. Button Logic: Filter for 'Down' and 'unreachable' nodes (Status = 2 or 12)
     nodeTable.column(2).search('2', true, false).draw();
     $('#btnShowAll').on('click', function() {
-        nodeTable.column(2).search('').draw();
+        nodeTable.column(2).search('^(2|12)$', true, false).draw();
     });
 
     // Your "Show Down" button logic remains the same
     $('#btnShowDown').on('click', function() {
-        nodeTable.column(2).search('2').draw();
+        nodeTable.column(2).search('^(2|12)$', true, false).draw();
     });  
 
     /* This will reload the table data from the DB every 60 seconds
@@ -260,12 +284,45 @@ $(document).ready(function() {
             "url": "/api/orion/topology", // New API endpoint
             "dataSrc": "data"
         },
+        "columnDefs": [
+        {
+            "targets": [2,6], // The index of the columns want to hide nodeid,from 0
+            "visible": false,     // This hides the column
+            "searchable": true    // Keep this true so you can still search for hidden data!
+        }
+        ],
         "columns": [
             { "data": "SourceSite" },
-            { "data": "SourceNodeName" },
+            { 
+            "data": "SourceNodeName" ,
+            "render": function(data, type, row) {
+                // 'row' contains all the data for this node
+                // row.DetailsUrl is the column from your Orion.Nodes table
+                let url = "https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:" + row.SourceNodeID;
+                
+                // If the URL exists, wrap the name in a link
+                if (url) {
+                    return `<a href="${url}" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">${data}</a>`;
+                }
+                return data;
+            }},
+            { "data": "SourceNodeID" },
             { "data": "SourceInterface" },
             { "data": "TargetSite" },
-            { "data": "TargetNodeName" },
+            { 
+                "data": "TargetNodeName",
+                "render": function(data, type, row) {
+                // 'row' contains all the data for this node
+                // row.DetailsUrl is the column from your Orion.Nodes table
+                    let url = "https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:" + row.TargetNodeID;
+                
+                // If the URL exists, wrap the name in a link
+                    if (url) {
+                        return `<a href="${url}" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">${data}</a>`;
+                    }
+                    return data;
+            }},
+            { "data": "TargetNodeID" },
             { "data": "TargetInterface" },
             { "data": "LayerType" },
             // { "data": "LayerType", "render": function(d) { return d == '2' ? 'Physical' : 'Logical'; } }
@@ -296,6 +353,42 @@ $(document).ready(function() {
         // change 'table.rows().data()' to 'table.rows({search:"applied"}).data()' in the function above.
         updateSummaryFromUI();
     });
+
+    var summaryTable = $('#summaryTable').DataTable({
+        "ajax": "/api/orion/get_custom_properties_data",
+        // "scrollX": true,           // Allow horizontal scroll
+        // "fixedColumns": {
+        //     "left": 2              // Keep Site and HA visible while scrolling
+        // },
+        "columnDefs": [
+                {
+                    "targets": [2], // The index of the columns want to hide nodeid,status,seconds,bilding,city (starting from 0)
+                    "visible": false,     // This hides the column
+                    "searchable": true    // Keep this true so you can still search for hidden data!
+                }
+            ],        
+        "columns": [
+            { "data": "Site" },
+            {
+            "data": "NodeName",
+            "render": function(data, type, row) {
+                // 'row' contains all the data for this node
+                // row.DetailsUrl is the column from your Orion.Nodes table
+                let url = "https://orion.net.mgmt" + row.DetailsUrl;
+                
+                // If the URL exists, wrap the name in a link
+                if (url) {
+                    return `<a href="${url}" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">${data}</a>`;
+                }
+                return data;
+            }
+            },
+            { "data": "NodeID" }
+
+            // Note: You can add all 48 here or use a loop to generate this list
+        ]
+    });
+
 
 });
 
