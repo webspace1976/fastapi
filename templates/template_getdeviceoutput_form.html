@@ -14,8 +14,8 @@
                     Device IP address (Multi-Select): <br>
                     <select name="core_ipaddress" multiple style="width:300px;height:200px;" >
                         {% for device in core_devices %}
-                        <option value="{{ device.os }}:{{ device.ip }}:{{ device.nodeid }}">
-                                {{ device.name }} ({{ device.ip }})
+                        <option value="{{ device.os }}:{{ device.ip }}:{{ device.nodeid }}">{{ device.name }} ({{ device.ip }})
+                        </option>
                         {% endfor %}
                     </select>
                     <br><br>

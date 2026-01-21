@@ -30,8 +30,8 @@
 
 <div class="tabs">
     <button class="tab-link active" onclick="openTab(event, 'nodeStatusTab')">🖥️ Node Status</button>
-    <button class="tab-link" onclick="openTab(event, 'topologyTab')">🕸️ Site Topology</button>
-    <button class="tab-link" onclick="openTab(event, 'summaryTab')">Summary</button>
+    <!-- <button class="tab-link" onclick="openTab(event, 'topologyTab')">🕸️ Site Topology</button>
+    <button class="tab-link" onclick="openTab(event, 'summaryTab')">Summary</button> -->
 </div>
 
 <div id="nodeStatusTab" class="tab-content active">
@@ -75,9 +75,10 @@
     </table>
 </div>
 
+<!--
 <div id="topologyTab" class="tab-content">
     <div style="margin:0; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-        <label><strong>Site Topology Search:</strong></label>
+        <label><strong>Site Searching:</strong></label>
         <input type="text" id="topoSiteFilter" placeholder="Enter Site Name..." style="padding: 5px; width: 250px;">
         
         <button onclick="refreshMap()" class="btn-filter-all">🔍 Generate Map</button>
@@ -90,7 +91,6 @@
         </select>
 
     </div>
-
     <div id="networkMap" style="display: none; height: 300px; width: 100%; border: 1px solid #ddd; background: #fff; margin-bottom: 20px; border-radius: 8px;"></div>
 
     <table id="topoTable" class="display nowrap" style="width:100%">
@@ -111,11 +111,6 @@
 </div>
 
 <div id="summaryTab" class="tab-content">
-    <!--<div style="margin:0; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-         <label><strong>Node | Site Search:</strong></label> 
-        <input type="text" id="topoSiteFilter" placeholder="Enter Name..." style="padding: 5px; width: 250px;">
-    </div>-->
-
     <table id="summaryTable" class="display nowrap" style="width:100%">
         <thead>
             <tr>
@@ -129,7 +124,7 @@
         </thead>
     </table>
 </div>
-
+-->
 
 <script>
 function updateSummaryFromUI() {
@@ -236,7 +231,7 @@ $(document).ready(function() {
         "order": [[5, "asc"]],  // Default sort by StatusDescription descending
         "pageLength": 50,
         "language": {
-            "search": "Global Search (Site/Ticket/Node):",
+            "search": "Global Search (Site/Node):",
             "loadingRecords": "Fetching from SQLite cache..."
         }
     });
@@ -261,7 +256,7 @@ $(document).ready(function() {
     // 2. Button Logic: Filter for 'Down' and 'unreachable' nodes (Status = 2 or 12)
     nodeTable.column(2).search('2', true, false).draw();
     $('#btnShowAll').on('click', function() {
-        nodeTable.column(2).search('^(2|12)$', true, false).draw();
+        nodeTable.column(2).search('', true, false).draw();
     });
 
     // Your "Show Down" button logic remains the same
@@ -388,10 +383,10 @@ $(document).ready(function() {
             // Note: You can add all 48 here or use a loop to generate this list
         ],
         "pageLength": 50,
-        "language": {
+        /*"language": {
             "search": "Node | Site Search:",
             "loadingRecords": "Fetching from SQLite cache..."
-        }
+        }*/
 
     });
     

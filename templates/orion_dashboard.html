@@ -113,7 +113,7 @@
                     </div>
                     
                 <div style="text-align: right;">
-                    <label for="nodeChart"><button id="nodeChartButton">Chart Display</button></label>    
+                    <label for="nodeChartButton"><button id="nodeChartButton">Chart Display</button></label>    
                 </div>    
                 <div id="nodeChartDown" style="display:none">
                     <!-- chart display function from my_javasctip : piePlot('nodedownTable',nodeChartDown') -->
@@ -135,7 +135,7 @@
                     <div style="font-size: 12px;box-sizing: border-box;display: flex;justify-content: space-between;">
                         <div><label for="interfaceStackButton"><button id="interfaceStackButton">Stack,Teraspan,Uplink</button></label></div>
                         <div><label for="interfaceCoreButton"><button id="interfaceCoreButton">KDC, Core</button></label></div>
-                        <div><label for="interfaceChart"><button id="interfaceChartButton">Chart Display</button></label></div>
+                        <div><label for="interfaceChartButton"><button id="interfaceChartButton">Chart Display</button></label></div>
                     </div>
 
                     <div id="interfaceStackDown" style="display:none; margin-top:0;"></div>
@@ -298,6 +298,86 @@
             applyFilters();
         });
 
+    function regroupAndColspan() {
+        const table = document.getElementById('nodedownTable');
+        if (!table) return;
+        const tbody = table.tBodies[0];
+        const rows = Array.from(tbody.rows);
+
+        // 1. Helper to parse "3d 21h 48m" into seconds for sorting
+        function toSeconds(str) {
+            const d = (str.match(/(\d+)d/) || [0, 0])[1];
+            const h = (str.match(/(\d+)h/) || [0, 0])[1];
+            const m = (str.match(/(\d+)m/) || [0, 0])[1];
+            return (parseInt(d) * 86400) + (parseInt(h) * 3600) + (parseInt(m) * 60);
+        }
+
+        // 2. Extract Data & Find "Site-wide Newest Event"
+        const siteStats = {};
+        const data = rows.map(row => {
+            // Extract the full HTML of the site link (cell index 2)
+            const siteLinkHTML = row.cells[2].innerHTML; 
+            const siteText = row.cells[2].innerText.trim();
+            const seconds = toSeconds(row.cells[0].innerText);
+            
+            if (!siteStats[siteText] || seconds < siteStats[siteText]) {
+                siteStats[siteText] = seconds;
+            }
+            return { 
+                el: row, 
+                siteText: siteText, 
+                siteHTML: siteLinkHTML, 
+                seconds: seconds 
+            };
+        });
+
+        // 3. Sort: Site with newest event (shortest duration) first
+        data.sort((a, b) => {
+            if (siteStats[a.siteText] !== siteStats[b.siteText]) {
+                return siteStats[a.siteText] - siteStats[b.siteText];
+            }
+            return a.seconds - b.seconds;
+        });
+
+        // 4. Clear and Re-render
+        tbody.innerHTML = '';
+        let currentSite = null;
+
+        data.forEach(item => {
+            if (item.siteText !== currentSite) {
+                // Create the Group Header Row
+                const header = document.createElement('tr');
+                header.style.backgroundColor = "#f2f4f6";
+                header.style.fontWeight = "bold";
+                
+                const cell = document.createElement('td');
+                // Span across the 3 columns we are keeping
+                cell.colSpan = 3; 
+                //cell.style.padding = "8px";
+                // Insert the original link with the map icon
+                cell.innerHTML = `<i class="fa fa-map-marker"></i><b> SITE:  ${item.siteHTML} </b>`;
+                
+                header.appendChild(cell);
+                tbody.appendChild(header);
+                currentSite = item.siteText;
+            }
+            
+            // --- MODIFY ROW FOR 2 COLUMNS ---
+            // Hide Site (cell 2), Type (cell 3), and IP (cell 4)
+            item.el.cells[1].style.marginLeft = "10px"; 
+            item.el.cells[2].style.display = 'none'; 
+            //if(item.el.cells[3]) item.el.cells[3].style.display = 'none';
+            if(item.el.cells[4]) item.el.cells[4].style.display = 'none';
+            
+            tbody.appendChild(item.el);
+        });
+        tbody.style.visibility = 'visible';
+    }
+
+    // Run it after your table data is loaded
+    $(document).ready(function() {
+        setTimeout(regroupAndColspan);
+    });
         </script>
     </body>
 </html>

@@ -141,6 +141,7 @@ swis_sitedown= 'SELECT SUM(1) as value, Site FROM (SELECT nodeid,DisplayName,CP.
 swis_site='''
 SELECT 
     ISNULL(CP.CustomProperties.Site, 'Unknown') AS Site, 
+    ISNULL(CP.CustomProperties.HA, 'None') AS HA,
     ISNULL(CP.CustomProperties.Address, 'None') AS Address,
     MAX(ISNULL(CP.CustomProperties.City, 'None')) AS City,
     COUNT(nodeid) AS TotalNodes,
@@ -148,11 +149,21 @@ SELECT
 FROM Orion.Nodes CP
 GROUP BY 
     ISNULL(CP.CustomProperties.Site, 'Unknown'), 
+    ISNULL(CP.CustomProperties.HA, 'None'),
     ISNULL(CP.CustomProperties.Address, 'None')
 ORDER BY DownCount DESC
 '''
 # 20251023 Add N.NodeID to the swis_nodedown2 query so we can reference NodeID in the node down table (for linking to UDT details).
-swis_nodedown2='SELECT N.NodeID,N.DetailsUrl,N.NodeName,N.Status,N.StatusDescription,N.IPAddress,NCP.Site,NCP.SiteType, tolocal(MAX(E.EventTime)) AS DownTime, ToString(DayDiff(0,GETUTCDATE() - MAX(E.EventTime))) + \'d \'  + ToString(Ceiling((HourDiff(0, GETUTCDATE() - MAX(E.EventTime)) / 24.0 - Floor(HourDiff(0,GETUTCDATE() - MAX(E.EventTime)) / 24.0)) * 24 )) + \'h \'+ ToString(Ceiling((MinuteDiff(0, GETUTCDATE() - MAX(E.EventTime)) / 60.0 - Floor(MinuteDiff(0,GETUTCDATE() - MAX(E.EventTime)) / 60.0) ) * 60 )) + \'m \' AS Duration, SecondDiff(0,GETUTCDATE() - MAX(E.EventTime)) as Seconds FROM orion.Nodes N  INNER JOIN orion.Events E ON E.NetworkNode = N.NodeID  INNER JOIN orion.NodesCustomProperties NCP ON NCP.NodeID = N.NodeID  where N.status NOT IN (1,9) and eventtype = 1 and N.IP not like \'%10.200%\' and N.IP not like \'%10.202%\'GROUP BY N.NodeID, N.Status,N.StatusDescription, NCP.Site,N.Caption,NCP.Site,NCP.SiteType,N.DetailsUrl,N.IPAddress order BY Seconds'
+swis_nodedown2='''
+SELECT 
+    N.NodeID,N.DetailsUrl,N.NodeName,N.Status,N.StatusDescription,N.IPAddress,NCP.Site,NCP.SiteType, tolocal(MAX(E.EventTime)) AS DownTime, ToString(DayDiff(0,GETUTCDATE() - MAX(E.EventTime))) + \'d \'  + ToString(Ceiling((HourDiff(0, GETUTCDATE() - MAX(E.EventTime)) / 24.0 - Floor(HourDiff(0,GETUTCDATE() - MAX(E.EventTime)) / 24.0)) * 24 )) + \'h \'+ ToString(Ceiling((MinuteDiff(0, GETUTCDATE() - MAX(E.EventTime)) / 60.0 - Floor(MinuteDiff(0,GETUTCDATE() - MAX(E.EventTime)) / 60.0) ) * 60 )) + \'m \' AS Duration, SecondDiff(0,GETUTCDATE() - MAX(E.EventTime)) as Seconds 
+FROM orion.Nodes N  
+INNER JOIN orion.Events E ON E.NetworkNode = N.NodeID  
+INNER JOIN orion.NodesCustomProperties NCP ON NCP.NodeID = N.NodeID  
+where N.status NOT IN (1,9) and eventtype = 1 and N.IP not like \'%10.200%\' and N.IP not like \'%10.202%\'
+GROUP BY N.NodeID, N.Status,N.StatusDescription, NCP.Site,N.Caption,NCP.Site,NCP.SiteType,N.DetailsUrl,N.IPAddress 
+ORDER BY NCP.Site ASC, Seconds 
+'''
 
 swis_nodeduration='''
 SELECT N.NodeID,N.DetailsUrl,N.NodeName,N.Status,N.StatusDescription,N.IPAddress,NCP.Site,NCP.SiteType, tolocal(MAX(E.EventTime)) AS DownTime, ToString(DayDiff(0,GETUTCDATE() - MAX(E.EventTime))) + \'d \'  + ToString(Ceiling((HourDiff(0, GETUTCDATE() - MAX(E.EventTime)) / 24.0 - Floor(HourDiff(0,GETUTCDATE() - MAX(E.EventTime)) / 24.0)) * 24 )) + \'h \'+ ToString(Ceiling((MinuteDiff(0, GETUTCDATE() - MAX(E.EventTime)) / 60.0 - Floor(MinuteDiff(0,GETUTCDATE() - MAX(E.EventTime)) / 60.0) ) * 60 )) + \'m \' AS Duration, SecondDiff(0,GETUTCDATE() - MAX(E.EventTime)) as Seconds 
@@ -162,7 +173,7 @@ INNER JOIN orion.NodesCustomProperties NCP ON NCP.NodeID = N.NodeID
 where N.status NOT IN (9,11) -- 9 unmanager, 11 external
 AND e.eventtype IN (1,5,9,14)  --1 Down, 5 Up, added, reboot
 GROUP BY N.NodeID, N.Status,N.StatusDescription, NCP.Site,N.Caption,NCP.Site,NCP.SiteType,N.DetailsUrl,N.IPAddress
-order BY Seconds
+ORDER BY Seconds 
 '''
 
 swis_bgp="SELECT  rn.NodeID,rr.Caption, rn.NeighborID, ln.Caption as RemoteRouter, rn.NeighborIP, orrp.DisplayName,rn.AutonomousSystem AS RemoteAS, rpsm.DisplayName AS Status, rn.LastChange FROM Orion.Routing.Neighbors rn  left JOIN orion.Nodes n on rn.NodeID=n.NodeID LEFT JOIN orion.Nodes ln on rn.NeighborIP=ln.IPAddress JOIN Orion.Routing.Router rr ON rn.NodeID=rr.NodeID JOIN Orion.Routing.RoutingProtocol orrp on rn.ProtocolID=orrp.ProtocolID JOIN Orion.Routing.RoutingProtocolStateMapping rpsm  ON rn.ProtocolID=rpsm.ProtocolID AND rn.ProtocolStatus=rpsm.ProtocolStatus WHERE orrp.ProtocolID=14 ORDER BY n.Caption"
