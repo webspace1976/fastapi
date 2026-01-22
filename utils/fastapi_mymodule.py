@@ -633,7 +633,7 @@ def log_check(log_file_path, logger=None, label="Log file"):
             )        
 
             # summary_content = log_summary("\n".join(filtered_entries))
-            summary_content = log_summary("\n".join(filtered_entries), hostname)
+            summary_content = log_summary("\n".join(filtered_entries), hostname, ip)
 
         if current_os == 'arista_eos' or current_os == 'cisco_ios':
             count_ipv4 = sum(1 for line in ipv4_peers if not "Idle" in line)
@@ -781,7 +781,7 @@ def ospf_summary(blocks):
     # print(summary_results)
     return summary_results
 
-def log_summary(log, hostname):
+def log_summary(log, hostname, ip):
     import re
     from collections import defaultdict
 
@@ -790,6 +790,7 @@ def log_summary(log, hostname):
 
     log_analysis = []
     os_type = "unknown"
+    vpn_instance = "Global" 
 
     # Structures:
     # BGP: {instance: {neighbor: [(timestamp, interface, state)]}}
@@ -901,11 +902,23 @@ def log_summary(log, hostname):
             timestamp = f"{g['timestamp']} {g['year']}"
             # if cisco_vpn_re.search(line):
             #     cisco_vpn_match = cisco_vpn_re.search(line)
-            #     cisco_vpn_name = cisco_vpn_match.group(2)
-            #     instance = cisco_vpn_name
+            #     vpn_instance = cisco_vpn_match.group(2)
+            #     instance = vpn_instance
             # else:
             #     instance = g['instance'].rstrip('.:') or "BGP"
-            instance = g['instance'].rstrip('.:') or "BGP"
+            # instance = g['instance'].rstrip('.:') or "BGP"
+
+            # Ensure this variable is always set
+            if 'instance' in g:
+            # If it's just 'BGP' or 'BGP.', treat it as Global
+                parsed = g['instance'].rstrip('.:')
+                instance = parsed if parsed and parsed != "BGP" else "Global"
+            else:
+                instance = "Global"
+
+            # Use a generic name instead of cisco_vpn_name
+            vpn_instance = instance
+
             bgp_states[instance][g['neighbor']].append((timestamp, "-", g['old'].upper()))
             bgp_states[instance][g['neighbor']].append((timestamp, "-", g['new'].upper()))
             continue
@@ -916,9 +929,9 @@ def log_summary(log, hostname):
         cisco_vpn_re = re.compile(r'neighbor\s+(\d+\.\d+\.\d+\.\d+).*vpn vrf (\w+-\w+)')
         if cisco_vpn_re.search(line):
             cisco_vpn_match = cisco_vpn_re.search(line)
-            cisco_vpn_name = cisco_vpn_match.group(2)
-            # instance = cisco_vpn_name
-            # print(f"Debug: Cisco BGP event found {line}, {cisco_vpn_name}")  # Debug print
+            vpn_instance = cisco_vpn_match.group(2)
+            # instance = vpn_instance
+            # print(f"Debug: Cisco BGP event found {line}, {vpn_instance}")  # Debug print
 
         # 1. OSPF ADJCHG
         m = cisco_ospf_adjchg.search(line)
@@ -953,16 +966,17 @@ def log_summary(log, hostname):
         log_analysis.append("<table id='bgp_log_summary' border='1' style='font-size:12px;width:100%;border:none'>" + header)
         for instance, neighbors in bgp_states.items():
             for neighbor, entries in neighbors.items():
-                # if cisco_vpn_name and instance == "BGP":
-                if cisco_vpn_name :
-                    instance = cisco_vpn_name #20251031 get vpn instance name from cisco log parsing
+                # if vpn_instance and instance == "BGP":
+                if vpn_instance :
+                    instance = vpn_instance #20251031 get vpn instance name from cisco log parsing
                 else:
                     instance = instance.split('.')[1]  # Get base instance name for HPE BGP.1, BGP.2, etc.
                 #20251031 get current state from monitor.peer_uptime function
                 current_ts, _, current_state = entries[-1]
                 # bgp_live_status = monitor.get_peer_status('bgp', neighbor, log)
-                logger.debug(f"Debug: Getting BGP status for Host: {hostname}, Instance: {instance}, Neighbor: {neighbor}")  # Debug print
-                bgp_live_status = monitor.get_peer_status('bgp', hostname,instance, neighbor)
+                logger.debug(f"Debug: Getting BGP status for Host: {ip}, Instance: {instance}, Neighbor: {neighbor}")  # Debug print
+                # bgp_live_status = monitor.get_peer_status('bgp', hostname,instance, neighbor)
+                bgp_live_status = monitor.get_peer_status('bgp', ip ,instance, neighbor)
                 # bgp_live_status = bgp_states.get('instance')
                 if isinstance(bgp_live_status, list):
                     # Expect a single element list; take the first one
@@ -1018,7 +1032,7 @@ def log_summary(log, hostname):
                         break # Found it, stop searching
 
                 #20251031 get current state from monitor.peer_uptime function
-                ospf_live_status = monitor.get_peer_status('ospf', hostname, vpn, neighbor)
+                ospf_live_status = monitor.get_peer_status('ospf', ip, vpn, neighbor)
                 ospf_peer_state = ospf_live_status.get('state', 'UNKNOWN').upper() if ospf_live_status else 'UNKNOWN'
                 ospf_peer_duration = ospf_live_status.get('verbose_uptime', 'UNKNOWN') if ospf_live_status else 'UNKNOWN'   
                                    
@@ -1041,7 +1055,7 @@ def log_summary(log, hostname):
                 log_analysis.append(row)
         log_analysis.append("</table><br>")
 
-    # print(log,log_analysis)
+    print(log,log_analysis)
     return "".join(log_analysis)
 
 # # 20251127 generate clickable html list

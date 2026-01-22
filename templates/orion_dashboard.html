@@ -353,9 +353,9 @@
                 const cell = document.createElement('td');
                 // Span across the 3 columns we are keeping
                 cell.colSpan = 3; 
-                //cell.style.padding = "8px";
+                cell.style.paddingLeft = "14%";
                 // Insert the original link with the map icon
-                cell.innerHTML = `<i class="fa fa-map-marker"></i><b> SITE:  ${item.siteHTML} </b>`;
+                cell.innerHTML = `<b> ${item.siteHTML} </b>`;
                 
                 header.appendChild(cell);
                 tbody.appendChild(header);
@@ -364,7 +364,7 @@
             
             // --- MODIFY ROW FOR 2 COLUMNS ---
             // Hide Site (cell 2), Type (cell 3), and IP (cell 4)
-            item.el.cells[1].style.marginLeft = "10px"; 
+            item.el.cells[1].style.paddingLeft = "10px"; 
             item.el.cells[2].style.display = 'none'; 
             //if(item.el.cells[3]) item.el.cells[3].style.display = 'none';
             if(item.el.cells[4]) item.el.cells[4].style.display = 'none';

@@ -333,8 +333,15 @@ def generate_node_table(session):
     site_data = results_site.get("results", [])
     for row_site in results_site['results']:
         if row_site.get('DownCount') and row_site.get('DownCount') == row_site.get('TotalNodes'):
-            # sitedown_list.append(row_site.get('Site',''))
-            sitedown_list.append(f"{row_site.get('Site')}, {row_site.get('Address')}, {row_site.get('City')}, {row_site.get('DownCount')}/{row_site.get('TotalNodes')}")
+            # Store as a dictionary for precise matching later
+            sitedown_list.append({
+                'Site': row_site.get('Site'),
+                'Address': row_site.get('Address'),
+                'FullDisplay': f"{row_site.get('Site')}, {row_site.get('Address')}, {row_site.get('City')}, {row_site.get('DownCount')}/{row_site.get('TotalNodes')}"
+            })        
+        # if row_site.get('DownCount') and row_site.get('DownCount') == row_site.get('TotalNodes'):
+        #     # sitedown_list.append(row_site.get('Site',''))
+        #     sitedown_list.append(f"{row_site.get('Site')}, {row_site.get('Address')}, {row_site.get('City')}, {row_site.get('DownCount')}/{row_site.get('TotalNodes')}")
     logger.debug(f"Debug: sitedown_list: {sitedown_list}")
     # 20250106 update site down logic to check from site table
 
@@ -369,20 +376,35 @@ def generate_node_table(session):
             #20250106 update site url link to orion search via "urllib"
             site_searchurl = "https://orion.net.mgmt/apps/search/?q="
             node_name = str(row.get('NodeName') or '')
+            node_address = str(row.get('Address') or 'None')
+            node_city = str(row.get('City') or 'None')
             raw_site_name = row.get('Site', 'Unknown')
             
             # 1. Find the match in the sitedown_list using a prefix match
             # We check if the item in the list starts with the specific site name
-            site_down_match = next((item for item in sitedown_list if item.startswith(f"{raw_site_name},")), None)
+            # site_down_match = next((item for item in sitedown_list if item.startswith(f"{raw_site_name},")), None)
+            # 20260121. Match by BOTH Site Name and Address to distinguish campus buildings
+            site_down_match = next((
+                item for item in sitedown_list 
+                if item['Site'] == raw_site_name and item['Address'] == node_address
+            ), None)
 
             if site_down_match:
-                # If matched, use the detailed string for display and add the tag
-                display_site_name = site_down_match
+                # Use the specific display string we built earlier
+                display_site_name = site_down_match['FullDisplay']
                 is_down = True
             else:
-                # If not matched, use the standard site name
-                display_site_name = raw_site_name
+                display_site_name = raw_site_name + ", " + node_address + ", " + node_city
                 is_down = False
+
+            # if site_down_match:
+            #     # If matched, use the detailed string for display and add the tag
+            #     display_site_name = site_down_match
+            #     is_down = True
+            # else:
+            #     # If not matched, use the standard site name
+            #     display_site_name = raw_site_name + ", " + node_address + ", " + node_city
+            #     is_down = False
                 
             escaped_node_name = html.escape(node_name)
             escaped_site_display = html.escape(display_site_name)
@@ -404,19 +426,18 @@ def generate_node_table(session):
             )  
 
     results_html = f"""
-    <table id="nodedownTable" style="font-size:11px; width:100%">
+    <table id="nodedownTable" style="visibility:'hidden';font-size:11px; width:100%">
         <thead>
             <tr>
                 <th style="width:14%">Duration</th> 
-                <th colspan="2" >
-                    <div>
-                        <strong>Node Link-Toggle:</strong>
+                <th >
+                    <div>Node Link-Toggle:
                         <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="Orion" checked>Orion Node</label>
                         <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="SNOW">SNOW</label>
                         <label><input type="radio" name="link_type_nodedownTable" value="Orion_UDT">Orion UDT</label>
                     </div>
                 </th> 
-                <th style="width:12%">Type</th>
+                <th style="width:20%">Type</th>
                 <th style="display:none">IPAddress</th>
             </tr>
         </thead>

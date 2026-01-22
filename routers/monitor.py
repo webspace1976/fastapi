@@ -478,7 +478,7 @@ def get_comprehensive_ospf_report(conn):
     return report
 
 #20251031
-def get_peer_status(protocol: str, hostname: str, instance_name: str, neighbor: str) -> Optional[Dict]:
+def get_peer_status(protocol: str, host_ip: str, instance_name: str, neighbor: str) -> Optional[Dict]:
     """
     Return current peer status from the latest snapshot.
     """
@@ -491,33 +491,33 @@ def get_peer_status(protocol: str, hostname: str, instance_name: str, neighbor: 
             row = conn.execute(
                 """
                 SELECT * FROM bgp_peer_status
-                WHERE hostname = ? AND vpn_instance = ? AND neighbor_ip = ?
+                WHERE host_ip = ? AND vpn_instance = ? AND neighbor_ip = ?
                 ORDER BY last_snapshot_id DESC
                 LIMIT 1
                 """,
-                (hostname, instance_name, neighbor)
+                (host_ip, instance_name, neighbor)
             ).fetchone()
 
         elif protocol.lower() == 'ospf':
             row = conn.execute(
                 """
                 SELECT * FROM ospf_peer_status
-                WHERE hostname = ? AND neighbor_address = ?
+                WHERE host_ip = ? AND neighbor_address = ?
                 ORDER BY last_snapshot_id DESC
                 LIMIT 1
                 """,
-                (hostname, neighbor)
+                (host_ip, neighbor)
             ).fetchone()
         else:
             row = None
 
         if row is None:
-            logger.info(f"No current status found for {protocol} peer: hostname={hostname}, neighbor={neighbor}")
+            logger.info(f"No current status found for {protocol} peer: hostIP={host_ip}, neighbor={neighbor}")
         else:
             if protocol.lower() == 'bgp':
-                logger.info(f"{hostname} Found current status for {protocol} peer {neighbor}: state={row['state']}, verbose_uptime={row['up_down_time']}")
+                logger.info(f"{host_ip} Found current status for {protocol} peer {neighbor}: state={row['state']}, verbose_uptime={row['up_down_time']}")
             elif protocol.lower() == 'ospf':
-                logger.info(f"{hostname} Found current status for {protocol} peer {neighbor}: state={row['state']}, verbose_uptime={row['verbose_uptime']}")
+                logger.info(f"{host_ip} Found current status for {protocol} peer {neighbor}: state={row['state']}, verbose_uptime={row['verbose_uptime']}")
 
         return dict(row) if row else None
 

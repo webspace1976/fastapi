@@ -110,6 +110,7 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
     relative_log_path = os.path.relpath(log_file_path, log_dir_base).replace('\\', '/')
     logger.info(f"Processing file: {log_file_path}")
     hostname, vendor = (None, None)
+    vpn_instance = "Global"  # Initialize with a default value
 
     # Use log file timestamp as last_updated and snapshot_id
     try:
@@ -372,6 +373,7 @@ def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
     in_bgp_section = False
     in_ospf_section = False
     current_vpn_instance = "Global"
+    cisco_vpn_name = "Global"
     current_ospf_process = "0"
     current_ospf_area = None
     current_interface = None
@@ -542,16 +544,31 @@ def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
                         logger.debug(f"Checking line for last down event: {next_line}")
                         if "---- More ----" in next_line or not next_line:
                             break
-                        if next_line.startswith("Router ID:"):
-                            last_down_event["router_id"] = re.search(r"Router ID:\s*([\d\.]+)", next_line).group(1)
-                        elif next_line.startswith("Local Address:"):
-                            last_down_event["last_local"] = re.search(r"Local Address:\s*([\d\.]+)", next_line).group(1)
-                        elif next_line.startswith("Remote Address:"):
-                            last_down_event["last_remote"] = re.search(r"Remote Address:\s*([\d\.]+)", next_line).group(1)
-                        elif next_line.startswith("Time:"):
-                            last_down_event["last_time"] = next_line.split("Time:")[1].strip()
-                        elif next_line.startswith("Reason:"):
-                            last_down_event["last_reason"] = next_line.split("Reason:")[1].strip()
+
+                        # Use re.IGNORECASE and allow for flexible whitespace (\s+)
+                        router_id_match = re.search(r"Router\s*ID:\s*([\d\.]+)", next_line, re.I)
+                        local_match = re.search(r"Local\s*Address:\s*([\d\.]+)", next_line, re.I)
+                        remote_match = re.search(r"(?:Remote|Neighbor)\s*Address:\s*([\d\.]+)", next_line, re.I)
+                        time_match = re.search(r"Time:\s*(.*)", next_line, re.I)
+                        reason_match = re.search(r"Reason:\s*(.*)", next_line, re.I)
+
+                        # Capture the values safely
+                        last_down_event["router_id"] = router_id_match.group(1) if router_id_match else None
+                        last_down_event["last_local"] = local_match.group(1) if local_match else None
+                        last_down_event["last_remote"] = remote_match.group(1) if remote_match else None
+                        last_down_event["last_time"] = time_match.group(1).strip() if time_match else None
+                        last_down_event["last_reason"] = reason_match.group(1).strip() if reason_match else None
+
+                        # if next_line.startswith("Router ID:"):
+                        #     last_down_event["router_id"] = re.search(r"Router ID:\s*([\d\.]+)", next_line, re.I).group(1)
+                        # elif next_line.startswith("Local Address:"):
+                        #     last_down_event["last_local"] = re.search(r"Local Address:\s*([\d\.]+)", next_line, re.I).group(1)
+                        # elif next_line.startswith("Remote Address:"):
+                        #     last_down_event["last_remote"] = re.search(r"Remote Address:\s*([\d\.]+)", next_line, re.I).group(1)
+                        # elif next_line.startswith("Time:"):
+                        #     last_down_event["last_time"] = next_line.split("Time:")[1].strip()
+                        # elif next_line.startswith("Reason:"):
+                        #     last_down_event["last_reason"] = next_line.split("Reason:")[1].strip()
                         j += 1
                     if last_down_event.get("last_remote"):
                         current_ospf_process["lastevents"][last_down_event["last_remote"]] = last_down_event.copy()
