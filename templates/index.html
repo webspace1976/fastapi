@@ -41,11 +41,6 @@
                 background-color: #fff; /* Default background color for non-active links */
             }       
     
-            /* Style the main content area */
-            main {
-                margin-left: 120px; /* Adjust this value to accommodate the navbar width */
-            }
-            
             /* Style the loading message */
             #loading-message {
                 display: none; /* Initially hidden */
@@ -59,19 +54,59 @@
             height: calc(120vh - 40px); /* Adjust for header height and padding */
             border: none;
         }
+        /* Update your existing nav style */
+nav {
+    float: left;
+    width: 120px; /* Increased width for better readability */
+    background-color: #f1f1f1;
+    height: 100vh; 
+    transition: 0.3s; /* Smooth sliding effect */
+    overflow-x: hidden;
+}
+
+/* Style for when the nav is hidden/collapsed */
+nav.collapsed {
+    width: 0px;
+}
+
+/* Hide text links when collapsed */
+nav.collapsed li a {
+    font-size: 0;
+    padding: 10px;
+}
+
+/* Adjust main content based on nav state */
+main {
+    margin-left: 120px;
+    transition: 0.3s;
+}
+
+main.expanded {
+    margin-left: 0px;
+}
+
+/* Style the toggle button */
+#toggleBtn {
+    width: 100%;
+    padding: 10px;
+    background: #333;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
         </style>        
     </head>
 
     <body>
-        <header><h1>SOC Network-Tools Portal</h1></header>
+        <div style="display: flex;">
+		<div style="width:5%;"><button type="button" id="toggleBtn" onclick="toggleNav()">☰</button></div>
+		<div style="width:100%;"><header><h1>SOC Network-Tools Portal</h1></header></div>
+	</div>
 
 <!-- Navigation Bar -->
-<nav>
-    <ul>
-        <!-- <li><a href="/orion" target="_blank" onclick="return setActiveLink(this)">Orion Alert</a></li>         
-        <li><a href="/orion_login" target="contentFrame" onclick="return setActiveLink(this)">Orion Alert</a></li>   -->      
+<nav id="sidebar">
+    <ul id="navList">
         <li><a href="/api/orion/check_form" target="contentFrame" onclick="return setActiveLink(this)">Orion Alert</a></li>
-        <!-- <li><a href="/orionmap" target="contentFrame" onclick="return setActiveLink(this)">Node Properties</a></li> -->
         <li><a href="/api/devices/check_form" target="contentFrame" onclick="return setActiveLink(this)">eNG/KDC Core</a></li>
         <li><a href="/logs" target="contentFrame" onclick="return setActiveLink(this)">Log file</a></li>
         <li><a href="/static/bookmark.html" target="contentFrame" onclick="return setActiveLink(this)">BookMark</a></li>
@@ -108,10 +143,17 @@
 
         return true; // Allow default link behavior
     }        
+    function toggleNav() {
+    var sidebar = document.getElementById("sidebar");
+    var mainContent = document.querySelector("main");
+    
+    sidebar.classList.toggle("collapsed");
+    mainContent.classList.toggle("expanded");
+    }
     </script>	
 
     <footer>
-        CopyRight - IT analsyt - Network, Service Operations Centre
+        CopyRight - IT analsyt - Network, Service Operations Centrea - 2020
     </footer>
 
     </body>
