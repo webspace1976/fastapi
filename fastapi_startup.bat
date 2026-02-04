@@ -1,5 +1,5 @@
 @echo off
-set PORT=5050
+set PORT=8080
 cd /d "C:\inetpub\fastapi"
 
 echo [1/3] Stopping existing FastAPI processes on port %PORT%...

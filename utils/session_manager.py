@@ -247,18 +247,27 @@ def get_or_create_session_id(request: Request, username: str = None) -> str:
     print(f"[SessionManager] Creating new session_id: {new_session_id}")
     return new_session_id
 
-def get_or_create_session_id_hash(request: Request, npm_server: str = None, username: str = None) -> str:
-    # 1. PRIORITY: If we have credentials, ALWAYS generate the Hash.
-    # This prevents the "random UUID cookie" from taking over.
-    if username and npm_server:
-        raw_str = f"{username.lower()}_{npm_server.lower()}"
-        target_id = hashlib.md5(raw_str.encode()).hexdigest()
-        return target_id
+# def get_or_create_session_id_hash(request: Request, npm_server: str = None, username: str = None) -> str:
+#     # 1. PRIORITY: If we have credentials, ALWAYS generate the Hash.
+#     # This prevents the "random UUID cookie" from taking over.
+#     if username and npm_server:
+#         raw_str = f"{username.lower()}_{npm_server.lower()}"
+#         target_id = hashlib.md5(raw_str.encode()).hexdigest()
+#         return target_id
 
-    # 2. FALLBACK: Only use the cookie if we aren't logging in (e.g. refreshing a page)
-    session_id = request.cookies.get("session_id")
-    if session_id:
-        return session_id
+#     # 2. FALLBACK: Only use the cookie if we aren't logging in (e.g. refreshing a page)
+#     session_id = request.cookies.get("session_id")
+#     if session_id:
+#         return session_id
     
-    # 3. Last resort
-    return str(uuid.uuid4())
+#     # 3. Last resort
+#     return str(uuid.uuid4())
+
+# 2026-06-10: Revised to always use hash based on username and server
+def get_deterministic_session_id(npm_server: str, username: str) -> str:
+    """Always returns the same ID for a specific user on a specific server."""
+    if not username or not npm_server:
+        return None
+    # Lowercase to ensure 'Admin' and 'admin' map to the same session
+    raw_str = f"{username.lower().strip()}_{npm_server.lower().strip()}"
+    return hashlib.sha256(raw_str.encode()).hexdigest()

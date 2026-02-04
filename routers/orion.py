@@ -14,7 +14,7 @@ import pandas as pd
 import utils.fastapi_mymodule as mymodule
 import mainconfig as mainconfig
 from mainpydantic import OrionCheckRequest, OrionResponse
-from utils.session_manager import OrionSession, get_or_create_session_id, get_or_create_session_id_hash
+from utils.session_manager import OrionSession, get_deterministic_session_id
 from utils.orion_db_manager import sync_orion_data
 from utils.orion_db_manager import OrionDatabaseManager
 
@@ -63,204 +63,6 @@ swis_endpoint = mainconfig.swis_endpoint
 swis_nodesevent = mainconfig.swis_nodesevent
 swis_nodes_eventhistory = mainconfig.swis_nodes_eventhistory
 swis_nodeduration = mainconfig.swis_nodeduration
-
-# class OrionSession:
-#     SESSION_DIR = session_dir  # Directory to store session files
-#     if not os.path.exists(SESSION_DIR):
-#         os.mkdir(SESSION_DIR)
-
-#     def __init__(self, npm_server, username, password, timeout=3600):
-#         self.npm_server = npm_server
-#         self.username = username
-#         self.password = password
-#         self.timeout = timeout  # Session timeout in seconds
-#         self.swis = None
-#         self.session = None
-#         self.last_activity = None  # Track the last activity time
-#         self.session_id = None
-
-#     def connect(self, session_id=None):
-#         # FORCE the use of the session_id passed from the router
-#         self.session_id = session_id        
-        
-#         # Use a consistent naming convention
-#         session_file = os.path.join(self.SESSION_DIR, f"{self.session_id}.pickle")
-
-#         try:
-#             # Check if server is reachable first (for the popup error)
-#             check_client = SwisClient(self.npm_server, self.username, self.password)
-#             check_client.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
-            
-#             # If validation passed, check if we can reuse the session file
-#             if os.path.exists(session_file):
-#                 with open(session_file, "rb") as f:
-#                     self.session, self.last_activity = pickle.load(f)
-#                 self.swis = SwisClient(self.npm_server, self.username, self.password, session=self.session)
-#             else:
-#                 # Create a fresh session and save it
-#                 self.swis = check_client # Reuse the validated client
-#                 self._create_new_session(session_file)
-
-#         except Exception as e:
-#             # If login fails (wrong UN/PW), delete the pickle so it can't be used again
-#             if os.path.exists(session_file):
-#                 os.remove(session_file)
-#             # RAISE ConnectionError so the router displays the alert popup
-#             raise ConnectionError(f"Login Failed: {str(e)}")
-
-#     # def connect(self, session_id=None):
-#     #     logger.debug(f"Connecting to Orion server: {self.npm_server}")
-#     #     try:
-#     #         is_new_session = False
-
-#     #         # Generate a new session ID if not provided
-#     #         if session_id is None:
-#     #             self.session_id = str(uuid.uuid4())
-#     #             is_new_session = True
-#     #             logger.debug(f"Debug: Generated new session_id: {self.session_id}")
-#     #         else:
-#     #             self.session_id = session_id
-#     #             logger.debug(f"Debug: Using existing session_id: {self.session_id}")
-
-#     #         # session_file = os.path.join(self.SESSION_DIR, self.session_id)
-#     #         session_file = os.path.join(str(session_dir), f"{session_id}.pickle")
-
-#     #         # Before loading or creating, verify the server is actually reachable
-#     #         try:
-#     #             self.swis = SwisClient(self.npm_server, self.username, self.password)
-#     #             # Test credentials
-#     #             self.swis.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
-#     #         except requests.exceptions.RequestException as e:
-#     #             # If connection fails, delete the old session file so it doesn't get reused
-#     #             if os.path.exists(session_file):
-#     #                 os.remove(session_file)
-#     #             # This error message will appear in your browser popup
-#     #             raise ConnectionError(f"Cannot reach {self.npm_server}. Please check IP/Credentials. Error: {str(e)}")
-
-#     #         if os.path.exists(session_file):
-#     #             try:
-#     #                 with open(session_file, "rb") as f:
-#     #                     self.session, self.last_activity = pickle.load(f)
-#     #                 logger.debug(f"Debug: Loaded session from file: {session_file}")
-                    
-#     #                 # Create SwisClient with the stored session
-#     #                 # Use the instance's npm_server, username, password
-#     #                 self.swis = SwisClient(
-#     #                     self.npm_server, 
-#     #                     self.username, 
-#     #                     self.password, 
-#     #                     session=self.session
-#     #                 )
-#     #                 logger.debug("Debug: SwisClient created with stored session")
-                    
-#     #             except (pickle.UnpicklingError, EOFError) as e:
-#     #                 logger.warning(f"Debug: Corrupted session file: {session_file}. Error: {e}")
-#     #                 os.remove(session_file)
-#     #                 self._create_new_session(session_file)
-#     #                 is_new_session = True
-#     #             except Exception as e:
-#     #                 logger.error(f"Debug: Failed to create SwisClient: {e}")
-#     #                 self._create_new_session(session_file)
-#     #                 is_new_session = True
-#     #         else:
-#     #             logger.error(f"Debug: Session file not found: {session_file}. Creating new session.")
-#     #             self._create_new_session(session_file)
-#     #             is_new_session = True
-
-#     #         # Log session activity
-#     #         self._log_session_activity(is_new_session)
-
-#     #     except ConnectionError:
-#     #         # Re-raise our custom connection error to trigger the UI popup
-#     #         raise
-#     #     except Exception as ex:
-#     #         logger.error(f"Error connecting to Orion server: {str(ex)}")
-#     #         # Raise generic error as a ConnectionError for the UI
-#     #         raise ConnectionError(f"System Error: {str(ex)}")
-
-#     def _create_new_session(self, session_file):
-#         """Helper to create a new session"""
-#         self.session = requests.Session()
-#         self.session.verify = False
-#         self.swis = SwisClient(self.npm_server, self.username, self.password, session=self.session)
-#         self.last_activity = time()
-        
-#         # Save the new session
-#         with open(session_file, "wb") as f:
-#             pickle.dump((self.session, self.last_activity), f)
-#         logger.debug(f"Debug: Saved new session to file: {session_file}")
-
-#     def _log_session_activity(self, is_new_session):
-#         """Helper to log session activity"""
-#         session_metadata = {
-#             "timestamp": datetime.now().isoformat(),
-#             "session_id": self.session_id,
-#             "npm_server": self.npm_server,
-#             "username": self.username,
-#             "is_new_session": is_new_session
-#         }
-
-#         # Append to persistent log
-#         log_file = os.path.join(session_dir, "orion_session_log.json")
-#         try:
-#             if os.path.exists(log_file):
-#                 with open(log_file, "r") as f:
-#                     history = json.load(f)
-#             else:
-#                 history = []
-
-#             history.append(session_metadata)
-
-#             with open(log_file, "w") as f:
-#                 json.dump(history, f, indent=2)
-
-#         except Exception as e:
-#             logger.error(f"[SESSION LOGGING ERROR] {e}")
-            
-#     def is_session_expired(self):
-#         """Check if the session has expired based on the timeout."""
-#         if self.last_activity is None:
-#             logger.debug("Debug: Session expired because last_activity is None")
-#             return True
-#         elapsed_time = time() - self.last_activity
-#         expired = elapsed_time > self.timeout
-#         # logger.debug(f"Debug: Elapsed time since last activity: {elapsed_time} seconds. Expired: {expired}")
-#         return expired
-
-#     def refresh_session(self):
-#         """Refresh the session if it has expired."""
-#         if self.is_session_expired():
-#             logger.debug("Debug: Session expired. Reconnecting...")
-#             self.connect()
-#         else:
-#             if self.swis is not None:
-#                 logger.debug("Debug: Session is still valid.")
-
-#     def query(self, query):
-#         if self.swis is not None:
-#             try:
-#                 result = self.swis.query(query)
-#                 self.last_activity = time()  # Update the last activity time
-#                 # Save the updated session to the file
-#                 # session_file = os.path.join(self.SESSION_DIR, self.session_id)
-#                 session_file = os.path.join(self.SESSION_DIR, f"{self.session_id}.pickle")
-#                 with open(session_file, "wb") as f:
-#                     pickle.dump((self.session, self.last_activity), f)
-#                 return result
-#             except requests.exceptions.RequestException as ex:
-#                 logger.debug(f"Error executing query: {str(ex)}")
-#         else:
-#             logger.error("Not connected to Orion server.")
-
-#     def create(self, entity, properties):
-#         if self.swis is not None:
-#             try:
-#                 self.last_activity = time()  # Update the last activity time
-#                 return self.swis.create(entity, properties)
-#             except requests.exceptions.RequestException as ex:
-#                 logger.error(f"Error creating entity: {str(ex)}")
-#         else:
-#             logger.error("Not connected to Orion server.")
 
 def cleanup_session(session_file):
     if os.path.exists(session_file):
@@ -1010,6 +812,50 @@ import asyncio
 async def get_device_output_form(request: Request):
     return templates.TemplateResponse("orion_login.html", {"request": request})
 
+# @router.post("/check_output", response_class=HTMLResponse)
+# async def run_orioncheck_route(
+#     request: Request,
+#     npm_server: str = Form(...),
+#     npm_uname: str = Form(...),
+#     npm_passwd: str = Form(...),
+# ):
+#     try:
+#         # This enforces the "one session per user" rule
+#         session_id = get_deterministic_session_id(npm_server, npm_uname)
+
+#         # session_id = get_or_create_session_id_hash(request, npm_server, npm_uname)
+
+#         loop = asyncio.get_running_loop()
+
+#         rendered_html, final_session_id = await loop.run_in_executor(
+#             None,
+#             get_orion_dashboard_html,
+#             request,
+#             npm_server,
+#             npm_uname,
+#             npm_passwd,
+#             session_id,
+#         )
+
+#         # Now attach session_id cookie to actual response
+#         response = HTMLResponse(content=rendered_html)
+#         response.set_cookie(key="session_id", value=final_session_id, httponly=True, path="/")
+#         return response
+#     except ConnectionError as ce:
+#         # Return a popup error if the server is down
+#         return HTMLResponse(content=f"""
+#             <script>
+#                 alert("ACCESS DENIED / SERVER DOWN\\n\\nError: {str(ce)}");
+#                 window.location.href = "/orion/login_page"; 
+#             </script>
+#         """, status_code=503)
+#     except Exception as e:
+#         logger.error(f"Unexpected error: {e}")
+#         return HTMLResponse(content="<h2>An unexpected error occurred.</h2>", status_code=500)
+
+
+# orion.py
+
 @router.post("/check_output", response_class=HTMLResponse)
 async def run_orioncheck_route(
     request: Request,
@@ -1018,11 +864,14 @@ async def run_orioncheck_route(
     npm_passwd: str = Form(...),
 ):
     try:
-        # session_id = get_or_create_session_id(request, npm_uname) 
-        session_id = get_or_create_session_id_hash(request, npm_server, npm_uname)
+        # 1. Generate the deterministic ID immediately from credentials
+        # This enforces the "one session per user" rule
+        session_id = get_deterministic_session_id(npm_server, npm_uname)
 
         loop = asyncio.get_running_loop()
 
+        # 2. Execute the heavy lifting in a thread pool
+        # get_orion_dashboard_html will now find/create the pickle based on this hash
         rendered_html, final_session_id = await loop.run_in_executor(
             None,
             get_orion_dashboard_html,
@@ -1033,22 +882,31 @@ async def run_orioncheck_route(
             session_id,
         )
 
-        # Now attach session_id cookie to actual response
+        # 3. Attach the hash-based session_id to the cookie
+        # Setting httponly=True and samesite='lax' for security
         response = HTMLResponse(content=rendered_html)
-        response.set_cookie(key="session_id", value=final_session_id, httponly=True, path="/")
+        response.set_cookie(
+            key="session_id", 
+            value=final_session_id, 
+            httponly=True, 
+            path="/",
+            samesite="lax"
+        )
+        
         return response
+
     except ConnectionError as ce:
-        # Return a popup error if the server is down
+        # Handle failed logins or unreachable servers
+        logger.error(f"Login failed for {npm_uname}: {ce}")
         return HTMLResponse(content=f"""
             <script>
-                alert("ACCESS DENIED / SERVER DOWN\\n\\nError: {str(ce)}");
-                window.location.href = "/orion/login_page"; 
+                alert("ACCESS DENIED / SERVER DOWN\\n\\nError: {html.escape(str(ce))}");
+                window.location.href = "/check_form"; 
             </script>
-        """, status_code=503)
+        """, status_code=401)
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         return HTMLResponse(content="<h2>An unexpected error occurred.</h2>", status_code=500)
-
 
 @router.get("/map_data")
 async def get_map_data(site: str = None):
