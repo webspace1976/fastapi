@@ -1055,7 +1055,7 @@ def log_summary(log, hostname, ip):
                 log_analysis.append(row)
         log_analysis.append("</table><br>")
 
-    print(log,log_analysis)
+    # print(log,log_analysis)
     return "".join(log_analysis)
 
 # # 20251127 generate clickable html list

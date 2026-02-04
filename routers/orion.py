@@ -617,8 +617,13 @@ def generate_alert_table(session):
     query = swis_alert
     results = session.query(query)
     table_rows = ""
+
+    # 20260203 --- : Keep track of seen events ---
+    seen_alerts = set()
+
     try:
         for row in results.get("results", []):
+
 
             # event time:
             timestamp=row['TriggerTimeStamp']
@@ -648,6 +653,15 @@ def generate_alert_table(session):
             hostname = str(row['RelatedNodeCaption'] or "Unknown")
             Message = str(row['AlertMessage'] or "No Message")
             TriggerCount = str(row['TriggerCount'] or "0")
+
+
+            # Create a unique identifier for the row (e.g., Time + Message)
+            alert_id = f"{nodeip}_{Message}"
+            
+            # Check for duplicates
+            if alert_id in seen_alerts:
+                continue
+            seen_alerts.add(alert_id)
 
             # url_link = orion_prefix + (row.get('EntityDetailsUrl') or "")
             url = row.get("EntityDetailsUrl", "") # Use .get with a default

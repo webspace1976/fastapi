@@ -2,106 +2,109 @@
 
 <html>
 
-    <head>
-        <title>SOC Network-Tools Portal</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0",charset="utf-8">
-        <link rel="stylesheet" type="text/css" href="/static/css/mystyle.css">
-        <style>
-   
-            /* Style the navigation bar */
-            nav {
-                float: left;
-                width: 120px;
-                background-color: #f1f1f1;
-                height: 100%; /* Make the navbar full height */
-                overflow: auto; /* Enable scroll if needed */
-            }
-    
-            nav ul {
-                list-style-type: none;
-                padding: 0;
-            }
-    
-            nav li a {
-                display: block;
-                padding: 10px 20px;
-                text-decoration: none;
-                color: #333;
-            }
-    
-            nav li a:hover {
-                background-color: #ddd;
-            }
+<head>
+    <title>SOC Network-Tools Portal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0",charset="utf-8">
+    <link rel="stylesheet" type="text/css" href="/static/css/mystyle.css">
+    <style>
 
-            nav li a.active {
-                background-color: #04AA6D;
-            }
-
-            nav li a.deactive {
-                background-color: #fff; /* Default background color for non-active links */
-            }       
-    
-            /* Style the loading message */
-            #loading-message {
-                display: none; /* Initially hidden */
-                text-align: center;
-                font-style: italic;
-                color: #777;
-            }            
-                    /* Style the iframe */
-        iframe {
-            width: 100%;
-            height: calc(120vh - 40px); /* Adjust for header height and padding */
-            border: none;
+        /* Style the navigation bar */
+        nav {
+            float: left;
+            width: 120px;
+            background-color: #f1f1f1;
+            height: 100%; /* Make the navbar full height */
+            overflow: auto; /* Enable scroll if needed */
         }
-        /* Update your existing nav style */
+
+        nav ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        nav li a {
+            display: block;
+            padding: 10px 20px;
+            text-decoration: none;
+            color: #333;
+        }
+
+        nav li a:hover {
+            background-color: #ddd;
+        }
+
+        nav li a.active {
+            background-color: #04AA6D;
+        }
+
+        nav li a.deactive {
+            background-color: #fff; /* Default background color for non-active links */
+        }       
+
+        /* Style the loading message */
+        #loading-message {
+            display: none; /* Initially hidden */
+            text-align: center;
+            font-style: italic;
+            color: #777;
+        }            
+                /* Style the iframe */
+    iframe {
+        width: 100%;
+        height: calc(120vh - 40px); /* Adjust for header height and padding */
+        border: none;
+    }
+    /* Update your existing nav style */
 nav {
-    float: left;
-    width: 120px; /* Increased width for better readability */
-    background-color: #f1f1f1;
-    height: 100vh; 
-    transition: 0.3s; /* Smooth sliding effect */
-    overflow-x: hidden;
+float: left;
+width: 120px; /* Increased width for better readability */
+background-color: #f1f1f1;
+height: 100vh; 
+transition: 0.3s; /* Smooth sliding effect */
+overflow-x: hidden;
 }
 
 /* Style for when the nav is hidden/collapsed */
 nav.collapsed {
-    width: 0px;
+width: 0px;
 }
 
 /* Hide text links when collapsed */
 nav.collapsed li a {
-    font-size: 0;
-    padding: 10px;
+font-size: 0;
+padding: 10px;
 }
 
 /* Adjust main content based on nav state */
 main {
-    margin-left: 120px;
-    transition: 0.3s;
+margin-left: 120px;
+transition: 0.3s;
 }
 
 main.expanded {
-    margin-left: 0px;
+margin-left: 0px;
 }
 
 /* Style the toggle button */
 #toggleBtn {
-    width: 100%;
-    padding: 10px;
-    background: #333;
-    color: white;
-    border: none;
-    cursor: pointer;
+width: 100%;
+padding: 10px;
+background: #333;
+color: white;
+border: none;
+cursor: pointer;
 }
-        </style>        
-    </head>
+    </style>        
+</head>
 
-    <body>
-        <div style="display: flex;">
-		<div style="width:5%;"><button type="button" id="toggleBtn" onclick="toggleNav()">☰</button></div>
-		<div style="width:100%;"><header><h1>SOC Network-Tools Portal</h1></header></div>
-	</div>
+<body>
+    <header>
+    <div style="display: flex;">
+        <div style="width:5%;"><button type="button" id="toggleBtn" onclick="toggleNav()">☰</button></div>
+        <div style="width:100%;"><h1>SOC Network-Tools Portal</h1></div>
+    </div>
+    </header>
+	
 
 <!-- Navigation Bar -->
 <nav id="sidebar">
@@ -156,5 +159,5 @@ main.expanded {
         CopyRight - IT analsyt - Network, Service Operations Centrea - 2020
     </footer>
 
-    </body>
+</body>
 </html>

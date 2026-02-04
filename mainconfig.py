@@ -189,6 +189,7 @@ FROM Orion.AlertStatus OAS
 LEFT JOIN Orion.AlertObjects OAO ON OAO.AlertObjectID=OAS.AlertObjectID 
 LEFT JOIN orion.Nodes OND ON OND.Caption=OAO.RelatedNodeCaption 
 WHERE AlertMessage NOT LIKE '%OrionNCMVCHA logged in%' AND AlertMessage NOT LIKE '%system logged in%' 
+GROUP BY OND.IPAddress, OAS.AlertMessage -- 20260203 collapse all rows that share the exact same IP and exact same message into a single row.
 ORDER BY triggertimestamp DESC
 '''
 
