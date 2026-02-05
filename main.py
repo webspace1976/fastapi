@@ -275,9 +275,18 @@ async def get_alert_center(
     if os.path.exists(log_file_path):
         with open(log_file_path, "r", encoding="utf-8") as f:
             for line in f:
-                match = re.match(r"^(.*?) \| (\w+) \| (.*?) \| (.*)", line)
+            # Updated Regex to match: Timestamp - Level - [Module:Line] - Function() - Message
+            # Pattern explanation:
+            # (.*?) : Timestamp
+            # \s-\s(\w+)\s-\s : Log Level (e.g., ERROR)
+            # \[(.*?):(\d+)\] : [filename.py:line]
+            # \s-\s(.*?)\(\)\s-\s : function_name()
+            # (.*) : The actual message
+                match = re.search(r"^(.*?)\s-\s(\w+)\s-\s\[(.*?):(\d+)\]\s-\s(.*?)\(\)\s-\s(.*)", line)                
+                # match = re.match(r"^(.*?) \| (\w+) \| (.*?) \| (.*)", line)
                 if match:
-                    timestamp, log_level, module, message = match.groups()
+                    # timestamp, log_level, module, message = match.groups()
+                    timestamp, log_level, module, lineno, func_name, message = match.groups()
 
                     if level and log_level.upper() != level.upper():
                         continue  # skip if not matching filter
@@ -285,7 +294,10 @@ async def get_alert_center(
                     alerts.append({
                         "timestamp": timestamp,
                         "level": log_level,
-                        "module": module,
+                        "module": f"{module}:{lineno}", # Combines file and line
+                        "function": func_name,         # New field: shows which 'def'                        
+                        # "module": module,
+                        # "message": message.strip(),
                         "message": message.strip(),
                         "date": timestamp.split(" ")[0]
                     })

@@ -113,7 +113,8 @@ def setup_module_logger(name: str = "default") -> logging.Logger:
 
     if not logger.handlers:
         formatter = logging.Formatter(
-            fmt="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+            # fmt="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+            fmt = "%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(funcName)s() - %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S"
         )
         handler = ConcurrentRotatingFileHandler(ALERT_LOG_PATH, "a", maxBytes=5*1024*1024, backupCount=3, encoding="utf-8")

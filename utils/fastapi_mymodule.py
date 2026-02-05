@@ -276,19 +276,29 @@ def send_command(device_setting,cmds,output, logger=None):
 
         with device:
             for cmd in cmds:
-                # logger.info(f"Executing command: {cmd}")
-                device.write_channel(f"{cmd}\n")
-                while True:
-                    try:
-                        page = device.read_until_pattern(f"More|{prompt}")
-                        output += page
-                        if "More" in page:
-                            device.write_channel(" ")
-                        elif prompt in output:
+                if device_setting['device_type'] == "hp_comware":
+                    # logger.info(f"Executing command: {cmd}")
+                    device.write_channel(f"{cmd}\n")
+                    while True:
+                        try:
+                            page = device.read_until_pattern(f"More|{prompt}")
+                            output += page
+                            if "More" in page:
+                                device.write_channel(" ")
+                            elif prompt in output:
+                                break
+                        except (AuthenticationException, SSHException) as error:
+                            logger.error(f"Connection Error {device_setting['ip']} : {error}")
                             break
-                    except (AuthenticationException, SSHException) as error:
-                        logger.error(f"Connection Error {device_setting['ip']} : {error}")
-                        break
+                else:
+                    output = device.send_command(
+                        cmd, 
+                        delay_factor=2,        # Multiplies internal sleep timers
+                        expect_string=r"[>#\]]",
+                        strip_prompt=False,    # Helps if the prompt is being cut off
+                        strip_command=False
+                    )         
+
         device.disconnect()
         # # Write to log file : log was saved in the device_setting['session_log']
     except Exception as e:

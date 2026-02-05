@@ -198,15 +198,6 @@ def generate_node_table(session):
             else:
                 display_site_name = raw_site_name + ", " + node_address + ", " + node_city
                 is_down = False
-
-            # if site_down_match:
-            #     # If matched, use the detailed string for display and add the tag
-            #     display_site_name = site_down_match
-            #     is_down = True
-            # else:
-            #     # If not matched, use the standard site name
-            #     display_site_name = raw_site_name + ", " + node_address + ", " + node_city
-            #     is_down = False
                 
             escaped_node_name = html.escape(node_name)
             escaped_site_display = html.escape(display_site_name)
@@ -507,11 +498,6 @@ def generate_alert_table(session):
             ).format(
                     severity, severity_png,vendor, nodeip, TriggerCount,status_gif, url_link if url_link is not None else "", Message if Message is not None else ""
             ) 
-            # table_rows += (
-            #         "<tr><td>{}</td><td style=\"text-align:center\" id=\"node_info\" value=\"{},{}\">{}</td><td><img src=\"{}\" alt=\"\"/><a href=\"{}\" target=\"_blank\">{}</a></td></tr>"
-            # ).format(
-            #         time_cur,vendor, nodeip, TriggerCount,status_gif, url_link if url_link is not None else "", Message if Message is not None else ""
-            # ) 
 
         results_data = results.get("results", [])
         results_len = len(results_data)
@@ -728,24 +714,6 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
         # Do NOT return cached_html here. Raise the error to the router.
         raise ConnectionError(str(e))
     
-        # try:
-        #     with open("data/last_orion_dashboard.html", "r", encoding="utf-8") as f:
-        #         cached_html = f.read()
-        #     if cached_html and "<body>" in cached_html:
-        #         if "Connection" in str(e) or "timeout" in str(e).lower():
-        #             stale_popup = f"""
-        #             <div id="orionDownModal" style="display:block;position:fixed;z-index:9999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);">
-        #                 <div style="background:#fff;color:#b00;max-width:400px;margin:10% auto;padding:30px 10px;border-radius:8px;box-shadow:0 2px 10px #000;">
-        #                     <h2 style="background:#b00;"><a href="https://{ npm_server }" target="_blank">Orion Status  </a><br><button onclick="document.getElementById('orionDownModal').style.display='none';" style="margin-top:20px;margin-bottom:10px;padding:8px;">Unreachable or {html.escape(str(e))} </button></h2>
-        #                 </div>
-        #             </div>
-        #             """
-        #         return cached_html, session_id
-        # except Exception as cache_err:
-        #     logger.error(f"Cache load failed: {cache_err}")
-        # return f"<h2>Dashboard Error</h2><p>{html.escape(str(e))}</p>", session_id
-
-
 ############## data sync functions
 
 #202601
@@ -776,15 +744,6 @@ def sync_historical_tracing(session):
                 last_outage['up'] = event_time
                 duration = (event_time - last_outage['down']).total_seconds()
                 
-                # # Import to local DB, db more than 50 MB, disable for now  
-                # db_conn.import_history_record(
-                #     node_id, 
-                #     last_outage['down'], 
-                #     event_time, 
-                #     int(duration),
-                #     last_outage['desc'],
-                #     row.get('StatusDescription', "")
-                # )
 
 def parse_swis_date(date_str):
     if not date_str:
@@ -811,50 +770,6 @@ import asyncio
 @router.get("/check_form", response_class=HTMLResponse)
 async def get_device_output_form(request: Request):
     return templates.TemplateResponse("orion_login.html", {"request": request})
-
-# @router.post("/check_output", response_class=HTMLResponse)
-# async def run_orioncheck_route(
-#     request: Request,
-#     npm_server: str = Form(...),
-#     npm_uname: str = Form(...),
-#     npm_passwd: str = Form(...),
-# ):
-#     try:
-#         # This enforces the "one session per user" rule
-#         session_id = get_deterministic_session_id(npm_server, npm_uname)
-
-#         # session_id = get_or_create_session_id_hash(request, npm_server, npm_uname)
-
-#         loop = asyncio.get_running_loop()
-
-#         rendered_html, final_session_id = await loop.run_in_executor(
-#             None,
-#             get_orion_dashboard_html,
-#             request,
-#             npm_server,
-#             npm_uname,
-#             npm_passwd,
-#             session_id,
-#         )
-
-#         # Now attach session_id cookie to actual response
-#         response = HTMLResponse(content=rendered_html)
-#         response.set_cookie(key="session_id", value=final_session_id, httponly=True, path="/")
-#         return response
-#     except ConnectionError as ce:
-#         # Return a popup error if the server is down
-#         return HTMLResponse(content=f"""
-#             <script>
-#                 alert("ACCESS DENIED / SERVER DOWN\\n\\nError: {str(ce)}");
-#                 window.location.href = "/orion/login_page"; 
-#             </script>
-#         """, status_code=503)
-#     except Exception as e:
-#         logger.error(f"Unexpected error: {e}")
-#         return HTMLResponse(content="<h2>An unexpected error occurred.</h2>", status_code=500)
-
-
-# orion.py
 
 @router.post("/check_output", response_class=HTMLResponse)
 async def run_orioncheck_route(

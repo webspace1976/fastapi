@@ -187,7 +187,13 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
         hpe_ospf_last_down_regex = re.compile(
             r"%(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}:\d{3}).*?OSPF/6/OSPF_LAST_NBR_DOWN: OSPF (\d+) Last neighbor down event: Router ID: ([\d\.]+) Local address: ([\d\.]+) Remote address: ([\d\.]+) Reason: ([^\.]+)"
         )
+        # New multi-line regex to capture from 'display ospf peer verbose' output
+        verbose_down_regex = re.compile(
+            r"Last Neighbor Down Event:.*?Router ID:\s+([\d\.]+).*?Local Address:\s+([\d\.]+).*?Remote Address:\s+([\d\.]+).*?Time:\s+(.*?)\n\s+Reason:\s+(.*)",
+            re.DOTALL
+        )
         for match in hpe_ospf_last_down_regex.finditer(content):
+        # for match in verbose_down_regex.finditer(content):
             timestamp = parse_timestamp(match.group(1), log_year)
             process = match.group(2)
             router_id = match.group(3)
@@ -570,11 +576,12 @@ def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
                         # elif next_line.startswith("Reason:"):
                         #     last_down_event["last_reason"] = next_line.split("Reason:")[1].strip()
                         j += 1
+
                     if last_down_event.get("last_remote"):
                         current_ospf_process["lastevents"][last_down_event["last_remote"]] = last_down_event.copy()
                         logger.debug(f"Set last down event for remote {last_down_event['last_remote']} in process {current_process}: {last_down_event}")
                     else:
-                        logger.warning(f"No valid last_remote found for last down event in process {current_process} : {temp_file_path} {line}")
+                        logger.info(f"No valid last_remote found for last down event in process {current_process} : {temp_file_path} {line}")
 
         if vendor in ('cisco','arista'):
         # if vendor == 'cisco':

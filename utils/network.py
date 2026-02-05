@@ -1,10 +1,6 @@
 # network.py (FIXED: Added log_filename tracking for results display)
 
-import asyncio
-import logging
-import json
-import os
-import time # Added for possible future use, but not used in final fix
+import asyncio, json, traceback
 from concurrent.futures import ThreadPoolExecutor
 from netmiko import ConnectHandler, NetMikoTimeoutException, NetMikoAuthenticationException
 from paramiko.ssh_exception import SSHException
@@ -232,7 +228,8 @@ class NetworkDeviceManager:
                     logger.info(f"Log {log_file_path} synced to SQLite database.")
                 conn.close()
             except Exception as e:
-                logger.error(f"Failed to sync to database: {e}")
+                logger.error(f"Failed to _analysis_sqlite to database: {e}")
+                logger.error(traceback.format_exc())
 
 # Utility for file listing (moved from mymodule to be accessible)
 def get_file_list_fastapi() -> List[Dict]:
