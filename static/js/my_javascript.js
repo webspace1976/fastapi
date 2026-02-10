@@ -189,11 +189,6 @@ function chartPlot(inputTable,outputDiv) {
     //console.log(cells,row);
     var category = cells['1'].textContent;
     var value = cells['0'].textContent;
-    //var value = parseInt(cells['1'].textContent);
-
-    //console.log(rows[i].style.display,category,value);
-
-    //change chartColorClass by css-class 
     
     var chartColorClass = row.className ;
     //console.log(chartColorClass);
@@ -249,8 +244,6 @@ function countClassOccurrences(inputTable,outputTable) {
     // Get all table rows
     var table = document.getElementById(inputTable);
     var rows = table.getElementsByTagName('tr');
-    //const rowCount = table.getElementsByTagName('tbody')[0].rows.length;
-
 
     // Object to store class counts -- object list
     var classCounts = {};
@@ -269,49 +262,23 @@ function countClassOccurrences(inputTable,outputTable) {
         }
     }
 
-    // Remove duplicates (if any)
-    //classNames = Array.from(new Set(classNames));
-
-    // Log the collected class names
-    //console.log(inputTable,classCounts);
-
-    // Display class counts in a table
-    //var tbody 
     var disTable = document.getElementById(outputTable);
-    //var tbody = disTable.getElementById('countDisplay');
-    //var tbody = disTable.querySelector('tbody');
     var tbody = disTable.querySelector('tr');
-    // Create a new row
-    //var row = document.createElement('td');
-    //var countCell = document.createElement('td');
-
-    //console.log(tbody);
 
     for (var className in classCounts) {
         var count = classCounts[className];
 
         // Create cells for class name and count
-        //var classNameCell = document.createElement('td');
-        //classNameCell.textContent = className;
         var countCell = document.createElement('td');
         countCell.className = className;
         countCell.textContent = count;
-
-        // Append cells to the row
-        //row.appendChild(classNameCell);
-        //row.appendChild(countCell);
 
         // Append row to the tbody
         tbody.appendChild(countCell);
     }
 
-    //console.log(tbody);
-    //document.getElementById('countDisplay').innerText = tbody;
-
-    // return the function
     return;
 }
-
 
 function loadPage(url, element) {
   // Show loading message
@@ -382,7 +349,6 @@ function displayJsonAsTable(data, parentElement, prefix = '') {
   }
 }
 
-
 function countTableRow(inputTable,outputDiv) {
   console.log("countTableRow function called.",inputTable,outputDiv);
   var table = document.getElementById(inputTable);
@@ -444,12 +410,6 @@ function filterTable() {
       }
     }
 
-    // var countElement = document.getElementById('row-count');
-    // if (countElement) {
-    //   countElement.textContent = "Total: " + rowCount.toString() + ' Matching: ' + count;
-    // } else {
-    //   console.warn("Element with ID 'row-count' not found.");
-    // }
   }
 }
 
@@ -476,7 +436,6 @@ function toggleAndDrawChart(buttonId, tagId, tableId) {
         console.error("Button or chart container not found. Check IDs:", buttonId, tagId);
     }
 }
-
 
 function piePlot(inputTable,outputDiv) {
   // Get the table reference
@@ -648,76 +607,6 @@ function countColumns(tableId) {
   return columnCount;
 }
 
-// 20251010 Function to copy rows containing "stack" from one table to another
-function copyStackRows(inputTableId, outputTableId, countSpanId) {
-const container = document.getElementById('interfaceStackDown');
-    if (!container) return;
-
-    // Clear old content
-    container.innerHTML = '';
-
-  // Step 1: Get the tables
-  const sourceTable = document.getElementById(inputTableId);
-  const targetTable = document.getElementById(outputTableId);
-  if (!sourceTable || !targetTable) {
-    console.error('One or both tables not found');
-    return;
-  }
-
-  // Step 2: Get the tbody of the target table or create one if missing
-  let targetTbody = targetTable.querySelector('tbody');
-  if (!targetTbody) {
-    targetTbody = document.createElement('tbody');
-    targetTable.appendChild(targetTbody);
-  }
-
-  // Step 3: Clear existing rows in target tbody (optional, to avoid duplication)
-  // targetTbody.innerHTML = '';
-
-  // Step 4: Iterate through rows in source table
-
-  const totalColumns = countColumns(outputTableId);  // Step 4.1: use colspan to span the new row
-  
-  const rows = sourceTable.getElementsByTagName('tr');
-  let stackCount = 0;
-  const filter_words = ['stack', 'teraspan','uplink'];
-  const tds1Attribute = { 'colspan': totalColumns - 2, 'style':'text-align: left;'}; 
-
-  for (let row of rows) {
-    const link = row.querySelector('a');
-    // 20251010 updated to include 'port' keyword
-    if (link && filter_words.some(word => link.textContent.toLowerCase().includes(word.toLowerCase()))) {
-      const clonedRow = row.cloneNode(true);
-      // Step 6: Get the second and third <td> elements
-      const tds = clonedRow.getElementsByTagName('td');
-      if (tds.length >= 2) {
-        // Set colspan=2 on the second <td>
-        for (let [key, value] of Object.entries(tds1Attribute)) {
-          tds[1].setAttribute(key, value);
-        }
-        tds[2].setAttribute('width', '12%' ); // Set width for the last column
-        // Remove the third <td> to avoid duplication
-        // if (tds.length >= 3) {
-        //   tds[2].parentNode.removeChild(tds[2]);
-        // }
-      }
-
-      targetTbody.appendChild(clonedRow);
-      stackCount++;
-    }
-  }
-
-  // Step 6: Update the count in the span
-  const countSpan = document.getElementById(countSpanId);
-  if (countSpan) {
-    // countSpan.textContent = stackCount;
-    console.log(`Copied ${stackCount} rows containing ${filter_words} `);
-  } else {
-    console.warn(countSpanId, ' span not found');
-  }
-
-  }
-
 function displayPeerMaps(output_json) {
   fetch(output_json)
       .then(response => response.json())
@@ -838,7 +727,6 @@ function renderOSPFTable(ospfData) {
   });
 }
 
-
 async function getFileMetadata(url) {
   try {
       const response = await fetch(url, { method: 'HEAD' }); // Use HEAD request for metadata only
@@ -863,7 +751,6 @@ async function getFileMetadata(url) {
       return null;
   }
 }
-
 
 // Function to fetch JSON and display in a new window
 function showPeer(file_src, sourceDiv) {
@@ -1262,61 +1149,86 @@ function updateWebSocketLink() {
   }
 }
 
-// 20251113
-function toggleDisplay(buttonId, containerId) {
-    const button = document.getElementById(buttonId);
-    const container = document.getElementById(containerId);
-
-    if (!button || !container) return;
-    // ---- store the *original* text the first time we run ----
-    if (!button.dataset.originalText) {
-        button.dataset.originalText = button.textContent.trim();
-    }
-
-    button.addEventListener('click', function () {
-        if (container.style.display === 'none' || container.style.display === '') {
-            // --- SHOW ---
-            container.style.display = 'block';
-            // button.textContent = 'Hide';  // optional
-        } else {
-            // --- HIDE ---
-            container.style.display = 'none';
-            // button.textContent = button.dataset.originalText;  // optional
-        }
-    });
-}
+// 20260209
 
 function toggleFilterRows(buttonId, tableId, keywords) {
     const button = document.getElementById(buttonId);
     const table = document.getElementById(tableId);
     if (!button || !table) return;
 
-    // Store original button text
+    // 1. Add Arrow if it's missing
+    if (!button.querySelector('.arrow-icon')) {
+        button.innerHTML += ' <span class="arrow-icon">▼</span>';
+    }
+    const arrow = button.querySelector('.arrow-icon');
+
+    // 2. Store original text (clean)
     if (!button.dataset.originalText) {
-        button.dataset.originalText = button.textContent.trim();
+        button.dataset.originalText = button.textContent.replace(' ▼', '').trim();
     }
 
     let isFiltered = false;
 
     button.addEventListener('click', function () {
         isFiltered = !isFiltered;
-
         const rows = table.querySelectorAll('tbody tr');
         const lowerKeywords = keywords.map(k => k.toLowerCase());
 
+        // 3. Toggle Row Visibility
         rows.forEach(row => {
             const text = (row.textContent || '').toLowerCase();
             const matches = lowerKeywords.some(kw => text.includes(kw));
-
+            
             if (isFiltered) {
-                row.style.display = matches ? '' : 'none';  // Show only matching
+                row.style.display = matches ? 'table-row' : 'none';
             } else {
-                row.style.display = '';  // Show all
+                row.style.display = 'table-row';
             }
         });
 
-        // Update button text
-        button.textContent = isFiltered ? 'Show All' : button.dataset.originalText;
+        // 4. Visual Feedback (Arrow + Text)
+        if (isFiltered) {
+            button.innerHTML = `Show All <span class="arrow-icon arrow-rotated">▼</span>`;
+            button.classList.add('btn-warning'); // Optional: change color when active
+        } else {
+            button.innerHTML = `${button.dataset.originalText} <span class="arrow-icon">▼</span>`;
+            button.classList.remove('btn-warning');
+        }
+
+        // 5. CRITICAL: Reset Width and Recalculate Layout to remove "Big Space"
+        table.style.width = '100%';
+        const wrapper = table.closest('.collapsible-wrapper');
+        if (wrapper) {
+            if (isFiltered) {
+                // Set to the EXACT pixel height of the visible table
+                wrapper.style.maxHeight = table.offsetHeight + "px";
+            } else {
+                // When showing all, set it to a height that accommodates everything 
+                // using scrollHeight ensures it fits perfectly
+                wrapper.style.maxHeight = table.scrollHeight + "px";
+                
+                // After the animation finishes (300ms), set to a large value 
+                // to allow for any future dynamic content
+                setTimeout(() => {
+                    if (!isFiltered) wrapper.style.maxHeight = "none";
+                }, 300);
+            }
+        }
+    });
+}
+
+/**
+ * Transition-safe Display Toggle
+ */
+function toggleDisplay(buttonId, containerId) {
+    const button = document.getElementById(buttonId);
+    const container = document.getElementById(containerId);
+    if (!button || !container) return;
+
+    container.classList.add('collapsible-wrapper');
+
+    button.addEventListener('click', function () {
+        container.classList.toggle('is-hidden');
     });
 }
 

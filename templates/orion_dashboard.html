@@ -69,6 +69,7 @@
         .slider.round:before {
             border-radius: 30%;
         }
+
     </style>      
 
     </head>
@@ -111,13 +112,17 @@
                             </tbody>
                         </table>
                     </div>
-                    
-                <div style="text-align: right;">
-                    <label for="nodeChartButton"><button id="nodeChartButton">Chart Display</button></label>    
-                </div>    
+                <div style="display: flex;justify-content: space-between;">
+                    <div style="width:5%;">
+                        <label for="toggleNodeBtn"><button type="button" id="toggleNodeBtn">☰</button></label>
+                    </div>                            
+                    <div>
+                        <label for="nodeChartButton"><button id="nodeChartButton">Chart Display</button></label>    
+                    </div>    
+                </div>
                 <div id="nodeChartDown" style="display:none">
                     <!-- chart display function from my_javasctip : piePlot('nodedownTable',nodeChartDown') -->
-                </div>
+                </div >
                     {{ node_table | safe }}
                 </div>
 
@@ -133,13 +138,13 @@
 
                 <!-- This div will be shown/hidden -->
                     <div style="font-size: 12px;box-sizing: border-box;display: flex;justify-content: space-between;">
+                        <div style="width:5%;">
+                            <label for="toggleInterfaceBtn"><button type="button" id="toggleInterfaceBtn">☰</button></label>
+                        </div>   
                         <div><label for="interfaceStackButton"><button id="interfaceStackButton">Stack,Teraspan,Uplink</button></label></div>
                         <div><label for="interfaceCoreButton"><button id="interfaceCoreButton">KDC, Core</button></label></div>
                         <div><label for="interfaceChartButton"><button id="interfaceChartButton">Chart Display</button></label></div>
                     </div>
-
-                    <div id="interfaceStackDown" style="display:none; margin-top:0;"></div>
-                    <div id="interfaceCoreDown" style="display:none; margin-top:0;"></div>
                     <div id="interfaceChartDown" style="display:none; margin-top: 0;"  >
 						<!-- chart display from function piePlot() -->
                     </div>
@@ -157,19 +162,10 @@
                     {{ apipoller_table | safe }}
                 </div><br>
 
-                <!-- This div will be shown/hidden
-                    <div style="font-size: 12px;box-sizing: border-box;display: flex;justify-content: space-between;">
-                        <div><a href="https://orion.net.mgmt/orion/netperfmon/alerts.aspx" target="_blank">Orion Alerts: 
-                            {{ alert_table | length }} 
-                        </a></div>
-                        <div><label for="event_stack_button"><button id="event_stack_button">Stack</button></label></div>
-                        <div><label for="event_power_button"><button id="event_power_button">Power</button></label></div>
-                        <div><label for="event_core_button"><button id="event_core_button">KDC, Core</button></label></div>
-                    </div>
-                    <div id="event_stack_button" style="display:none; margin-top:0;"></div>
-                    <div id="event_power_button" style="display:none; margin-top:0;"></div>
-                    <div id="event_core_button" style="display:none; margin-top:0;"></div> -->
                 <div style="font-size: 12px;box-sizing: border-box;display: flex;justify-content: space-between;">
+                    <div style="width:5%;">
+                        <label for="toggleAlertBtn"><button type="button" id="toggleAlertBtn">☰</button></label>
+                    </div> 
                     <div><a href="https://orion.net.mgmt/orion/netperfmon/alerts.aspx" target="_blank">Orion Alerts:  </a><span id="rowCount" style="font-weight:bold; color:blue;"></span> alerts
                     </div>
                     <div>
@@ -227,7 +223,7 @@
             toggleFilterRows(
                     'interfaceStackButton',
                     'interfacedownTable',
-                    ['Stack', 'Teraspan', 'Uplink']  // OR logic
+                    ['stack', 'teraspan', 'uplink']  // OR logic
                 );
             toggleFilterRows(
                     'interfaceCoreButton',
@@ -235,26 +231,16 @@
                     ['kdc', 'core']  // OR logic
                 );
 
-           /* toggleFilterRows(
-                    'event_power_button',
-                    'alertTable',
-                    ['power']  // OR logic
-                );
-            toggleFilterRows(
-                    'event_core_button',
-                    'alertTable',
-                    ['kdc', 'core']  // OR logic
-                );
-            toggleFilterRows(
-                    'event_stack_button',
-                    'alertTable',
-                    ['stack']  // OR logic
-                );                
-            */
+
             // Toggle for links type via radio buttons
             setupLinkRadioToggle('nodedownTable', 'toggleStateNode'); 
             setupLinkRadioToggle('alertTable', 'toggleStateAlert');
             setupLinkRadioToggle('interfacedownTable', 'toggleStateInterface');
+
+            // toggleDisplay filter function
+            toggleDisplay('toggleNodeBtn', 'nodedownTable')
+            toggleDisplay('toggleInterfaceBtn', 'interfacedownTable')
+            toggleDisplay('toggleAlertBtn', 'alertTable')
 
         function applyFilters() {
             const sevFilter = document.getElementById('severityFilter').value;

@@ -8,14 +8,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import mainconfig as mainconfig
 
-# import from local scripts
-# from scripts.fastapi_getweboutput import run_getweboutput
-# from scripts.session_manager import get_or_create_session_id
-# from scripts.fastapi_orion_check import get_orion_dashboard_html
-# from mainpydantic import OrionCheckRequest, OrionResponse
-
-
-
 # import from routers
 from routers import devices, monitor, orion
 
@@ -58,7 +50,6 @@ async def shutdown_scheduler():
 
 # Set up folder paths and mount 
 templates = Jinja2Templates(directory="templates")
-# curr_dir = os.path.dirname(__file__)
 icons_dir = mainconfig.ICONS_DIR
 data_dir = mainconfig.DATA_DIR
 logs_dir = mainconfig.LOGS_DIR

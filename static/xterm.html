@@ -34,20 +34,52 @@
             border: none;
             cursor: pointer;
         }
+/* Update these specific blocks in your <style> tag */
+
+        .main-container {
+            display: flex;
+            flex-direction: row; /* Side-by-side layout */
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;    /* Prevent page-level scrollbars */
+        }
+
         #terminal {
             width: 100%;
             height: 80vh;
-            padding: 10px;
+            background-color: black;
+            
+            /* CRITICAL: This prevents text from showing outside the box */
+            overflow: hidden; 
+            
+            /* Use padding to create a "safe zone" for the scrollbar */
+            padding: 10px 25px 10px 10px; 
             box-sizing: border-box;
+            position: relative;
+        }
+
+        /* Force the internal screen to stay inside the padding */
+        .xterm-screen {
+            width: 100% !important;
+        }
+
+        /* Add this to your CSS to make the scrollbar invisible */
+        .xterm-viewport::-webkit-scrollbar {
+            display: none;
+        }
+        .xterm-viewport {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
         }
         .xterm-rows {
-            font-size: 12px;
+            font-size: 10px;
         }
     </style>
 </head>
 <body>
     <div id="connect-form">
-        <div style="display: flex;">
+        <div style="display: flex;justify-content: space-between;">
+            <div style="margin-left:10px;">
             <input type="text" id="ssh-host" name="hostname" placeholder="Enter IP address" required>
             <input type="number" id="ssh-port" name="port" placeholder="Enter port (default: 22)" value="22" required>
             <input type="text" id="ssh-username" name="username" placeholder="Enter username" required>
@@ -55,6 +87,12 @@
 
             <button id="connect-button">Connect</button>
             <button id="logout-button" style="background-color: red;">Logout</button>
+            </div>
+
+            <div style="text-align: right;margin-right:20px; ">
+                <label for="font-size" style="color:white;font-size:14px;">Font Size:</label>
+                <input type="number" id="font-size" value="12" min="8" max="20" style="width: 40px;">
+            </div>
         </div>
 
     </div>
@@ -66,18 +104,31 @@
     <script src="/static/lib/xterm/xterm-addon-fit.js"></script>
 
     <script>
+        
         const connectButton = document.getElementById('connect-button');
         let ws;
 
         // Initialize xterm.js
-        const term = new Terminal();
+        const term = new Terminal({
+            cursorBlink: true,
+            fontSize: 12,             // Change this number to your preferred size
+            fontFamily: 'monospace',  // Ensures consistent character width
+            theme: {
+                background: '#000000'
+            }
+        });
         const fitAddon = new FitAddon.FitAddon();
         term.loadAddon(fitAddon);
         term.open(document.getElementById('terminal'));
-        fitAddon.fit();
+        // THE FIX: Wait a tiny bit for the CSS padding to apply, then fit
+        function refreshTerminal() {
+            fitAddon.fit();
+        }
 
-        window.addEventListener('resize', () => fitAddon.fit()); // Auto-resize
-
+        // Run on load and on window resize
+        window.addEventListener('load', refreshTerminal);
+        window.addEventListener('resize', refreshTerminal);
+        
         let dataListener; // Store the data event listener
         let keyListener;  // Store the key event listener
 
@@ -152,6 +203,7 @@
                     term.clear();
                 }
             });      
+            setTimeout(refreshTerminal, 100);
         });
 
         function getQueryParam(param) {
@@ -192,6 +244,19 @@
             ws.send("__exit__");
         }
     });
+
+    const fontSizeInput = document.getElementById('font-size');
+
+    fontSizeInput.addEventListener('change', () => {
+        const newSize = parseInt(fontSizeInput.value, 10);
+        term.options.fontSize = newSize;
+        
+        // Trigger a refresh/resize to ensure the terminal layout adjusts
+        if (typeof fitAddon !== 'undefined') {
+            fitAddon.fit();
+        }
+    });
+    
     </script>
 </body>
 </html>

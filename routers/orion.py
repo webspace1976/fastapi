@@ -206,7 +206,7 @@ def generate_node_table(session):
             table_rows += (
                 "<tr class=\"{}\"><td>{}</td><td><a href=\"{}\" target=\"_blank\">{}</a></td>"
                 "<td><a href=\"{}\" target=\"_blank\">{}</a></td><td>{}</td>"
-                "<td id=\"IPAddress\" style=\"display:none\">{}</td></tr>"
+                "<td id=\"IPAddress\" style=\"display:none\">{}</td></tr>\n"
             ).format(
                 class_tag,
                 row.get('Duration', ""),
@@ -230,7 +230,7 @@ def generate_node_table(session):
                         <label><input type="radio" name="link_type_nodedownTable" value="Orion_UDT">Orion UDT</label>
                     </div>
                 </th> 
-                <th style="width:20%">Type</th>
+                <th style="width:12%">Type</th>
                 <th style="display:none">IPAddress</th>
             </tr>
         </thead>
@@ -245,7 +245,8 @@ def generate_node_table(session):
 def generate_interface_table(session):
     query = swis_interfacdown
     results = session.query(query)
-    table_rows = ""
+    table_row = ""
+    rows_list = []
     for row in results.get("results", []):
         seccond = int(row.get("Seconds", 0))  # Default to 0 if 'Seconds' is missing
         if seccond < 43200 : 
@@ -263,9 +264,9 @@ def generate_interface_table(session):
         else:
             url_link = url # Fallback to raw url or empty string          
 
-        table_rows += (            
+        table_row = (            
                 "<tr class=\"{}\"><td>{}</td><td id=\"node_info\" value=\"{}\"><a href=\"{}\" target=\"_blank\">{}</a></td>"
-                "<td>{}</td></tr>"
+                "<td>{}</td></tr>\n"
             ).format(
                 class_tag,
                 row.get('Duration', ""),  # Use .get() to handle missing keys
@@ -274,10 +275,12 @@ def generate_interface_table(session):
                 row.get('NodeName', ""),
                 row.get('SiteType', "")
             )
+        rows_list.append(table_row)
+    table_rows_joined = "\n".join(rows_list)
 
     results_data = results.get("results", [])
     results_html = f"""
-    <table id="interfacedownTable" style="font-size:11px">
+    <table id="interfacedownTable" style="font-size:11px;width:100%">
         <thead>
             <tr>
                 <th style="width:14%">Duration</th> 
@@ -293,7 +296,7 @@ def generate_interface_table(session):
             </tr>
         </thead>
         <tbody>
-            {table_rows}
+            {table_rows_joined}
         </tbody>
     </table>
     """
@@ -494,7 +497,7 @@ def generate_alert_table(session):
 
 
             table_rows += (
-                    "<tr><td id=\"severity\" value=\"{}\"><img src=\"{}\" alt=\"\"/></td><td style=\"text-align:center\" id=\"node_info\" value=\"{},{}\">{}</td><td><img src=\"{}\" alt=\"\"/><a href=\"{}\" target=\"_blank\">{}</a></td></tr>"
+                    "<tr><td style=\"text-align:center\" id=\"severity\" value=\"{}\"><img src=\"{}\" alt=\"\"/></td><td style=\"text-align:center\" id=\"node_info\" value=\"{},{}\">{}</td><td><img src=\"{}\" alt=\"\"/><a href=\"{}\" target=\"_blank\">{}</a></td></tr>"
             ).format(
                     severity, severity_png,vendor, nodeip, TriggerCount,status_gif, url_link if url_link is not None else "", Message if Message is not None else ""
             ) 
@@ -506,7 +509,7 @@ def generate_alert_table(session):
             <thead>
                 <tr>
                 <th>Severity</th><th>Count</th>
-                <th>
+                <th style="width:80%" >
                     <div style="display:flex;justify-content: space-around;align-items: flex-end;">
                         <div>Link-Toggle:
                         <label style="margin-right: 10px;"><input type="radio" name="link_type_alertTable" value="Orion" checked>Orion Node</label>

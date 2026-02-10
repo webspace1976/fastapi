@@ -65,10 +65,13 @@ nav {
 }
 
 
-main  { 
+/* main  { 
 height:800px; 
+} */
+/* Also check 'main' if you have it */
+main {
+    height: auto ; /* important */
 }
-
 
 li {
     text-align: center;
@@ -115,7 +118,13 @@ col {display: table-row}
 	border: 1px solid #4CAF50;
 }
 
-#page-content { margin-left:12%;padding-left: 5px;height:800px; }
+/* #page-content { margin-left:12%;padding-left: 5px;height:800px; } */
+#page-content { 
+    margin-left: 12%;
+    padding-left: 5px;
+    height: auto;      /* <--- CHANGE THIS from 800px to auto */
+    min-height: 100vh; /* Optional: keeps page full screen but allows it to shrink/grow */
+}
 
 /* for orion_check.py output style */
 .output {
@@ -313,4 +322,50 @@ blink { animation:blinker-two 1.5s linear infinite; }
 
 div.chartContainer {
 	left: 10px;
+}
+
+/* 202602 orion_dashboard.html */
+#output-interface #output-nodes table {
+    display: table !important; /* Force it to act like a table, NOT a block */
+    width: 100% !important;
+    table-layout: auto !important; /* Allow columns to spread out */
+    border-collapse: collapse;
+}
+
+/* Ensure the container doesn't restrict width */
+#interfaceStackDown, #interfaceCoreDown {
+    width: 100%;
+    display: block;
+}
+
+/* Base style for the container that holds the table */
+.collapsible-wrapper {
+    width: 100%;
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out, opacity 0.5s ease-in-out;
+    max-height: none; /* High limit, but will shrink to content */
+    opacity: 1;
+}
+
+/* When the whole section is hidden (via toggleDisplay) */
+.collapsible-wrapper.is-hidden {
+    display: block;
+    max-height: 0 !important;
+    opacity: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    pointer-events: none;
+    transition: max-height 0.4s cubic-bezier(1, 0, 1, 0), opacity 0.3s ease;
+}
+
+/* --- Arrow Styling --- */
+.arrow-icon {
+    display: inline-block;
+    transition: transform 0.3s ease;
+    margin-left: 8px;
+    font-size: 0.8em;
+}
+
+.arrow-rotated {
+    transform: rotate(-90deg); /* Points Right when closed/filtered */
 }
