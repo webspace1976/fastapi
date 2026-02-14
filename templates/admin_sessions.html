@@ -4,15 +4,18 @@
 <body>
 <h2>All Orion Login Sessions</h2>
 <table border="1">
-    <thead><tr><th>Time</th><th>Username</th><th>Server</th><th>Session ID</th><th>Access Count</th></tr></thead>
+    <thead><tr><th>Username</th><th>IP Address</th><th>Server</th><th>Session ID</th><th>start_time</th><th>last_activity</th><th>duration_minutes</th></tr>
+    </thead>
     <tbody>
         {% for s in sessions %}
         <tr>
-            <td>{{ s.get("last_seen", "N/A")[:19].replace('T', ' ') }}</td>
             <td>{{ s.username }}</td>
+            <td>{{ s.ip }}</td>
             <td>{{ s.npm_server }}</td>
             <td>{{ s.session_id }}</td>
-            <td>{{ s.count }}</td>
+            <td>{{ s.start_time }}</td>
+            <td>{{ s.last_activity }}</td>
+            <td>{{ s.duration_minutes }}</td>
         </tr>
         {% endfor %}
     </tbody>

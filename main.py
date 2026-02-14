@@ -74,7 +74,7 @@ async def read_root(request: Request):
 
 @app.get("/admin/session-log", response_class=HTMLResponse)
 async def show_all_session_logs(request: Request):
-    log_file = os.path.join(session_dir, "orion_session_log.json")
+    log_file = mainconfig.SESSION_LOG_JSON
     grouped_sessions = defaultdict(list)
 
     # all_sessions  = []
@@ -101,11 +101,12 @@ async def show_all_session_logs(request: Request):
                 "npm_server": latest.get("npm_server"),
                 "username": latest.get("username"),
                 "ip": latest.get("ip"),
-                "count": len(entries),
-                "last_seen": latest.get("timestamp")
+                "start_time": latest.get("start_time"),
+                "last_activity": latest.get("last_activity"),
+                "duration_minutes": latest.get("duration_minutes"),
             })
 
-        grouped_data.sort(key=lambda x: x["last_seen"], reverse=True)
+        grouped_data.sort(key=lambda x: x["last_activity"], reverse=True)
 
     return templates.TemplateResponse("admin_sessions.html", {
         "request": request,

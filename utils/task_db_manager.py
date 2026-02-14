@@ -1,6 +1,6 @@
 # task_db_manager.py
 
-import sqlite3
+import sqlite3, os
 import json
 from datetime import datetime
 from typing import Dict, Any, List, Union
@@ -9,6 +9,7 @@ import mainconfig # Assumed to contain BASE_DIR
 
 # Define the database file path
 DB_FILE = mainconfig.DATA_DIR / "task_status.db"
+LOG_DIR = mainconfig.CORE_LOGS_DIR
 
 class TaskDBManager:
 # Define all non-PK columns for easy merging/saving
@@ -147,7 +148,19 @@ class TaskDBManager:
             
             for row in cursor.fetchall():
                 task_id, log_filename, timestamp = row
-                
+                user_part = log_filename.rsplit('.', 1)[0].split("_")
+                user_name = f"{user_part[-2]}_{user_part[-1]}" if len(user_part) >= 2 else "Unknown User"
+
+                filename = f"final_results_{task_id}.json"
+                filepath = os.path.join(LOG_DIR, filename)
+                if os.path.exists(filepath):
+                    # Get the size in bytes
+                    size_bytes = os.path.getsize(filepath)
+                    size_str = format_size(size_bytes)
+                else:
+                    size_str = f"File Missing: {filepath}"        
+                    continue    
+
                 # 1. Create a display name (use log_filename if available, otherwise use a UUID snippet)
                 display_name = log_filename or f"Task ID: {task_id[:8]}"
                 
@@ -164,8 +177,19 @@ class TaskDBManager:
                     'display_name': display_name, 
                     # 'size' is repurposed to show the completion date/time
                     'time': display_time,
+                    'user_name': user_name,
+                    'size': size_str
                 })
         return completed_tasks        
 
 # Initialize the manager for use in other modules
 task_db_manager = TaskDBManager()
+
+def format_size(size_bytes):
+    """Converts bytes to a human-readable string (KB, MB)."""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024**2:
+        return f"{size_bytes / 1024:.2f} KB"
+    else:
+        return f"{size_bytes / (1024**2):.2f} MB"

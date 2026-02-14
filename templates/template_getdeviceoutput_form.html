@@ -42,7 +42,7 @@
 
                         <option value="{{ result_url }}">
                             {# Use report.display_name (human-readable file name) and report.size (timestamp) #}
-                            ({{ report.time  }} {{ report.size}} )
+                            {{ report.time  }} {{ report.user_name}} {{ report.size}}
                         </option>
                     {% endfor %}
                 </select>

@@ -184,14 +184,41 @@ swis_nodestatistic="SELECT COUNT(1) as value, Status, CASE WHEN Status = 1 THEN 
 swis_ncp="SELECT Site, ONS.NodeName, ONS.IPaddress, ONS.DetailsUrl, NodeID, ONS.Status, ONS.StatusDescription, Address, Architecture, AssetTag, Building, City, Closest_Poller, Closet, Comments, Configuration, ControlUpEventID, DeviceType, Floor, HA, HardwareIncidentStatus, Imported_From_NCM, IncidentStatus, Layer3, LdapTestFailureMessage, Make, New_Poller_Home, NodeOwner,  OutOfBand, PDIntegrationKey, PONumber, ProgramApplication, ProgramApplicationType, Provider, ProviderSiteID, Rack, Region, ServiceType, SiteContactName, SiteHours, SitePhone, SiteType, Technology, Topology, Unmanaged_, WANbandwidth, WANnode, WANProvider,WANProviderCSID,WANProviderDeviceID FROM Orion.NodesCustomProperties ONCP INNER JOIN Orion.Nodes ONS ON ONCP.NodeID = ONS.NodeID ORDER BY Site"
 
 # 20260102 updated Alert query
+# swis_alert='''
+# SELECT OAO.EntityDetailsUrl, OAO.RelatedNodeID,OAO.AlertConfigurations.Severity, OND.Status,OAS.TriggerCount,StatusDescription,ObjectType,ObjectName, AlertMessage,OAO.RelatedNodeCaption,OND.Vendor, OND.ObjectSubType,OND.IPAddress,TriggerTimeStamp 
+# FROM Orion.AlertStatus OAS 
+# LEFT JOIN Orion.AlertObjects OAO ON OAO.AlertObjectID=OAS.AlertObjectID 
+# LEFT JOIN orion.Nodes OND ON OND.Caption=OAO.RelatedNodeCaption 
+# WHERE AlertMessage NOT LIKE '%OrionNCMVCHA logged in%' AND AlertMessage NOT LIKE '%system logged in%' 
+# GROUP BY OND.IPAddress, OAS.AlertMessage -- 20260203 collapse all rows that share the exact same IP and exact same message into a single row.
+# ORDER BY triggertimestamp DESC
+# '''
+
 swis_alert='''
-SELECT OAO.EntityDetailsUrl,OAO.AlertConfigurations.Severity, OND.Status,OAS.TriggerCount,StatusDescription,ObjectType,ObjectName, AlertMessage,OAO.RelatedNodeCaption,OND.Vendor, OND.ObjectSubType,OND.IPAddress,TriggerTimeStamp 
+SELECT 
+    -- Calculate duration in minutes
+    MINUTEDIFF(OAS.TriggerTimeStamp, GETUTCDATE()) AS DurationMinutes,
+    -- Fallback URL for Stack objects
+    ISNULL(OAO.EntityDetailsUrl, '/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:' + TOSTRING(OAO.RelatedNodeID)) AS EntityDetailsUrl,
+    OAO.AlertConfigurations.Severity, 
+    OND.Status,
+    OAS.TriggerCount,
+    StatusDescription,
+    ObjectType,
+    ObjectName, 
+    AlertMessage,
+    OAO.RelatedNodeCaption,
+    OND.Vendor, 
+    OND.ObjectSubType,
+    OND.IPAddress,
+    TriggerTimeStamp 
 FROM Orion.AlertStatus OAS 
 LEFT JOIN Orion.AlertObjects OAO ON OAO.AlertObjectID=OAS.AlertObjectID 
 LEFT JOIN orion.Nodes OND ON OND.Caption=OAO.RelatedNodeCaption 
-WHERE AlertMessage NOT LIKE '%OrionNCMVCHA logged in%' AND AlertMessage NOT LIKE '%system logged in%' 
-GROUP BY OND.IPAddress, OAS.AlertMessage -- 20260203 collapse all rows that share the exact same IP and exact same message into a single row.
-ORDER BY triggertimestamp DESC
+WHERE AlertMessage NOT LIKE '%OrionNCMVCHA logged in%' 
+  AND AlertMessage NOT LIKE '%system logged in%' 
+GROUP BY OND.IPAddress, OAS.AlertMessage 
+ORDER BY TriggerTimeStamp DESC
 '''
 
 # swis_alert="SELECT OAO.EntityDetailsUrl,OND.Status,OAS.TriggerCount,StatusDescription,ObjectType,ObjectName, AlertMessage,OAO.RelatedNodeCaption,OND.Vendor, OND.ObjectSubType,OND.IPAddress,TriggerTimeStamp FROM Orion.AlertStatus OAS INNER JOIN Orion.AlertObjects OAO ON OAO.AlertObjectID=OAS.AlertObjectID INNER JOIN orion.Nodes OND ON OND.Caption=OAO.RelatedNodeCaption WHERE AlertMessage NOT LIKE '%Hardware Sensor Unknown%' AND AlertMessage NOT LIKE '%TESTING%' AND AlertMessage NOT LIKE '%OrionNCMVCHA logged in%' AND AlertMessage NOT LIKE '%system logged in%' ORDER BY triggertimestamp DESC"

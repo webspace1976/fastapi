@@ -24,7 +24,7 @@ import mainconfig as mainconfig
 logger = mainconfig.setup_module_logger(__name__)
 log_dir = mainconfig.CORE_LOGS_DIR    
 curr_dir= os.path.dirname(__file__)
-log_dir = os.path.abspath(os.path.join(curr_dir, '..', 'logs'))
+# log_dir = os.path.abspath(os.path.join(curr_dir, '..', 'logs'))
 
 def load_json_file(file_path):
     """Load and return JSON data from a file, with error handling."""
@@ -1069,7 +1069,7 @@ def log_summary(log, hostname, ip):
     return "".join(log_analysis)
 
 # # 20251127 generate clickable html list
-def list_reports(report_dir):
+def list_reports(report_dir=log_dir):
     """Scans the directory for HTML reports start in final_results_xxx.json and includes file size."""
     reports_data = []
     

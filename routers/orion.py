@@ -14,7 +14,7 @@ import pandas as pd
 import utils.fastapi_mymodule as mymodule
 import mainconfig as mainconfig
 from mainpydantic import OrionCheckRequest, OrionResponse
-from utils.session_manager import OrionSession, get_deterministic_session_id
+from utils.session_manager import OrionSession, update_session_audit
 from utils.orion_db_manager import sync_orion_data
 from utils.orion_db_manager import OrionDatabaseManager
 
@@ -167,6 +167,14 @@ def generate_node_table(session):
             else:
                 class_tag = "rowOther"
 
+            # event time: Calculate the '25d 13h 45m' string
+            total_min = int(row.get('Seconds') or 0)
+            days = total_min // 1440 // 60
+            hours = (total_min % 1440) // 60 // 60
+            minutes = total_min // 60 % 60
+            # Use :02d to force 2 digits with leading zeros
+            duration_str = f"{days}d {hours:02d}h {minutes:02d}m"
+
             # url="{DetailsUrl}".format(**row)
             # url_link=orion_prefix+url            
             url = row.get("DetailsUrl", "") # Use .get with a default
@@ -204,12 +212,13 @@ def generate_node_table(session):
             encoded_site_search = urllib.parse.quote(raw_site_name) # Search by raw name for better results
 
             table_rows += (
-                "<tr class=\"{}\"><td>{}</td><td><a href=\"{}\" target=\"_blank\">{}</a></td>"
+                "<tr class=\"{}\"><td style=\"text-align:right;padding-right:5px\">{}</td><td><a href=\"{}\" target=\"_blank\">{}</a></td>"
                 "<td><a href=\"{}\" target=\"_blank\">{}</a></td><td>{}</td>"
                 "<td id=\"IPAddress\" style=\"display:none\">{}</td></tr>\n"
             ).format(
                 class_tag,
-                row.get('Duration', ""),
+                # row.get('Duration', ""),
+                duration_str,
                 url_link if url_link is not None else "",
                 escaped_node_name,
                 f"{site_searchurl}{encoded_site_search}",
@@ -219,7 +228,7 @@ def generate_node_table(session):
             )  
 
     results_html = f"""
-    <table id="nodedownTable" style="visibility:'hidden';font-size:11px; width:100%">
+    <table id="nodedownTable" style="display:none'; width:100%">
         <thead>
             <tr>
                 <th style="width:14%">Duration</th> 
@@ -234,7 +243,7 @@ def generate_node_table(session):
                 <th style="display:none">IPAddress</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody style="font-size:11px;">
             {table_rows}
         </tbody>
     </table>
@@ -257,7 +266,15 @@ def generate_interface_table(session):
             class_tag = "rowOld"
         else:
             class_tag = "rowOther"
-            
+
+        # event time: Calculate the '25d 13h 45m' string
+        total_min = int(row.get('Seconds') or 0)
+        days = total_min // 1440 // 60
+        hours = (total_min % 1440) // 60 // 60
+        minutes = total_min // 60 % 60
+        # Use :02d to force 2 digits with leading zeros
+        duration_str = f"{days}d {hours:02d}h {minutes:02d}m"
+
         url = row.get("DetailsUrl", "") # Use .get with a default
         if url and orion_prefix:
             url_link = orion_prefix + url
@@ -265,11 +282,11 @@ def generate_interface_table(session):
             url_link = url # Fallback to raw url or empty string          
 
         table_row = (            
-                "<tr class=\"{}\"><td>{}</td><td id=\"node_info\" value=\"{}\"><a href=\"{}\" target=\"_blank\">{}</a></td>"
+                "<tr class=\"{}\"><td style=\"text-align:right;padding-right:5px\">{}</td><td id=\"node_info\" value=\"{}\"><a href=\"{}\" target=\"_blank\">{}</a></td>"
                 "<td>{}</td></tr>\n"
             ).format(
                 class_tag,
-                row.get('Duration', ""),  # Use .get() to handle missing keys
+                duration_str,
                 row.get('IPAddress', ""),                
                 url_link if url_link is not None else "",
                 row.get('NodeName', ""),
@@ -420,27 +437,13 @@ def generate_alert_table(session):
     try:
         for row in results.get("results", []):
 
-
-            # event time:
-            timestamp=row['TriggerTimeStamp']
-            date=re.split("T",timestamp)[0]
-            time_utc=re.search("[0-9][0-9]\:[0-9][0-9]\:[0-9][0-9]",timestamp)[0]
-            t=re.split(":",time_utc)
-            utc_offset=datetime.utcnow().hour-datetime.now().hour
-            if utc_offset < 0 :
-                utc_offset=24 + datetime.utcnow().hour-datetime.now().hour
-            t[0]=int(t[0])-utc_offset
-            i=0 # for time debug
-            if t[0] < 0 :
-                t[0]=str(t[0] + 24)
-                i=1
-            elif t[0] < 10 :
-                t[0]="0"+str(t[0])
-                i=2
-            else:
-                i=3
-                t[0]=str(t[0])
-            time_cur=t[0]+":"+t[1]+":"+t[2]    
+            # event time: Calculate the '25d 13h 45m' string
+            total_min = int(row.get('DurationMinutes') or 0)
+            days = total_min // 1440
+            hours = (total_min % 1440) // 60
+            minutes = total_min % 60
+            # Use :02d to force 2 digits with leading zeros
+            duration_str = f"{days}d {hours:02d}h {minutes:02d}m"
 
             vendor = str(row.get('Vendor') or "Unknown")
             nodeip = str(row.get('IPAddress') or "0.0.0.0")
@@ -459,15 +462,22 @@ def generate_alert_table(session):
                 continue
             seen_alerts.add(alert_id)
 
-            # url_link = orion_prefix + (row.get('EntityDetailsUrl') or "")
-            url = row.get("EntityDetailsUrl", "") # Use .get with a default
+            # 20260212 --- FIXED CODE ---
+            url = row.get("EntityDetailsUrl")
+            node_id = row.get("RelatedNodeID")
+
             if url:
+                # Use the specific entity link if it exists
                 url_link = orion_prefix + url
+            elif node_id:
+                # FALLBACK: Link to the Node Details page if it's a Stack alert with no specific URL
+                url_link = f"{orion_prefix}/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:{node_id}"
             else:
-                url_link = url # Fallback to raw url or empty string                
+                # FINAL FALLBACK: Link to the general Orion Alerts page
+                url_link = "https://orion.net.mgmt/orion/netperfmon/alerts.aspx"         
 
             # if "Down" in row['StatusDescription']:
-            if row.get('Status') in [2,12] or "Failure" in row.get('AlertMessage', ''):
+            if row.get('Status') in [2,12] or any(keyword in row.get('AlertMessage', '') for keyword in ["Failure","down", "broken"]):
                 status_gif = "/icons/Event-10.gif"
             else :
                 status_gif = "/icons/Event-5.gif"
@@ -495,36 +505,31 @@ def generate_alert_table(session):
             else:
                 Message = hostname + " " + row['AlertMessage']
 
-
             table_rows += (
-                    "<tr><td style=\"text-align:center\" id=\"severity\" value=\"{}\"><img src=\"{}\" alt=\"\"/></td><td style=\"text-align:center\" id=\"node_info\" value=\"{},{}\">{}</td><td><img src=\"{}\" alt=\"\"/><a href=\"{}\" target=\"_blank\">{}</a></td></tr>"
+                "<tr>"
+                f"<td style='text-align:right;padding-right:5px;white-space:nowrap;'>{duration_str}</td>"
+                "<td style='text-align:center' class='node_info_cell' value='{},{}'>{}</td>"
+                "<td><img src='{}' alt=''/><a href='{}' target='_blank'>{}</a></td>"
+                "</tr>"
             ).format(
-                    severity, severity_png,vendor, nodeip, TriggerCount,status_gif, url_link if url_link is not None else "", Message if Message is not None else ""
-            ) 
+                vendor, nodeip, TriggerCount, status_gif, url_link, Message
+            )
 
         results_data = results.get("results", [])
-        results_len = len(results_data)
         results_html = f"""
         <table id="alertTable" style="font-size:11px;">
             <thead>
                 <tr>
-                <th>Severity</th><th>Count</th>
-                <th style="width:80%" >
-                    <div style="display:flex;justify-content: space-around;align-items: flex-end;">
-                        <div>Link-Toggle:
-                        <label style="margin-right: 10px;"><input type="radio" name="link_type_alertTable" value="Orion" checked>Orion Node</label>
-                        <label style="margin-right: 10px;"><input type="radio" name="link_type_alertTable" value="SNOW"> SNOW</label>
-                        <label><input type="radio" name="link_type_alertTable" value="webssh">WebSSH</label>
-                        </div>
-                    </div>
-                </th>
+                    <th style="width:13%;">Duration</th><th>Count</th>
+                    <th style="width:80%">Alert Message</th>
                 </tr>
             </thead>
             <tbody>
                 {table_rows}
             </tbody>
         </table>
-        """
+        """        
+        
         return results_html, results_data
     except Exception as e:
         logger.error(f"Error generating alert table: {e} {row}")
@@ -777,14 +782,26 @@ async def get_device_output_form(request: Request):
 @router.post("/check_output", response_class=HTMLResponse)
 async def run_orioncheck_route(
     request: Request,
+    response: Response, # Added response to set cookies
     npm_server: str = Form(...),
     npm_uname: str = Form(...),
     npm_passwd: str = Form(...),
 ):
+    # 20260211 Create/Retrieve persistent session
+    manager = OrionSession(npm_server, npm_uname, npm_passwd)
+
     try:
-        # 1. Generate the deterministic ID immediately from credentials
-        # This enforces the "one session per user" rule
-        session_id = get_deterministic_session_id(npm_server, npm_uname)
+        # One single call to get the persistent client
+        swis_client, session_id = manager.get_client()
+
+        # AUDIT LOG: Capture the login event
+    # Update the audit log with duration tracking
+        update_session_audit(
+            session_id=session_id,
+            username=npm_uname,
+            npm_server=npm_server,
+            ip_address=request.client.host
+        )
 
         loop = asyncio.get_running_loop()
 

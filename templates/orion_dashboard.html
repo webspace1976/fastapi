@@ -169,7 +169,7 @@
                     <div><a href="https://orion.net.mgmt/orion/netperfmon/alerts.aspx" target="_blank">Orion Alerts:  </a><span id="rowCount" style="font-weight:bold; color:blue;"></span> alerts
                     </div>
                     <div>
-                    <label for="severityFilter">Severity:</label>
+                    <!-- <label for="severityFilter">Severity:</label>
                     <select id="severityFilter" onchange="applyFilters()">
                         <option value="all">All</option>
                         <option value="3">Serious</option>
@@ -177,7 +177,7 @@
                         <option value="1">Warning</option>
                         <option value="0">Informational</option>
                         <option value="4">Unknown</option>
-                    </select>
+                    </select> -->
 
                     <label for="messageFilter">Category:</label>
                     <select id="messageFilter" onchange="applyFilters()">
@@ -243,7 +243,7 @@
             toggleDisplay('toggleAlertBtn', 'alertTable')
 
         function applyFilters() {
-            const sevFilter = document.getElementById('severityFilter').value;
+            // const sevFilter = document.getElementById('severityFilter').value;
             // FIX: Changed 'categoryFilter' to 'messageFilter' to match your HTML ID
             const msgFilter = document.getElementById('messageFilter').value.toLowerCase(); 
             const table = document.getElementById('alertTable');
@@ -262,10 +262,9 @@
 
                 const sevValue = sevCell ? sevCell.getAttribute('value') : "";
 
-                const matchesSeverity = (sevFilter === 'all' || sevValue === sevFilter);
                 const matchesMessage = (msgFilter === 'all' || messageText.includes(msgFilter));
 
-                if (matchesSeverity && matchesMessage) {
+                if (matchesMessage) {
                     row.style.display = "";
                     rowsFound++;
                 } else {
@@ -284,81 +283,67 @@
             applyFilters();
         });
 
-    function regroupAndColspan() {
-        const table = document.getElementById('nodedownTable');
-        if (!table) return;
-        const tbody = table.tBodies[0];
-        const rows = Array.from(tbody.rows);
+function regroupAndColspan() {
+    const table = document.getElementById('nodedownTable');
+    if (!table) return;
+    const tbody = table.tBodies[0];
+    const rows = Array.from(tbody.rows);
 
-        // 1. Helper to parse "3d 21h 48m" into seconds for sorting
-        function toSeconds(str) {
-            const d = (str.match(/(\d+)d/) || [0, 0])[1];
-            const h = (str.match(/(\d+)h/) || [0, 0])[1];
-            const m = (str.match(/(\d+)m/) || [0, 0])[1];
-            return (parseInt(d) * 86400) + (parseInt(h) * 3600) + (parseInt(m) * 60);
-        }
-
-        // 2. Extract Data & Find "Site-wide Newest Event"
-        const siteStats = {};
-        const data = rows.map(row => {
-            // Extract the full HTML of the site link (cell index 2)
-            const siteLinkHTML = row.cells[2].innerHTML; 
-            const siteText = row.cells[2].innerText.trim();
-            const seconds = toSeconds(row.cells[0].innerText);
-            
-            if (!siteStats[siteText] || seconds < siteStats[siteText]) {
-                siteStats[siteText] = seconds;
-            }
-            return { 
-                el: row, 
-                siteText: siteText, 
-                siteHTML: siteLinkHTML, 
-                seconds: seconds 
-            };
-        });
-
-        // 3. Sort: Site with newest event (shortest duration) first
-        data.sort((a, b) => {
-            if (siteStats[a.siteText] !== siteStats[b.siteText]) {
-                return siteStats[a.siteText] - siteStats[b.siteText];
-            }
-            return a.seconds - b.seconds;
-        });
-
-        // 4. Clear and Re-render
-        tbody.innerHTML = '';
-        let currentSite = null;
-
-        data.forEach(item => {
-            if (item.siteText !== currentSite) {
-                // Create the Group Header Row
-                const header = document.createElement('tr');
-                header.style.backgroundColor = "#f2f4f6";
-                header.style.fontWeight = "bold";
-                
-                const cell = document.createElement('td');
-                // Span across the 3 columns we are keeping
-                cell.colSpan = 3; 
-                cell.style.paddingLeft = "10px";
-                // Insert the original link with the map icon
-                cell.innerHTML = `<b> ${item.siteHTML} </b>`;
-                
-                header.appendChild(cell);
-                tbody.appendChild(header);
-                currentSite = item.siteText;
-            }
-            
-            // --- MODIFY ROW FOR 2 COLUMNS ---
-            // Hide Site (cell 2), Type (cell 3), and IP (cell 4)
-            item.el.cells[1].style.paddingLeft = "10px"; 
-            item.el.cells[2].style.display = 'none'; 
-            //if(item.el.cells[3]) item.el.cells[3].style.display = 'none';
-            if(item.el.cells[4]) item.el.cells[4].style.display = 'none';
-            
-            tbody.appendChild(item.el);
-        });
-        tbody.style.visibility = 'visible';
+    // 1. Helper for sorting
+    function toSeconds(str) {
+        const d = (str.match(/(\d+)d/) || [0, 0])[1];
+        const h = (str.match(/(\d+)h/) || [0, 0])[1];
+        const m = (str.match(/(\d+)m/) || [0, 0])[1];
+        return (parseInt(d) * 86400) + (parseInt(h) * 3600) + (parseInt(m) * 60);
     }
+
+    // 2. Map and Sort Data
+    const siteStats = {};
+    const data = rows.map(row => {
+        const siteLinkHTML = row.cells[2].innerHTML; 
+        const siteText = row.cells[2].innerText.trim();
+        const seconds = toSeconds(row.cells[0].innerText);
+        if (!siteStats[siteText] || seconds < siteStats[siteText]) siteStats[siteText] = seconds;
+        return { el: row, siteText, siteHTML: siteLinkHTML, seconds };
+    });
+
+    data.sort((a, b) => {
+        if (siteStats[a.siteText] !== siteStats[b.siteText]) return siteStats[a.siteText] - siteStats[b.siteText];
+        return a.seconds - b.seconds;
+    });
+
+    // 3. Create a Document Fragment (This is the "Secret Sauce")
+    // This lives only in memory, not on the screen.
+    const fragment = document.createDocumentFragment();
+    let currentSite = null;
+
+    data.forEach(item => {
+        if (item.siteText !== currentSite) {
+            const header = document.createElement('tr');
+            header.style.backgroundColor = "#f2f4f6";
+            header.style.fontWeight = "bold";
+            header.innerHTML = `<td colspan="3" style="padding-left:10px;"><b>${item.siteHTML}</b></td>`;
+            fragment.appendChild(header);
+            currentSite = item.siteText;
+        }
+        
+        // Modify row styles while they are "detached" from the screen
+        item.el.cells[1].style.paddingLeft = "10px"; 
+        item.el.cells[2].style.display = 'none'; 
+        if(item.el.cells[4]) item.el.cells[4].style.display = 'none';
+        
+        fragment.appendChild(item.el);
+    });
+
+    // 4. The Final Swap
+    // We clear the tbody and inject the fragment in ONE frame.
+    tbody.innerHTML = ''; 
+    tbody.appendChild(fragment);
+    
+    // Ensure visibility is reset
+    //tbody.style.display = 'block';
+    tbody.style.visibility = 'visible';
+}
 
     // Run it after your table data is loaded
     $(document).ready(function() {
