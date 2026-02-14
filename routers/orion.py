@@ -168,11 +168,20 @@ def generate_node_table(session):
                 class_tag = "rowOther"
 
             # event time: Calculate the '25d 13h 45m' string
-            total_min = int(row.get('Seconds') or 0)
-            days = total_min // 1440 // 60
-            hours = (total_min % 1440) // 60 // 60
-            minutes = total_min // 60 % 60
-            # Use :02d to force 2 digits with leading zeros
+            # Ensure we have a valid positive integer
+            total_sec = abs(int(row.get('Seconds') or 0))
+
+            # Convert seconds to minutes and remaining seconds
+            # (total_sec // 60) gives minutes, (total_sec % 60) gives remaining seconds
+            total_minutes, _ = divmod(total_sec, 60)
+
+            # Convert total minutes into hours and remaining minutes
+            total_hours, minutes = divmod(total_minutes, 60)
+
+            # Convert total hours into days and remaining hours
+            days, hours = divmod(total_hours, 24)
+
+            # Formatted output: "25d 13h 45m"
             duration_str = f"{days}d {hours:02d}h {minutes:02d}m"
 
             # url="{DetailsUrl}".format(**row)
@@ -268,11 +277,11 @@ def generate_interface_table(session):
             class_tag = "rowOther"
 
         # event time: Calculate the '25d 13h 45m' string
-        total_min = int(row.get('Seconds') or 0)
-        days = total_min // 1440 // 60
-        hours = (total_min % 1440) // 60 // 60
-        minutes = total_min // 60 % 60
-        # Use :02d to force 2 digits with leading zeros
+        total_sec = abs(int(row.get('Seconds') or 0))
+        total_minutes, _ = divmod(total_sec, 60)
+        total_hours, minutes = divmod(total_minutes, 60)
+        days, hours = divmod(total_hours, 24)
+        # Formatted output: "25d 13h 45m"
         duration_str = f"{days}d {hours:02d}h {minutes:02d}m"
 
         url = row.get("DetailsUrl", "") # Use .get with a default
@@ -282,7 +291,7 @@ def generate_interface_table(session):
             url_link = url # Fallback to raw url or empty string          
 
         table_row = (            
-                "<tr class=\"{}\"><td style=\"text-align:right;padding-right:5px\">{}</td><td id=\"node_info\" value=\"{}\"><a href=\"{}\" target=\"_blank\">{}</a></td>"
+                "<tr class=\"{}\"><td style=\"text-align:right;padding-right:5px\">{}</td><td style=\"padding-left:5px;\" id=\"node_info\" value=\"{}\"><a href=\"{}\" target=\"_blank\">{}</a></td>"
                 "<td>{}</td></tr>\n"
             ).format(
                 class_tag,
@@ -521,7 +530,15 @@ def generate_alert_table(session):
             <thead>
                 <tr>
                     <th style="width:13%;">Duration</th><th>Count</th>
-                    <th style="width:80%">Alert Message</th>
+                    <th style="width:80%" >
+                        <div style="display:flex;justify-content: space-around;align-items: flex-end;">
+                            <div>Link-Toggle:
+                            <label style="margin-right: 10px;"><input type="radio" name="link_type_alertTable" value="Orion" checked>Orion Node</label>
+                            <label style="margin-right: 10px;"><input type="radio" name="link_type_alertTable" value="SNOW"> SNOW</label>
+                            <label><input type="radio" name="link_type_alertTable" value="webssh">WebSSH</label>
+                            </div>
+                        </div>
+                    </th>
                 </tr>
             </thead>
             <tbody>

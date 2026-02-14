@@ -182,11 +182,12 @@
                     <label for="messageFilter">Category:</label>
                     <select id="messageFilter" onchange="applyFilters()">
                         <option value="all">All Messages</option>
-                        <option value="stack">Stack</option>
+                        <option value="stack,AULTY_CABLE">Stack</option>
                         <option value="core">Core</option>
                         <option value="kdc">KDC</option>
                         <option value="power">Power</option>
-                        <option value="H/W">H/W</option>
+                        <option value="H/W,Hardware,BOARD">H/W</option>
+                        <option value="Temp">Temperature</option>
                     </select>
                     </div>
                 </div>
@@ -243,9 +244,7 @@
             toggleDisplay('toggleAlertBtn', 'alertTable')
 
         function applyFilters() {
-            // const sevFilter = document.getElementById('severityFilter').value;
-            // FIX: Changed 'categoryFilter' to 'messageFilter' to match your HTML ID
-            const msgFilter = document.getElementById('messageFilter').value.toLowerCase(); 
+            const filterValue = document.getElementById('messageFilter').value.toLowerCase(); 
             const table = document.getElementById('alertTable');
             const countDisplay = document.getElementById('rowCount');
             
@@ -254,15 +253,23 @@
             const rows = table.getElementsByTagName('tr');
             let rowsFound = 0;
 
-            // Start at 1 to skip header
+            // Convert the comma-separated string into an actual array
+            // e.g., "stack,faulty_cable" -> ["stack", "faulty_cable"]
+            const filterKeywords = filterValue.split(',');
+
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
-                const sevCell = row.querySelector('#severity');
-                const messageText = row.textContent.toLowerCase();
+                // Use textContent to get all text in the row for broad filtering
+                const rowText = row.textContent.toLowerCase();
 
-                const sevValue = sevCell ? sevCell.getAttribute('value') : "";
+                let matchesMessage = false;
 
-                const matchesMessage = (msgFilter === 'all' || messageText.includes(msgFilter));
+                if (filterValue === 'all') {
+                    matchesMessage = true;
+                } else {
+                    // .some() checks if at least one keyword in the list is found in the row text
+                    matchesMessage = filterKeywords.some(keyword => rowText.includes(keyword.trim()));
+                }
 
                 if (matchesMessage) {
                     row.style.display = "";
@@ -272,7 +279,6 @@
                 }
             }
 
-            // Update the counter - ensure it defaults to 'All' count on load
             if (countDisplay) {
                 countDisplay.textContent = rowsFound;
             }
@@ -328,7 +334,7 @@ function regroupAndColspan() {
         }
         
         // Modify row styles while they are "detached" from the screen
-        item.el.cells[1].style.paddingLeft = "10px"; 
+        item.el.cells[1].style.paddingLeft = "5px"; 
         item.el.cells[2].style.display = 'none'; 
         if(item.el.cells[4]) item.el.cells[4].style.display = 'none';
         
