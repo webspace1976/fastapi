@@ -130,8 +130,10 @@ Cisco Switch commands WIRELESS APS troubleshooting
 
 
 -----------------------------------------------------------------------------------------------------------------------------------------
-	HP Switch commands WIRELESS APS troubleshooting
-
+	HPE Comware Software, Version 7.1.070
+	display irf
+	display irf topology
+	display irf link
 
 	
 	display version | include Up Time

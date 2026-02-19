@@ -79,9 +79,12 @@ def close_log_handler():
 
 atexit.register(close_log_handler)
 
-def cleanup_old_sessions(session_dir, max_age=3600):
+def cleanup_old_sessions(session_dir, max_age=3600*12):  # Default max age: 12 hours
     now = time()
     for file in os.listdir(session_dir):
+        # 20260219 ignore 'orion_session_log.json'
+        if file == "orion_session_log.json":
+            continue
         file_path = os.path.join(session_dir, file)
         if os.path.isfile(file_path) and (now - os.path.getmtime(file_path)) > max_age:
             os.remove(file_path)
