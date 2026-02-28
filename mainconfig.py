@@ -85,10 +85,12 @@ CORE_DEVICES = [
     {"os": "hp_comware", "ip": "10.251.0.76", "name": "KDC-R4.23-Core-2", "nodeid":"11434"},
     {"os": "hp_comware", "ip": "10.251.18.216", "name": "KDC-DMZ-KAM-New", "nodeid":"16100"},
     {"os": "hp_comware", "ip": "10.251.18.217", "name": "KDC-DMZ-HUT8-5945", "nodeid":"16112"},
-    {"os": "cisco_ios", "ip": "10.26.101.127", "name": "NS-LGH-LGAC-01A-C9600-Core1", "nodeid":"14539"},
-    {"os": "cisco_ios", "ip": "10.26.101.128", "name": "NS-LGH-LGAC-PIMS-C9600-Core2", "nodeid":"14540"},
     {"os": "arista_eos", "ip": "10.26.101.7", "name": "VH-VGH-3730-7508R-Core1", "nodeid":"3158"},
     {"os": "arista_eos", "ip": "10.26.101.8", "name": "VH-VGH-JPNB9-7508R-Core2", "nodeid":"3287"},
+    {"os": "cisco_ios", "ip": "10.26.101.127", "name": "NS-LGH-LGAC-01A-C9600-Core1", "nodeid":"14539"},
+    {"os": "cisco_ios", "ip": "10.26.101.128", "name": "NS-LGH-LGAC-PIMS-C9600-Core2", "nodeid":"14540"},
+    {"os": "cisco_ios", "ip": "10.26.101.2", "name": "(NEW) LGH-PIM-Core-1", "nodeid":"282"},
+    {"os": "cisco_ios", "ip": "10.26.101.1", "name": "(NEW) LGH-EVGH-Core-2", "nodeid":"281"},
 ]
 
 # Core device commands

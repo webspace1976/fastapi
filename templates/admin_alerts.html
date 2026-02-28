@@ -51,7 +51,7 @@
             padding: 2px 6px;
             border-radius: 3px;
         }
-        #searchInput {
+        #searchInput, #sessionLink {
             display: block;
             margin: 10px auto;
             padding: 6px;
@@ -104,6 +104,7 @@ window.addEventListener("DOMContentLoaded", () => {
 <body>
     <div style="display: flex; justify-content: space-around;">
         <div><h1>🚨 Alert Log Center</h1></div>
+        <div  id="sessionLink"><a href="/admin/session-log" >Orion Login Sessions</a></div>
         <div><input type="text" id="searchInput" placeholder="Search log entries..."></div>
     </div>
 

@@ -969,7 +969,7 @@ def log_summary(log, hostname, ip):
             for entries in neighbors.values():
                 bgp_all_states.update(state for _, _, state in entries)
         header = (
-            "<tr><th style='width:15%'>Instance</th><th style='width:15%'>Neighbor</th><th style='width:10%'>Current</th><th style='width:10%'>Duration</th>"
+            "<tr><th style='width:15%'>Instance</th><th style='width:15%'>Neighbor</th><th style='width:20%'>Current</th>"
             + "".join(f"<th>{state}</th>" for state in sorted(bgp_all_states))
             + "<th style='width:20%'>LastChange</th></tr>"
         )
@@ -991,8 +991,11 @@ def log_summary(log, hostname, ip):
                 if isinstance(bgp_live_status, list):
                     # Expect a single element list; take the first one
                     bgp_live_status = bgp_live_status[0] if bgp_live_status else {}
+                
                 # fall back and Always show ESTABLISHED, FULL/DR, etc.
-                bgp_peer_state = bgp_live_status.get('state', 'UNKNOWN').upper() if bgp_live_status else 'UNKNOWN'    
+                # bgp_peer_state = bgp_live_status.get('state', 'UNKNOWN').upper() if bgp_live_status else 'UNKNOWN'    
+                bgp_peer_state = current_state if current_state else (bgp_live_status.get('state', 'UNKNOWN').upper() if bgp_live_status else 'UNKNOWN')
+
                 # bgp_vpn_stance = bgp_live_status.get('vpn_instance', 'UNKNOWN').upper() if bgp_live_status else 'UNKNOWN'   
                 bgp_vpn_stance = instance   #get instance name from log parsing instead of monitor function
                 bgp_peer_duration = bgp_live_status.get('up_down_time', 'UNKNOWN') if bgp_live_status else 'UNKNOWN'           
@@ -1002,7 +1005,7 @@ def log_summary(log, hostname, ip):
                     state_counts[state] += 1
                 row_style = "style='background-color:Yellow'" if bgp_peer_state != "ESTABLISHED" else "style='background-color:lightgreen;'"
                 row = (
-                    f"<tr {row_style}><td>{bgp_vpn_stance}</td><td>{neighbor}</td><td>{bgp_peer_state}</td><td>{bgp_peer_duration}</td>"
+                    f"<tr {row_style}><td>{bgp_vpn_stance}</td><td>{neighbor}</td><td>{bgp_peer_state}</td>"
                     + "".join(f"<td>{state_counts[state]}</td>" for state in sorted(bgp_all_states))
                     + f"<td>{current_ts}</td></tr>"
                 )

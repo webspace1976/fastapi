@@ -992,7 +992,8 @@ function setupLinkRadioToggle(tableId, stateId) {
                               linkText = link.textContent.trim();
                           }
                           // Remove "Site Down" and asterisks
-                          linkText = linkText.replace(/\*?\*?Site Down\*?\*?/gi, "").trim();
+                          // linkText = linkText.replace(/\*?\*?Site Down\*?\*?/gi, "").trim();
+                          linkText = linkText.split(",")[0].trim();
                           // Only update if linkText is not empty
                           if (linkText) {
                               link.href = `${servicenowBaseUrl}${encodeURIComponent(linkText)}`;

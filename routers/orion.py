@@ -131,22 +131,31 @@ def safe_escape(value: Any) -> str:
 
 def generate_node_table(session):
     sitedown_list = []
+    nodedown_list = []
     table_rows = ""
 
     query_site = swis_site
     results_site = session.query(query_site)
     site_data = results_site.get("results", [])
     for row_site in results_site['results']:
+        nodedown_list.append({
+            'Site': row_site.get('Site'),
+            'Address': row_site.get('Address'),
+            'City': row_site.get('City'),
+            'DownCount': row_site.get('DownCount'),
+            'TotalNodes': row_site.get('TotalNodes'),
+            'FullDisplay': f"{row_site.get('Site')}, {row_site.get('Address')}, {row_site.get('City')}, {row_site.get('DownCount')}/{row_site.get('TotalNodes')}"
+        })
         if row_site.get('DownCount') and row_site.get('DownCount') == row_site.get('TotalNodes'):
             # Store as a dictionary for precise matching later
             sitedown_list.append({
                 'Site': row_site.get('Site'),
                 'Address': row_site.get('Address'),
                 'FullDisplay': f"{row_site.get('Site')}, {row_site.get('Address')}, {row_site.get('City')}, {row_site.get('DownCount')}/{row_site.get('TotalNodes')}"
-            })        
-        # if row_site.get('DownCount') and row_site.get('DownCount') == row_site.get('TotalNodes'):
-        #     # sitedown_list.append(row_site.get('Site',''))
-        #     sitedown_list.append(f"{row_site.get('Site')}, {row_site.get('Address')}, {row_site.get('City')}, {row_site.get('DownCount')}/{row_site.get('TotalNodes')}")
+            })
+        # 20260224 
+            
+
     logger.debug(f"Debug: sitedown_list: {sitedown_list}")
     # 20250106 update site down logic to check from site table
 
@@ -211,12 +220,18 @@ def generate_node_table(session):
                 if item['Site'] == raw_site_name and item['Address'] == node_address
             ), None)
 
+            nodedown_match = next((
+                item for item in nodedown_list 
+                if item['Site'] == raw_site_name and item['Address'] == node_address
+            ), None)
+
             if site_down_match:
                 # Use the specific display string we built earlier
                 display_site_name = site_down_match['FullDisplay']
                 is_down = True
             else:
-                display_site_name = raw_site_name + ", " + node_address + ", " + node_city
+                # display_site_name = raw_site_name + ", " + node_address + ", " + node_city
+                display_site_name = nodedown_match['FullDisplay'] if nodedown_match else raw_site_name
                 is_down = False
                 
             escaped_node_name = html.escape(node_name)
