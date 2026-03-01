@@ -92,7 +92,7 @@ class NetworkDeviceManager:
         
         cmds = self._get_cmds(os_type)
         # Initial status is failed until both phases succeed
-        result = {"ip": ip, "status": "failed", "output_file": str(session_log_file.name), "analysis_html": "", "error": ""}
+        result = {"ip": ip,"nodeid": nodeid, "status": "failed", "output_file": str(session_log_file.name), "analysis_html": "", "error": ""}
         
         if not self.username or not self.password:
             result["error"] = "Missing username or password."

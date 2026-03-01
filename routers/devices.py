@@ -10,6 +10,7 @@ from pathlib import Path
 # Import the refactored utilities
 import mainconfig as mainconfig
 from utils.network import NetworkDeviceManager, LOG_OUTPUT_DIR, get_file_list_fastapi
+from utils.analysis_log import generate_analysis_data
 from utils.fastapi_mymodule import list_reports
 from utils.task_db_manager import task_db_manager
 
@@ -103,8 +104,17 @@ async def get_check_results(request: Request, task_id: str):
     # 2. If DB status is missing or not completed, try to load from the JSON file
     elif results_file_path.exists():
         try:
+        # 20260228 moved the file loading and analysis generation logic into a utility function for better separation of concerns
             with open(results_file_path, "r") as f:
-                results = json.load(f)
+                raw_results_list = json.load(f)
+
+            # Now pass the LIST, not the Path object
+            results = generate_analysis_data(raw_results_list)
+            
+            # --- FIX END ---
+            # 20260228 - moved the log filename retrieval into the DB status check, since the file-based fallback is only for historical tasks where the DB might not have been updated. If we rely on the file for results, we won't have the log filename in the DB, so we can set it to a default value indicating it's from a historical task.
+            # with open(results_file_path, "r") as f:
+            #     results = json.load(f)
             
             # Fallback for log_filename if status_data was cleaned up
             log_filename = results[0].get("output_file", f"N/A - (Task ID: {task_id})")
