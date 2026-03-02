@@ -787,7 +787,7 @@ def log_summary(log, hostname, ip):
         
         header = (
             "<tr><th style='width:10%'>Process</th><th style='width:10%'>VPN</th><th style='width:10%'>Neighbor</th><th style='width:20%'>Interface</th>"
-            "<th style='width:10%'>Current</th><th style='width:10%'>Duration</th>"
+            "<th style='width:10%'>Current</th>"
             + "".join(f"<th>{state}</th>" for state in sorted(ospf_all_states))
             + "<th style='width:20%'>LastChange</th></tr>"
         )
@@ -825,7 +825,7 @@ def log_summary(log, hostname, ip):
                 # Use the 'last_known_vpn' variable for the output
                 row = (
                     f"<tr {row_style}><td>{process}</td><td>{last_known_vpn}</td><td>{neighbor}</td><td>{current_iface}</td>"
-                    f"<td>{ospf_peer_state}</td><td>{ospf_peer_duration}</td>"
+                    f"<td>{ospf_peer_state}</td>"
                     + "".join(f"<td>{state_counts[state]}</td>" for state in sorted(ospf_all_states))
                     + f"<td>{current_ts}</td></tr>"
                 )
