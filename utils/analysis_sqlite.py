@@ -1,4 +1,4 @@
-import os, sys, json, re, logging, sqlite3
+import os, sys, json, re, logging, sqlite3, traceback
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 # 202512 Import mainconfig module
@@ -145,8 +145,10 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
     try:
         routing_info = parse_routing_info(log_file_path, lines, vendor,None)  # Pass None for json_file to avoid writing
     except Exception as e:
-        logger.error(f"Error parse_routing from '{log_file_path}': {e}")
+        error_details = traceback.format_exc()
+        logger.error(f"Error parse_routing from '{log_file_path}':\n{error_details}")
         return False
+    
     if not hostname: hostname = routing_info.get("hostname", None)
     host_ip = routing_info.get("host_ip", None)
     if not host_ip:
@@ -210,10 +212,39 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
             logger.debug(f"Updated OSPF peer status with last down event: Neighbor {remote_address}, Process {process}, Reason: {reason}")
             
     elif vendor in ('cisco', 'arista'):
-        cisco_ospf_log_regex = re.compile(r"(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}).*?Ospf.*?: Instance (\d+):.*?NGB ([\d\.]+), interface ([\d\.]+) adjacency (dropped|established).*?(?:state was: (\w+))?")  
-        for match in cisco_ospf_log_regex.finditer(content):
-            from_state, to_state = (match.group(6), 'DOWN') if match.group(5) == 'dropped' else ('DOWN', 'FULL')
-            cursor.execute('INSERT INTO ospf_state_changes VALUES (NULL,?,?,?,?,?,?,?,?)', (hostname, match.group(2), match.group(3), match.group(4), from_state, to_state, parse_timestamp((match.group(1)),log_year), os.path.basename(log_file_path)))    
+        # cisco_ospf_log_regex = re.compile(r"(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}).*?Ospf.*?: Instance (\d+):.*?NGB ([\d\.]+), interface ([\d\.]+) adjacency (dropped|established).*?(?:state was: (\w+))?")  
+        # for match in cisco_ospf_log_regex.finditer(content):
+        #     from_state, to_state = (match.group(6), 'DOWN') if match.group(5) == 'dropped' else ('DOWN', 'FULL')
+        #     cursor.execute('INSERT INTO ospf_state_changes VALUES (NULL,?,?,?,?,?,?,?,?)', (hostname, match.group(2), match.group(3), match.group(4), from_state, to_state, parse_timestamp((match.group(1)),log_year), os.path.basename(log_file_path)))    
+        
+    # 1. IMPROVED REGEX: Matches the %OSPF-5-ADJCHG format in your files
+        # Example: Jan 25 09:15:48 PST: %OSPF-5-ADJCHG: Process 351, Nbr 10.41.191.123 on Vlan4079 from LOADING to FULL
+        cisco_ospf_log_regex = re.compile(
+            r"(?P<ts>\w{3}\s+\d+\s+[\d:]+)\s+\w+:\s+%OSPF-\d+-ADJCHG:\s+"
+            r"Process\s+(?P<proc>\d+),\s+Nbr\s+(?P<nbr>[\d.]+)\s+on\s+(?P<iface>\S+)\s+"
+            r"from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)",
+            re.IGNORECASE
+        )
+
+        for line in content.splitlines():
+            match = cisco_ospf_log_regex.search(line)
+            
+            # 2. SAFETY CHECK: Only proceed if match is NOT None
+            if match:
+                try:
+                    g = match.groupdict()
+                    timestamp = parse_timestamp(g['ts'], log_year)
+                    
+                    cursor.execute(
+                        'INSERT INTO ospf_state_changes (hostname, process, neighbor_address, interface, from_state, to_state, timestamp, log_file) VALUES (?,?,?,?,?,?,?,?)',
+                        (hostname, g['proc'], g['nbr'], g['iface'], g['old'], g['new'], timestamp, filename_only)
+                    )
+                except Exception as e:
+                    logger.error(f"Error inserting OSPF row from {filename_only}: {line[:50]}, {e}")
+            else:
+                # OPTIONAL: Log lines that didn't match if you need to debug further
+                # logger.debug(f"Skipping non-matching line: {line[:50]}...")
+                pass
 
     # Process BGP peers
     if isinstance(routing_info.get("BGP"), list):
@@ -393,358 +424,376 @@ def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
         if not line or "---- More ----" in line:
             continue
 
-        # Extract hostname
-        if current_hostname is None:
-            hostname_match = re.match(hostname_regex, line)
-            if hostname_match:
-                current_hostname = hostname_match.group(2)
-                routing_info["hostname"] = current_hostname
-                routing_info["host_ip"] = host_ip
-                logger.debug(f"Extracted hostname: {current_hostname}")
+        try:
 
-        # bgp or ospf section
-        if "BGP is not configured." in line:
-            routing_info["BGP"] = "BGP is not configured."
-            in_bgp_section = False
-            logger.debug("BGP not configured")
-            continue
-        if "OSPF is not configured." in line:
-            routing_info["OSPF"] = "OSPF is not configured."
-            in_ospf_section = False
-            logger.debug("OSPF not configured")
-            continue
+            # Extract hostname
+            if current_hostname is None:
+                hostname_match = re.match(hostname_regex, line)
+                if hostname_match:
+                    current_hostname = hostname_match.group(2)
+                    routing_info["hostname"] = current_hostname
+                    routing_info["host_ip"] = host_ip
+                    logger.debug(f"Extracted hostname: {current_hostname}")
 
-        if vendor == 'hpe':
-
-            if line.startswith("BGP local router ID:"):
-                router_id = line.split(":")[1].strip()
-                in_bgp_section = True
-                logger.debug(f"BGP router ID: {router_id}")
-                continue
-
-            if in_bgp_section:
-                if line.startswith("Local AS number:"):
-                    local_as_number = line.split(":")[1].strip()
-                    logger.debug(f"BGP local AS: {local_as_number}")
-                    continue
-                if line.startswith("VPN instance:"):
-                    current_vpn_instance = line.split(":")[1].strip()
-                    logger.debug(f"BGP VPN instance: {current_vpn_instance}")
-                elif line.startswith("Total number of peers:"):
-                    peer_total, peer_est = map(int, re.findall(r"\d+", line))
-                    bgp_peer = {
-                        "VPN_instance": current_vpn_instance,
-                        "local_router_id": router_id,
-                        "local_as_number": local_as_number,
-                        "Total number of peers": peer_total,
-                        "Peers in established state": peer_est,
-                        "Peer": []
-                    }
-                    routing_info["BGP"].append(bgp_peer)
-                    logger.debug(f"BGP peer totals: {peer_total}, established: {peer_est}")
-                elif re.match(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", line):
-                    parts = line.split()
-                    if len(parts) == 8:
-                        peer_info = {
-                            "neighbor_ip": parts[0],
-                            "remote_as": parts[1],
-                            "peer_uptime": parts[-2],
-                            "peer_status": parts[-1]
-                        }
-                        routing_info["BGP"][-1]["Peer"].append(peer_info)
-                        logger.debug(f"BGP peer added: {parts[0]}")
-
-            # Handle OSPF section
-
-            if "display ospf peer verbose" in line:
+            # bgp or ospf section
+            if "BGP is not configured." in line:
+                routing_info["BGP"] = "BGP is not configured."
                 in_bgp_section = False
-                in_ospf_section = True
-
-            if in_ospf_section:
-                process_match = re.search(r"Process (\d+) with Router ID ([\d\.]+)", line)
-                if process_match:
-                    current_process = process_match.group(1)
-                    process_routerid = process_match.group(2)
-                    current_ospf_process = {
-                        "process": current_process,
-                        "process_routerid": process_routerid,
-                        "neighbors": [],
-                        "lastevents": {}  # Changed to a dictionary for peer-specific events
-                    }
-                    routing_info["OSPF"].append(current_ospf_process)
-                    # current_neighbor = None
-                    logger.debug(f"OSPF Process {current_process}, Router ID: {process_routerid}")
-
-                elif line.startswith("Area ") and "interface" in line:
-                    area_match = re.search(r"Area\s+([\d\.]+)\s+interface\s+([\d\.]+)\(([\w\-\/]+)\)", line)
-                    # if area_match and current_ospf_process:
-                    current_area = area_match.group(1)
-                    interface_ip = area_match.group(2)
-                    interface_name = area_match.group(3)
-                    current_neighbor = {
-                        "Area": current_area,
-                        "Interface": f"{interface_ip}({interface_name})",
-                        "neighbor_routerid": None,
-                        "neighbor_address": None,
-                        "uptime": None,
-                        "state": None,
-                        "mode": None,
-                        "state_count": None
-                    }
-                    # current_ospf_process["neighbors"].append(current_neighbor)
-                    logger.debug(f"Verbose OSPF Area {current_area}, Interface {current_neighbor['Interface']}")
-
-                elif line.startswith("Router ID:") and "Address:" in line:
-                    routerid_match = re.search(r"Router ID:\s*([\d\.]+)\s+Address:\s*([\d\.]+)", line)
-                    # if routerid_match and current_ospf_process and current_neighbor:
-                    neighbor_routerid = routerid_match.group(1)
-                    neighbor_address = routerid_match.group(2)
-                    if current_neighbor is None:
-                        # Create neighbor if doesn't exist
-                        current_neighbor = {
-                            "neighbor_routerid": neighbor_routerid,
-                            "neighbor_address": neighbor_address,
-                            # ... other fields ...
-                        }
-                    else:                    
-                        current_neighbor["neighbor_routerid"] = neighbor_routerid
-                        current_neighbor["neighbor_address"] = neighbor_address
-                    # FIX: Append neighbor immediately after getting router ID
-                    if current_ospf_process and current_neighbor:
-                        current_ospf_process["neighbors"].append(current_neighbor.copy())
-                    
-                    logger.debug(f"Verbose OSPF neighbor: {neighbor_routerid}, Address: {neighbor_address}")
-
-                # Handle verbose OSPF output
-                # if current_neighbor:
-                elif line.startswith("State:") and "Mode:" in line:
-                    pairs = re.findall(r"(\w+):\s+(.*?)(?=\s+\w+:|$)", line)
-                    data = {key.strip(): value.strip() for key, value in pairs}
-                    current_neighbor["state"] = data.get("State")
-                    current_neighbor["mode"] = data.get("Mode")
-                elif line.startswith("Neighbor is up for"):
-                    uptime_match = re.search(r"Neighbor is up for\s+([0-9:]+)", line)
-                    if uptime_match and current_neighbor:
-                        current_neighbor["uptime"] = uptime_match.group(1)
-                        logger.debug(f"Set uptime for {current_neighbor['neighbor_routerid']}: {current_neighbor['uptime']}")
-                        
-                        # FIX: Ensure neighbor is added even if state change count is missing
-                        if current_ospf_process and current_neighbor and current_neighbor not in current_ospf_process["neighbors"]:
-                            current_ospf_process["neighbors"].append(current_neighbor.copy())
-                elif line.startswith("Neighbor state change count:"):
-                    state_change_match = re.search(r"Neighbor state change count:\s+(\d+)", line)
-                    if state_change_match and current_neighbor:
-                        current_neighbor["state_count"] = state_change_match.group(1)
-                        logger.debug(f"Set state change count for {current_neighbor['neighbor_routerid']}: {current_neighbor['state_count']}")
-                        
-                        # FIX: Ensure neighbor is added
-                        if current_ospf_process and current_neighbor and current_neighbor not in current_ospf_process["neighbors"]:
-                            current_ospf_process["neighbors"].append(current_neighbor.copy())
-                    logger.debug(f"Set state change count for {current_neighbor['neighbor_routerid']}: {current_neighbor['state_count']}")
-
-                if line.startswith("Last Neighbor Down Event:"):
-                    last_down_event.clear()
-                    j = idx + 1
-                    while j < len(lines):
-                        next_line = lines[j].strip()
-                        logger.debug(f"Checking line for last down event: {next_line}")
-                        if "---- More ----" in next_line or not next_line:
-                            break
-
-                        # Use re.IGNORECASE and allow for flexible whitespace (\s+)
-                        router_id_match = re.search(r"Router\s*ID:\s*([\d\.]+)", next_line, re.I)
-                        local_match = re.search(r"Local\s*Address:\s*([\d\.]+)", next_line, re.I)
-                        remote_match = re.search(r"(?:Remote|Neighbor)\s*Address:\s*([\d\.]+)", next_line, re.I)
-                        time_match = re.search(r"Time:\s*(.*)", next_line, re.I)
-                        reason_match = re.search(r"Reason:\s*(.*)", next_line, re.I)
-
-                        # Capture the values safely
-                        last_down_event["router_id"] = router_id_match.group(1) if router_id_match else None
-                        last_down_event["last_local"] = local_match.group(1) if local_match else None
-                        last_down_event["last_remote"] = remote_match.group(1) if remote_match else None
-                        last_down_event["last_time"] = time_match.group(1).strip() if time_match else None
-                        last_down_event["last_reason"] = reason_match.group(1).strip() if reason_match else None
-
-                        # if next_line.startswith("Router ID:"):
-                        #     last_down_event["router_id"] = re.search(r"Router ID:\s*([\d\.]+)", next_line, re.I).group(1)
-                        # elif next_line.startswith("Local Address:"):
-                        #     last_down_event["last_local"] = re.search(r"Local Address:\s*([\d\.]+)", next_line, re.I).group(1)
-                        # elif next_line.startswith("Remote Address:"):
-                        #     last_down_event["last_remote"] = re.search(r"Remote Address:\s*([\d\.]+)", next_line, re.I).group(1)
-                        # elif next_line.startswith("Time:"):
-                        #     last_down_event["last_time"] = next_line.split("Time:")[1].strip()
-                        # elif next_line.startswith("Reason:"):
-                        #     last_down_event["last_reason"] = next_line.split("Reason:")[1].strip()
-                        j += 1
-
-                    if last_down_event.get("last_remote"):
-                        current_ospf_process["lastevents"][last_down_event["last_remote"]] = last_down_event.copy()
-                        logger.debug(f"Set last down event for remote {last_down_event['last_remote']} in process {current_process}: {last_down_event}")
-                    else:
-                        logger.info(f"No valid last_remote found for last down event in process {current_process} : {temp_file_path} {line}")
-
-        if vendor in ('cisco','arista'):
-        # if vendor == 'cisco':
-            # logger.error(temp_file_path,vendor)
-
-            if "show ip bgp all" in line or "show ip bgp neighbors" in line:
-                in_bgp_section = True
+                logger.debug("BGP not configured")
+                continue
+            if "OSPF is not configured." in line:
+                routing_info["OSPF"] = "OSPF is not configured."
                 in_ospf_section = False
-                continue
-            if "show ip ospf neighbor detail" in line:
-                in_bgp_section = False
-                in_ospf_section = True
+                logger.debug("OSPF not configured")
                 continue
 
-            if in_bgp_section:
-                # Detect new address family
-                address_family_match = re.match(r"For address family: (\w+ \w+)", line)
-                if address_family_match:
-                    current_address_family = address_family_match.group(1)
-                    logger.debug(temp_file_path,routing_info["BGP"])
-                    continue
-                else:
-                    current_address_family = None
+            if vendor == 'hpe':
 
-                # Detect new neighbor block
-                # if line.startswith("BGP neighbor is"):
-                #     if "IPv4" in current_address_family :
-                    # BGP neighbor is 10.26.101.1,  remote AS 65500, internal link
-                bgp_ipv4_match = re.match(r"BGP neighbor is (\d+\.\d+\.\d+\.\d+), \s+remote AS (\d+), (\w+) link", line)
-                if bgp_ipv4_match:
-                    neighbor_ip = bgp_ipv4_match.group(1)
-                    vpn_instance =  "Global"
-                    remote_as = bgp_ipv4_match.group(2)
-                    # elif "VPNv4" in current_address_family:
-                    # BGP neighbor is 10.73.119.241,  vrf VCHA-TC2,  remote AS 4255000501,  local AS 4255000101, external link
-                bgp_vpnv4_match = re.match(
-                    r"BGP neighbor is "
-                    r"(\d+\.\d+\.\d+\.\d+),"  # Group 1: Neighbor IP
-                    r"\s+(?:vrf ([\w-]+),\s+)?"  # Group 2: Optional VRF name
-                    r"remote AS (\d+),"  # Group 3: Remote AS
-                    r"\s+(?:local AS (\d+),\s+)?"  # Group 4: Optional Local AS
-                    r"(\w+) link",  # Group 5: Link type
-                    line
-                )
-                if bgp_vpnv4_match:
-                    neighbor_ip = bgp_vpnv4_match.group(1)
-                    vpn_instance =  bgp_vpnv4_match.group(2)
-                    remote_as = bgp_vpnv4_match.group(3)    
-                    local_as = bgp_vpnv4_match.group(4)                   
-
-                if bgp_vpnv4_match or bgp_ipv4_match:
-                    bgp_peer = {
-                        "address_family": current_address_family, 
-                        "VPN_instance": vpn_instance, 
-                        "local_as_number": local_as, 
-                        "Peer": []
-                        }
-                    routing_info["BGP"].append(bgp_peer)
-                    logger.debug(temp_file_path,routing_info,neighbor_ip)
+                if line.startswith("BGP local router ID:"):
+                    router_id = line.split(":")[1].strip()
+                    in_bgp_section = True
+                    logger.debug(f"BGP router ID: {router_id}")
                     continue
 
-                if line.startswith("BGP version"):
-                # elif line.startswith("BGP version") and bgp_peer:
-                    #   BGP version 4, remote router ID 10.26.101.1
-                    remote_router_id_match = re.search(r"remote router ID (\d+\.\d+\.\d+\.\d+)", line)
-                    remote_router_id = remote_router_id_match.group(1)
-                    logger.debug(temp_file_path, routing_info, remote_router_id)
-
-                # Extract state and uptime
-                elif line.startswith("BGP state"):
-                    state_match = re.search(r"BGP state (?:is|=) (\w+), (up|down) for (.*)",  line)
-                    current_neighbor = {
-                        "neighbor_ip": neighbor_ip, 
-                        "remote_router_id": remote_router_id, 
-                        "remote_as": remote_as, 
-                        "peer_uptime": state_match.group(3), 
-                        "peer_status": state_match.group(1)
+                if in_bgp_section:
+                    if line.startswith("Local AS number:"):
+                        local_as_number = line.split(":")[1].strip()
+                        logger.debug(f"BGP local AS: {local_as_number}")
+                        continue
+                    if line.startswith("VPN instance:"):
+                        current_vpn_instance = line.split(":")[1].strip()
+                        logger.debug(f"BGP VPN instance: {current_vpn_instance}")
+                    elif line.startswith("Total number of peers:"):
+                        peer_total, peer_est = map(int, re.findall(r"\d+", line))
+                        bgp_peer = {
+                            "VPN_instance": current_vpn_instance,
+                            "local_router_id": router_id,
+                            "local_as_number": local_as_number,
+                            "Total number of peers": peer_total,
+                            "Peers in established state": peer_est,
+                            "Peer": []
                         }
-                    routing_info["BGP"][-1]["Peer"].append(current_neighbor)
-                    logger.debug(temp_file_path,routing_info["BGP"])                        
+                        routing_info["BGP"].append(bgp_peer)
+                        logger.debug(f"BGP peer totals: {peer_total}, established: {peer_est}")
+                    elif re.match(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", line):
+                        parts = line.split()
+                        if len(parts) == 8:
+                            peer_info = {
+                                "neighbor_ip": parts[0],
+                                "remote_as": parts[1],
+                                "peer_uptime": parts[-2],
+                                "peer_status": parts[-1]
+                            }
+                            routing_info["BGP"][-1]["Peer"].append(peer_info)
+                            logger.debug(f"BGP peer added: {parts[0]}")
 
-            # Handle OSPF section (unchanged, included for context)
+                # Handle OSPF section
 
-            if in_ospf_section:             
-                # cisco:    Neighbor 10.253.31.246, interface address 10.8.6.238
-                if vendor == "cisco":                
-                    neighbor_match = re.match(r"Neighbor (\d+\.\d+\.\d+\.\d+), interface address (\d+\.\d+\.\d+\.\d+)", line)
-                    if neighbor_match:
+                if "display ospf peer verbose" in line:
+                    in_bgp_section = False
+                    in_ospf_section = True
+
+                if in_ospf_section:
+                    process_match = re.search(r"Process (\d+) with Router ID ([\d\.]+)", line)
+                    if process_match:
+                        current_process = process_match.group(1)
+                        process_routerid = process_match.group(2)
+                        current_ospf_process = {
+                            "process": current_process,
+                            "process_routerid": process_routerid,
+                            "neighbors": [],
+                            "lastevents": {}  # Changed to a dictionary for peer-specific events
+                        }
+                        routing_info["OSPF"].append(current_ospf_process)
+                        # current_neighbor = None
+                        logger.debug(f"OSPF Process {current_process}, Router ID: {process_routerid}")
+
+                    elif line.startswith("Area ") and "interface" in line:
+                        area_match = re.search(r"Area\s+([\d\.]+)\s+interface\s+([\d\.]+)\(([\w\-\/]+)\)", line)
+                        # if area_match and current_ospf_process:
+                        current_area = area_match.group(1)
+                        interface_ip = area_match.group(2)
+                        interface_name = area_match.group(3)
                         current_neighbor = {
-                            "neighbor_address": neighbor_match.group(1), 
-                            "Interface_address": neighbor_match.group(2), 
-                            "Interface": None, 
-                            "Area": None, 
-                            "neighbor_routerid": None, 
-                            "uptime": None, 
-                            "state": None, 
+                            "Area": current_area,
+                            "Interface": f"{interface_ip}({interface_name})",
+                            "neighbor_routerid": None,
+                            "neighbor_address": None,
+                            "uptime": None,
+                            "state": None,
+                            "mode": None,
                             "state_count": None
-                            }
-                    elif line.startswith("In the area") and current_neighbor:
-                        #    In the area 0 via interface Vlan4042
-                        area_match = re.search(r"In the area (\d+) via interface (\S+)", line)
-                        if area_match:
-                            current_neighbor["Area"] = area_match.group(1)
-                            current_neighbor["Interface"] = f"{area_match.group(2)}"
-                    elif "State is" in line and current_neighbor: 
-                        #    Neighbor priority is 0, State is FULL, 6 state changes
-                        state_match = re.search(r"State is (\w+), (\d+) state changes", line)
-                        current_neighbor["state"] = state_match.group(1)
-                        current_neighbor["state_count"] = state_match.group(2)                    
-                    elif line.startswith("Neighbor is up") :    
-                        #    Neighbor is up for 27w5d   
-                        uptime_match = re.search(r"Neighbor is up for (\d+\w+\d*\w*)", line)
-                        current_neighbor["uptime"] = uptime_match.group(1)
-                        if current_neighbor.get("Area"):
-                            current_ospf_process = {"process": 0, "process_routerid": None, "neighbors": [], "lastevents": {}}
-                            routing_info["OSPF"].append(current_ospf_process)                                   
-                            current_ospf_process["neighbors"].append(current_neighbor)
-                            current_neighbor = None
-                    elif line.strip() == "":
-                        current_neighbor = None
+                        }
+                        # current_ospf_process["neighbors"].append(current_neighbor)
+                        logger.debug(f"Verbose OSPF Area {current_area}, Interface {current_neighbor['Interface']}")
 
-                if vendor == 'arista':
-                    # arista:   Neighbor 10.26.101.73, instance 200, VRF default, interface address 10.26.254.162
-                    arista_neighbor_match = re.search(r"Neighbor (\d+\.\d+\.\d+\.\d+), instance (\d+), VRF (\S+), interface address (\d+\.\d+\.\d+\.\d+)", line)
-                    if arista_neighbor_match:
-                        arista_current_ospf_process = {
-                            "process": arista_neighbor_match.group(2), 
-                            "process_routerid": None, 
-                            "vrf":arista_neighbor_match.group(3), 
-                            "neighbors": [], 
-                            "lastevents": {}
+                    elif line.startswith("Router ID:") and "Address:" in line:
+                        routerid_match = re.search(r"Router ID:\s*([\d\.]+)\s+Address:\s*([\d\.]+)", line)
+                        # if routerid_match and current_ospf_process and current_neighbor:
+                        neighbor_routerid = routerid_match.group(1)
+                        neighbor_address = routerid_match.group(2)
+                        if current_neighbor is None:
+                            # Create neighbor if doesn't exist
+                            current_neighbor = {
+                                "neighbor_routerid": neighbor_routerid,
+                                "neighbor_address": neighbor_address,
+                                # ... other fields ...
                             }
-                        arista_current_neighbor = {
-                            "neighbor_address": arista_neighbor_match.group(1), 
-                            "Interface_address": arista_neighbor_match.group(4), 
-                            "Interface": None, 
-                            "Area": None, 
-                            "neighbor_routerid": None, 
-                            "uptime": None, 
-                            "state": None, 
-                            "state_count": None
+                        else:                    
+                            current_neighbor["neighbor_routerid"] = neighbor_routerid
+                            current_neighbor["neighbor_address"] = neighbor_address
+                        # FIX: Append neighbor immediately after getting router ID
+                        if current_ospf_process and current_neighbor:
+                            current_ospf_process["neighbors"].append(current_neighbor.copy())
+                        
+                        logger.debug(f"Verbose OSPF neighbor: {neighbor_routerid}, Address: {neighbor_address}")
+
+                    # Handle verbose OSPF output
+                    # if current_neighbor:
+                    elif line.startswith("State:") and "Mode:" in line:
+                        pairs = re.findall(r"(\w+):\s+(.*?)(?=\s+\w+:|$)", line)
+                        data = {key.strip(): value.strip() for key, value in pairs}
+                        current_neighbor["state"] = data.get("State")
+                        current_neighbor["mode"] = data.get("Mode")
+                    elif line.startswith("Neighbor is up for"):
+                        uptime_match = re.search(r"Neighbor is up for\s+([0-9:]+)", line)
+                        if uptime_match and current_neighbor:
+                            current_neighbor["uptime"] = uptime_match.group(1)
+                            logger.debug(f"Set uptime for {current_neighbor['neighbor_routerid']}: {current_neighbor['uptime']}")
+                            
+                            # FIX: Ensure neighbor is added even if state change count is missing
+                            if current_ospf_process and current_neighbor and current_neighbor not in current_ospf_process["neighbors"]:
+                                current_ospf_process["neighbors"].append(current_neighbor.copy())
+                    elif line.startswith("Neighbor state change count:"):
+                        state_change_match = re.search(r"Neighbor state change count:\s+(\d+)", line)
+                        if state_change_match and current_neighbor:
+                            current_neighbor["state_count"] = state_change_match.group(1)
+                            logger.debug(f"Set state change count for {current_neighbor['neighbor_routerid']}: {current_neighbor['state_count']}")
+                            
+                            # FIX: Ensure neighbor is added
+                            if current_ospf_process and current_neighbor and current_neighbor not in current_ospf_process["neighbors"]:
+                                current_ospf_process["neighbors"].append(current_neighbor.copy())
+                        logger.debug(f"Set state change count for {current_neighbor['neighbor_routerid']}: {current_neighbor['state_count']}")
+
+                    if line.startswith("Last Neighbor Down Event:"):
+                        last_down_event.clear()
+                        j = idx + 1
+                        while j < len(lines):
+                            next_line = lines[j].strip()
+                            logger.debug(f"Checking line for last down event: {next_line}")
+                            if "---- More ----" in next_line or not next_line:
+                                break
+
+                            # Use re.IGNORECASE and allow for flexible whitespace (\s+)
+                            router_id_match = re.search(r"Router\s*ID:\s*([\d\.]+)", next_line, re.I)
+                            local_match = re.search(r"Local\s*Address:\s*([\d\.]+)", next_line, re.I)
+                            remote_match = re.search(r"(?:Remote|Neighbor)\s*Address:\s*([\d\.]+)", next_line, re.I)
+                            time_match = re.search(r"Time:\s*(.*)", next_line, re.I)
+                            reason_match = re.search(r"Reason:\s*(.*)", next_line, re.I)
+
+                            # Capture the values safely
+                            last_down_event["router_id"] = router_id_match.group(1) if router_id_match else None
+                            last_down_event["last_local"] = local_match.group(1) if local_match else None
+                            last_down_event["last_remote"] = remote_match.group(1) if remote_match else None
+                            last_down_event["last_time"] = time_match.group(1).strip() if time_match else None
+                            last_down_event["last_reason"] = reason_match.group(1).strip() if reason_match else None
+
+                            # if next_line.startswith("Router ID:"):
+                            #     last_down_event["router_id"] = re.search(r"Router ID:\s*([\d\.]+)", next_line, re.I).group(1)
+                            # elif next_line.startswith("Local Address:"):
+                            #     last_down_event["last_local"] = re.search(r"Local Address:\s*([\d\.]+)", next_line, re.I).group(1)
+                            # elif next_line.startswith("Remote Address:"):
+                            #     last_down_event["last_remote"] = re.search(r"Remote Address:\s*([\d\.]+)", next_line, re.I).group(1)
+                            # elif next_line.startswith("Time:"):
+                            #     last_down_event["last_time"] = next_line.split("Time:")[1].strip()
+                            # elif next_line.startswith("Reason:"):
+                            #     last_down_event["last_reason"] = next_line.split("Reason:")[1].strip()
+                            j += 1
+
+                        if last_down_event.get("last_remote"):
+                            current_ospf_process["lastevents"][last_down_event["last_remote"]] = last_down_event.copy()
+                            logger.debug(f"Set last down event for remote {last_down_event['last_remote']} in process {current_process}: {last_down_event}")
+                        else:
+                            logger.info(f"No valid last_remote found for last down event in process {current_process} : {temp_file_path} {line}")
+
+            if vendor in ('cisco','arista'):
+            # if vendor == 'cisco':
+                # logger.error(temp_file_path,vendor)
+
+                if "show ip bgp all" in line or "show ip bgp neighbors" in line:
+                    in_bgp_section = True
+                    in_ospf_section = False
+                    continue
+                if "show ip ospf neighbor detail" in line:
+                    in_bgp_section = False
+                    in_ospf_section = True
+                    continue
+
+                if in_bgp_section:
+                    # Detect new address family
+                    address_family_match = re.match(r"For address family: (\w+ \w+)", line)
+                    if address_family_match:
+                        current_address_family = address_family_match.group(1)
+                        logger.debug(temp_file_path,routing_info["BGP"])
+                        continue
+                    else:
+                        current_address_family = None
+
+                    # Detect new neighbor block
+                    # if line.startswith("BGP neighbor is"):
+                    #     if "IPv4" in current_address_family :
+                        # BGP neighbor is 10.26.101.1,  remote AS 65500, internal link
+                    bgp_ipv4_match = re.match(r"BGP neighbor is (\d+\.\d+\.\d+\.\d+), \s+remote AS (\d+), (\w+) link", line)
+                    if bgp_ipv4_match:
+                        neighbor_ip = bgp_ipv4_match.group(1)
+                        vpn_instance =  "Global"
+                        remote_as = bgp_ipv4_match.group(2)
+                        # elif "VPNv4" in current_address_family:
+                        # BGP neighbor is 10.73.119.241,  vrf VCHA-TC2,  remote AS 4255000501,  local AS 4255000101, external link
+                    bgp_vpnv4_match = re.match(
+                        r"BGP neighbor is "
+                        r"(\d+\.\d+\.\d+\.\d+),"  # Group 1: Neighbor IP
+                        r"\s+(?:vrf ([\w-]+),\s+)?"  # Group 2: Optional VRF name
+                        r"remote AS (\d+),"  # Group 3: Remote AS
+                        r"\s+(?:local AS (\d+),\s+)?"  # Group 4: Optional Local AS
+                        r"(\w+) link",  # Group 5: Link type
+                        line
+                    )
+                    if bgp_vpnv4_match:
+                        neighbor_ip = bgp_vpnv4_match.group(1)
+                        vpn_instance =  bgp_vpnv4_match.group(2)
+                        remote_as = bgp_vpnv4_match.group(3)    
+                        local_as = bgp_vpnv4_match.group(4)                   
+
+                    if bgp_vpnv4_match or bgp_ipv4_match:
+                        bgp_peer = {
+                            "address_family": current_address_family, 
+                            "VPN_instance": vpn_instance, 
+                            "local_as_number": local_as, 
+                            "Peer": []
                             }
-                    elif line.startswith("In area") and arista_current_neighbor:
-                        #   In area 0.0.0.1 interface Ethernet4/8
-                        area_match = re.search(r"In area (\d+\.\d+\.\d+\.\d+) interface (\S+)", line)
-                        arista_current_neighbor["Area"] = area_match.group(1)
-                        arista_current_neighbor["Interface"] = f"{area_match.group(2)}"
-                    elif "State is" in line and arista_current_neighbor: 
-                        #  Neighbor priority is 1, State is FULL, 6 state changes
-                        state_match = re.search(r"State is (\w+), (\d+) state changes", line)
-                        arista_current_neighbor["state"] = state_match.group(1)
-                        arista_current_neighbor["state_count"] = state_match.group(2)                    
-                    elif line.startswith("Current state") :    
-                        #   Current state was established 142d21h ago
-                        uptime_match = re.search(r"Current state was established (.*?) ", line)
-                        arista_current_neighbor["uptime"] = uptime_match.group(1)
-                        # if arista_current_neighbor.get("uptime"):
-                        routing_info["OSPF"].append(arista_current_ospf_process)                          
-                        arista_current_ospf_process["neighbors"].append(arista_current_neighbor)
-                        # arista_current_neighbor = None
-                        logger.debug(temp_file_path,vendor,routing_info["OSPF"])
-                    elif line.strip() == "":
-                        arista_current_neighbor = None                        
+                        routing_info["BGP"].append(bgp_peer)
+                        logger.debug(temp_file_path,routing_info,neighbor_ip)
+                        continue
+
+                    if line.startswith("BGP version"):
+                    # elif line.startswith("BGP version") and bgp_peer:
+                        #   BGP version 4, remote router ID 10.26.101.1
+                        remote_router_id_match = re.search(r"remote router ID (\d+\.\d+\.\d+\.\d+)", line)
+                        remote_router_id = remote_router_id_match.group(1)
+                        logger.debug(temp_file_path, routing_info, remote_router_id)
+
+                    # Extract state and uptime
+                    elif line.startswith("BGP state"):
+                    # The (?:, (up|down) for (.*))? makes the comma and everything after it optional
+                        state_match = re.search(r"BGP state (?:is|=) (\w+)(?:, (up|down) for (.*))?", line, re.IGNORECASE)
+                        
+                        if state_match:
+                            current_neighbor = {
+                                "neighbor_ip": neighbor_ip, 
+                                "remote_router_id": remote_router_id, 
+                                "remote_as": remote_as, 
+                                "peer_uptime": state_match.group(3) if state_match.group(3) else "N/A", 
+                                "peer_status": state_match.group(1)
+                            }
+                        else:
+                            # This handles the 'BGP state = Idle' case specifically if the regex above still misses it
+                            status_only = re.search(r"BGP state (?:is|=) (\w+)", line, re.IGNORECASE)
+                            current_neighbor = {
+                                "neighbor_ip": neighbor_ip,
+                                "peer_status": status_only.group(1) if status_only else "Unknown",
+                                "peer_uptime": "N/A"
+                            }
+                        routing_info["BGP"][-1]["Peer"].append(current_neighbor)
+                        logger.debug(temp_file_path,routing_info["BGP"])                        
+
+                # Handle OSPF section (unchanged, included for context)
+
+                if in_ospf_section:             
+                    # cisco:    Neighbor 10.253.31.246, interface address 10.8.6.238
+                    if vendor == "cisco":                
+                        neighbor_match = re.match(r"Neighbor (\d+\.\d+\.\d+\.\d+), interface address (\d+\.\d+\.\d+\.\d+)", line)
+                        if neighbor_match:
+                            current_neighbor = {
+                                "neighbor_address": neighbor_match.group(1), 
+                                "Interface_address": neighbor_match.group(2), 
+                                "Interface": None, 
+                                "Area": None, 
+                                "neighbor_routerid": None, 
+                                "uptime": None, 
+                                "state": None, 
+                                "state_count": None
+                                }
+                        elif line.startswith("In the area") and current_neighbor:
+                            #    In the area 0 via interface Vlan4042
+                            area_match = re.search(r"In the area (\d+) via interface (\S+)", line)
+                            if area_match:
+                                current_neighbor["Area"] = area_match.group(1)
+                                current_neighbor["Interface"] = f"{area_match.group(2)}"
+                        elif "State is" in line and current_neighbor: 
+                            #    Neighbor priority is 0, State is FULL, 6 state changes
+                            state_match = re.search(r"State is (\w+), (\d+) state changes", line)
+                            current_neighbor["state"] = state_match.group(1)
+                            current_neighbor["state_count"] = state_match.group(2)                    
+                        elif line.startswith("Neighbor is up") :    
+                            #    Neighbor is up for 27w5d   
+                            uptime_match = re.search(r"Neighbor is up for (\d+\w+\d*\w*)", line)
+                            current_neighbor["uptime"] = uptime_match.group(1)
+                            if current_neighbor.get("Area"):
+                                current_ospf_process = {"process": 0, "process_routerid": None, "neighbors": [], "lastevents": {}}
+                                routing_info["OSPF"].append(current_ospf_process)                                   
+                                current_ospf_process["neighbors"].append(current_neighbor)
+                                current_neighbor = None
+                        elif line.strip() == "":
+                            current_neighbor = None
+
+                    if vendor == 'arista':
+                        # arista:   Neighbor 10.26.101.73, instance 200, VRF default, interface address 10.26.254.162
+                        arista_neighbor_match = re.search(r"Neighbor (\d+\.\d+\.\d+\.\d+), instance (\d+), VRF (\S+), interface address (\d+\.\d+\.\d+\.\d+)", line)
+                        if arista_neighbor_match:
+                            arista_current_ospf_process = {
+                                "process": arista_neighbor_match.group(2), 
+                                "process_routerid": None, 
+                                "vrf":arista_neighbor_match.group(3), 
+                                "neighbors": [], 
+                                "lastevents": {}
+                                }
+                            arista_current_neighbor = {
+                                "neighbor_address": arista_neighbor_match.group(1), 
+                                "Interface_address": arista_neighbor_match.group(4), 
+                                "Interface": None, 
+                                "Area": None, 
+                                "neighbor_routerid": None, 
+                                "uptime": None, 
+                                "state": None, 
+                                "state_count": None
+                                }
+                        elif line.startswith("In area") and arista_current_neighbor:
+                            #   In area 0.0.0.1 interface Ethernet4/8
+                            area_match = re.search(r"In area (\d+\.\d+\.\d+\.\d+) interface (\S+)", line)
+                            arista_current_neighbor["Area"] = area_match.group(1)
+                            arista_current_neighbor["Interface"] = f"{area_match.group(2)}"
+                        elif "State is" in line and arista_current_neighbor: 
+                            #  Neighbor priority is 1, State is FULL, 6 state changes
+                            state_match = re.search(r"State is (\w+), (\d+) state changes", line)
+                            arista_current_neighbor["state"] = state_match.group(1)
+                            arista_current_neighbor["state_count"] = state_match.group(2)                    
+                        elif line.startswith("Current state") :    
+                            #   Current state was established 142d21h ago
+                            uptime_match = re.search(r"Current state was established (.*?) ", line)
+                            arista_current_neighbor["uptime"] = uptime_match.group(1)
+                            # if arista_current_neighbor.get("uptime"):
+                            routing_info["OSPF"].append(arista_current_ospf_process)                          
+                            arista_current_ospf_process["neighbors"].append(arista_current_neighbor)
+                            # arista_current_neighbor = None
+                            logger.debug(temp_file_path,vendor,routing_info["OSPF"])
+                        elif line.strip() == "":
+                            arista_current_neighbor = None             
+
+        except AttributeError as e:
+            # This catches the 'NoneType' has no attribute 'group' specifically
+            print(f"Regex match failed on line: '{line}' in file: {temp_file_path} for vendor: {vendor}. Error: {e}")
+            raise Exception(f"Protocol: {vendor} | Failed on Line: '{line}' | Error: {e}")                                       
 
     if json_file and isinstance(json_file, (str, os.PathLike)):
         try:

@@ -11,7 +11,8 @@ from typing import List, Dict, Any
 # Assuming these are available from your project structure
 import mainconfig
 import utils.analysis_sqlite as analysis_sqlite
-from utils.fastapi_mymodule import core_check, send_command 
+from utils.fastapi_mymodule import send_command 
+from utils.analysis_log import core_check
 from utils.task_db_manager import task_db_manager
 # from utils.analysis_sqlite import setup_database, process_log_file
 

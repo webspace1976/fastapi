@@ -360,7 +360,7 @@ def get_peer_status(protocol: str, host_ip: str, instance_name: str, neighbor: s
     """
     Return current peer status from the latest snapshot.
     """
-    conn = get_db_conn()
+    conn = get_db_conn(DB_PATH)
     if conn is None:
         return None
 

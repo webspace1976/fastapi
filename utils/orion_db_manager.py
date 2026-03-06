@@ -162,26 +162,6 @@ class OrionDatabaseManager:
                 self.cursor.execute(query, values)
                 self.cursor.execute(sync_status_query, (new_status, status_desc, node_id))
 
-                # if old_status is not None and new_status != old_status:
-                #     # Close the previous state and record the new one
-                #     # First, we check if there's an open record in history to set an EndTime
-                #     self.cursor.execute('''UPDATE [Orion.StatusHistory] 
-                #                         SET EndTime = ? 
-                #                         WHERE NodeID = ? AND EndTime IS NULL''', (now, node_id))
-                    
-                #     # Then, insert the new status change record
-                #     self.cursor.execute('''INSERT INTO [Orion.StatusHistory] 
-                #                         (NodeID, Status, StatusDescription, StartTime) 
-                #                         VALUES (?, ?, ?, ?)''', 
-                #                         (node_id, new_status, status_desc, now))
-                
-                # elif old_status is None:
-                #     # First time seeing this node, start its history
-                #     self.cursor.execute('''INSERT INTO [Orion.StatusHistory] 
-                #                         (NodeID, Status, StatusDescription, StartTime) 
-                #                         VALUES (?, ?, ?, ?)''', 
-                #                         (node_id, new_status, status_desc, now))
-
             self.conn.commit()
             logger.debug(f"Successfully: upsert_node synced {len(node_data)} nodes.")
         except Exception as e:
@@ -437,7 +417,9 @@ def cleanup_expired_sessions(max_age_hours=24):
     try:
         # Scan for .pickle and .json files in the session directory
         for file_path in session_dir.glob("*"):
-            if file_path.suffix in ['.pickle', '.json']:
+            if file_path.name == "orion_session_log.json":
+                continue
+            elif file_path.suffix in ['.pickle', '.json']:
                 file_time = file_path.stat().st_mtime
                 
                 if file_time < cutoff:
