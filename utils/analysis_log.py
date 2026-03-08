@@ -631,7 +631,16 @@ def log_summary(log, hostname, ip):
 
     # ------------------------------------------------------------------
     # 3. other BGP OSPF patterns    
-
+    # New pattern for Arista/Cisco Adjacency Logs
+    # Mar 8 04:35:25 VH-VGH-3730-7508R-Core1 Ospf-vrf-vrf-smpc-in28[11270]: Instance 621: %OSPF-4-OSPF_ADJACENCY_TEARDOWN: NGB 10.28.107.224, interface 10.28.107.13 adjacency dropped: DD packet mismatch, state was: FULL
+    # Mar 8 04:35:27 VH-VGH-3730-7508R-Core1 Ospf-vrf-vrf-smpc-in28[11270]: Instance 621: %OSPF-4-OSPF_ADJACENCY_ESTABLISHED: NGB 10.28.107.224, interface 10.28.107.13 adjacency established
+    ospf_adj_special_re = re.compile(
+        r'(?P<timestamp>\w{3}\s+\d+\s[\d:.]+)\s+(?P<hostname>\S+)\s+'
+        r'Ospf-vrf-(?P<vrf>\S+)\[\d+\]:\s+Instance\s+(?P<process>\d+):\s+'
+        r'%(?P<event>OSPF-4-OSPF_ADJACENCY_\w+):\s+NGB\s+(?P<neighbor>[\d.]+),\s+'
+        r'interface\s+(?P<iface>[\d.]+)\s+(?P<action>adjacency\s+\w+)',
+        re.IGNORECASE
+    )
 
     # Preprocess: Join lines that are part of the same log entry
     lines = []
@@ -639,7 +648,10 @@ def log_summary(log, hostname, ip):
     for line in log.splitlines():
         line = line.strip()
         # Cisco syslog line starts with <seq>:    HPE line starts with %<fac>
-        if re.match(r"^%\w+\s+\d+\s[\d:.]+\s+\d{4}", line) or re.match(r"^\d+:\s", line):
+        # UPDATED: Added r"^\w{3}\s+\d+\s[\d:.]+" to catch "Mar 8 00:29:24"
+        if re.match(r"^%\w+\s+\d+\s[\d:.]+\s+\d{4}", line) or \
+        re.match(r"^\d+:\s", line) or \
+        re.match(r"^\w{3}\s+\d+\s[\d:.]+", line):
             if buffer:
                 lines.append(buffer)
             buffer = line
@@ -722,6 +734,17 @@ def log_summary(log, hostname, ip):
             ts = f"{g['mon']} {g['day']} {g['time']} {g['tz']}"
             state = "ESTABLISHED" if g['state'] == "Up" else "DOWN"
             bgp_states["BGP"][g['neighbor']].append((ts, "-", state))
+            continue
+
+        # NEW: Match the special OSPF adjacency format
+        adj_special_match = ospf_adj_special_re.search(line)
+        if adj_special_match:
+            g = adj_special_match.groupdict()
+            ts = g['timestamp']
+            # Determine the state based on the event name
+            new_state = "FULL" if "ESTABLISHED" in g['event'] else "DOWN"
+            # Store in ospf_states
+            ospf_states[g['process']][g['neighbor']].append((ts, g['iface'], new_state, g['vrf']))
             continue
 
     # === BGP Summary ===

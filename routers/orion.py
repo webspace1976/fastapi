@@ -265,10 +265,10 @@ def generate_node_table(session):
                 <th style="width:14%">Duration</th> 
                 <th >
                     <div>Link:
-                        <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="Orion" checked>Orion Node</label>
+                        <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="Orion" checked>OrionNode</label>
                         <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="SNOW">SNOW</label>
-                        <label><input type="radio" name="link_type_nodedownTable" value="Orion_UDT">Orion UDT</label>
-                        <label><input type="radio" name="link_type_nodedownTable" value="Ringer">Ringer</label>
+                        <label><input type="radio" name="link_type_nodedownTable" value="Orion_UDT">OrionUDT</label>
+                        <label><input type="radio" name="link_type_nodedownTable" value="Ringer">RingerOPS</label>
                     </div>
                 </th> 
                 <th style="width:12%">Type</th>
@@ -335,10 +335,12 @@ def generate_interface_table(session):
                 <th style="width:14%">Duration</th> 
                 <th>
                     <div>
-                        <strong>Interface Link-Toggle:</strong>
-                        <label style="margin-right: 10px;"><input type="radio" name="link_type_interfacedownTable" value="Orion" checked>Orion Node</label>
+                        <strong>Link-Toggle:</strong>
+                        <label style="margin-right: 10px;"><input type="radio" name="link_type_interfacedownTable" value="Orion" checked>OrionNode</label>
                         <label style="margin-right: 10px;"><input type="radio" name="link_type_interfacedownTable" value="SNOW">SNOW</label>
                         <label><input type="radio" name="link_type_interfacedownTable" value="webssh">WebSSH</label>
+                        <label><input type="radio" name="link_type_interfacedownTable" value="Ringer">RingerOPS</label>
+
                     </div>
                 </th> 
                 <th style="width:12%">Type</th>
@@ -556,9 +558,10 @@ def generate_alert_table(session):
                     <th style="width:80%" >
                         <div style="display:flex;justify-content: space-around;align-items: flex-end;">
                             <div>Link-Toggle:
-                            <label style="margin-right: 10px;"><input type="radio" name="link_type_alertTable" value="Orion" checked>Orion Node</label>
+                            <label style="margin-right: 10px;"><input type="radio" name="link_type_alertTable" value="Orion" checked>OrionNode</label>
                             <label style="margin-right: 10px;"><input type="radio" name="link_type_alertTable" value="SNOW"> SNOW</label>
                             <label><input type="radio" name="link_type_alertTable" value="webssh">WebSSH</label>
+                            <label><input type="radio" name="link_type_alertTable" value="Ringer">RingerOPS</label>
                             </div>
                         </div>
                     </th>

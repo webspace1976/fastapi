@@ -1,109 +1,207 @@
 <style>
-    .case-card { border: 1px solid #007bff; margin-bottom: 30px; border-radius: 8px; background: #fff; overflow: hidden; font-family: sans-serif; }
-    .case-header { background: #007bff; color: white; padding: 12px 15px; font-weight: bold; }
+    .case-card { border: 1px solid #007bff; margin-bottom: 20px; border-radius: 8px; background: #fff; overflow: hidden; }
     
-    /* Tab Navigation Styling */
-    .tab-bar { display: flex; background: #f1f1f1; border-bottom: 1px solid #ddd; }
-    .tab-btn { padding: 10px 20px; border: none; background: none; cursor: pointer; font-size: 0.85em; font-weight: bold; color: #555; transition: 0.2s; }
-    .tab-btn:hover { background: #e2e2e2; }
-    .tab-btn.active { background: #fff; color: #007bff; border-bottom: 2px solid #007bff; margin-bottom: -1px; }
+    /* Fixed Alignment for Header */
+    .case-header { 
+        background: #007bff; color: white; padding: 12px 15px; 
+        display: flex; align-items: center; cursor: pointer; gap: 15px;
+    }
+    .header-col-btn { flex: 0 0 80px; }
+    .header-col-time { flex: 0 0 160px; font-family: 'Courier New', monospace; font-size: 0.9em; }
+    .header-col-desc { flex: 1; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .toggle-btn {
+        background: rgba(255,255,255,0.2); border: 1px solid white;
+        color: white; border-radius: 4px; padding: 2px 8px; font-size: 0.8em; width: 100%;
+    }
 
-    /* Tab Content Styling */
-    .tab-content { display: none; padding: 15px; min-height: 100px; }
-    .tab-content.active { display: block; }
+    /* Visible by default */
+    .case-body { display: block; } 
+
+    /* Hidden only when this class is present */
+    .case-body.collapsed { display: none; }
+
+    .tab-bar { display: flex; background: #f1f1f1; border-bottom: 1px solid #ddd; }
+    .tab-btn { padding: 10px 20px; border: none; background: none; cursor: pointer; font-size: 0.85em; font-weight: bold; color: #555; }
+    .tab-btn.active { background: #fff; color: #007bff; border-bottom: 2px solid #007bff; }
     
-    .row-item { display: flex; font-size: 0.85em; padding: 6px 0; border-bottom: 1px dotted #eee; }
-    .row-item:last-child { border-bottom: none; }
-    .time-col { color: #666; min-width: 160px; font-family: monospace; font-weight: bold; }
-    .text-col { flex: 1; padding-left: 10px; line-height: 1.4; color: #333; }
-    .empty-msg { color: #999; font-style: italic; font-size: 0.85em; }
+    .tab-content { display: none; padding: 15px; }
+    .tab-content.active { display: block; }
+
+    /* Fixed Alignment for Rows */
+    .row-item { display: flex; font-size: 0.85em; padding: 6px 0; border-bottom: 1px dotted #eee; align-items: flex-start; }
+    .time-col { 
+        color: #666; 
+        flex: 0 0 180px; /* Fixed width for timestamps */
+        font-family: 'Courier New', monospace; 
+        font-weight: bold; 
+        border-right: 1px solid #eee;
+        margin-right: 10px;
+    }
+    .text-col { flex: 1; padding-left: 5px; line-height: 1.4; } 
 </style>
 
+<body>
+    <h2>RingerOPS Search Results for: {{ search_query }}</h2>
+
 <div class="container">
-    <h2>Tracking Results for: {{ search_query }}</h2>
+    <div style="margin-bottom: 15px;">
+        <button onclick="toggleAll(true)" class="btn">Expand All</button>
+        <button onclick="toggleAll(false)" class="btn">Collapse All</button>
+    </div>    
 
     {% for case in cases %}
-    {% set case_index = loop.index %}
-    <div class="case-card">
-        <div class="case-header">
-            {{ case.ShortDescription }}
-            <span style="float:right; font-size: 0.85em; opacity: 0.9;">Record: {{ case.record_id }}</span>
+    {% set case_idx = case.record_id %}
+    <div class="case-card" id="{{ case_idx }}">
+        <div class="case-header" onclick="toggleCase('body-{{ case_idx }}', this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">{% if loop.first %}Collapse{% else %}Expand{% endif %}</button>
+            </div>
+            <div class="header-col-time">
+                {{ case.create_datetime[:16] | replace('T', ' ') }} </div>
+            <div class="header-col-desc">
+                {{ case.ShortDescription | safe }}
+            </div>
         </div>
 
-        <div class="tab-bar">
-            <button class="tab-btn active" onclick="openTab(event, 'timelines-{{ case_index }}')">TimeLines</button>
-            <button class="tab-btn" onclick="openTab(event, 'events-{{ case_index }}')">Events</button>
-            <button class="tab-btn" onclick="openTab(event, 'staff-{{ case_index }}')">Tracking</button>
-        </div>
+        <div id="body-{{ case_idx }}" class="case-body {% if not loop.first %}collapsed{% endif %}">
+            <div class="tab-bar">
+                {% if case.TimeLines and case.TimeLines|length > 0 %}
+                    <button class="tab-btn" data-target="timelines-{{ case_idx }}">TimeLines ({{ case.TimeLines|length }})</button>
+                {% endif %}
 
-        <div id="timelines-{{ case_index }}" class="tab-content active">
-            {% if case.TimeLines %}
+                {% if case.Events and case.Events|length > 0 %}
+                    <button class="tab-btn" data-target="events-{{ case_idx }}">Events ({{ case.Events|length }})</button>
+                {% endif %}
+
+                {% if case.Incidents and case.Incidents|length > 0 %}
+                    <button class="tab-btn" data-target="incidents-{{ case_idx }}">Incidents ({{ case.Incidents|length }})</button>
+                {% endif %}
+
+                <!-- {% if case.TimeTrackingItems and case.TimeTrackingItems|length > 0 %}
+                    <button class="tab-btn" data-target="staff-{{ case_idx }}">Staff ({{ case.TimeTrackingItems|length }})</button>
+                {% endif %} -->
+            </div>
+
+            {% if case.Incidents and case.Incidents|length > 0 %}
+            <div id="incidents-{{ case_idx }}" class="tab-content">
+                {% for inc in case.Incidents %}
+                    <div class="incident-entry" style="border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; background: #fff;">
+                        <div style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex;  align-items: center;">
+                            <div>
+                                <span style="font-weight: bold; color: #007bff; font-size: 1.1em;">P{{ inc.Priority }} {{ inc.Number }} {{ inc.ShortDescription }}</span>
+                                <span style="margin-left: 10px; padding: 2px 8px; color: #fff; border-radius: 4px; font-size: 0.75em;">
+                                    Priority 
+                                </span>
+                            </div>
+                            <a href="{{ inc.URL }}" target="_blank" class="toggle-btn" style="background: #28a745; text-decoration: none; padding: 4px 12px; width: auto; font-size: 0.8em; line-height: 1.5;">View in SNOW</a>
+                        </div>
+
+                        <div style="padding: 12px;">
+                            <div style="margin-bottom: 8px; font-size: 0.9em;">
+                                <strong>Location:</strong> {{ inc.Location.Name }} 
+                                <span style="color: #888; margin-left: 10px;">| Reported: {{ inc.Reported[:16] | replace('T', ' ') }}</span>
+                            </div>
+                            <div style="font-weight: bold; margin-bottom: 5px; font-size: 0.9em;">{{ inc.ShortDescription }}</div>
+                            <div style="background: #f1f1f1; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.85em; white-space: pre-wrap; line-height: 1.4; color: #333;">{{ inc.Description }}</div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div id="timelines-{{ case_idx }}" class="tab-content">
                 {% for log in case.TimeLines %}
                     <div class="row-item">
                         <div class="time-col">[{{ log.TimeStampDisplay }}]</div>
                         <div class="text-col">{{ log.Description | safe }}</div>
                     </div>
                 {% endfor %}
-            {% else %}
-                <div class="empty-msg">No timeline history.</div>
-            {% endif %}
-        </div>
+            </div>
 
-        <div id="events-{{ case_index }}" class="tab-content">
-            {% if case.Events %}
+            <div id="events-{{ case_idx }}" class="tab-content">
                 {% for ev in case.Events %}
                     <div class="row-item">
                         <div class="time-col">[{{ ev.TimeSpanAllDisplay }}]</div>
-                        <div class="text-col">
-                            <strong>{{ ev.Node }}:</strong> {{ ev.Description }}
-                            <br><small style="color:#666;">Site: {{ ev.SiteName }}</small>
-                        </div>
+                        <div class="text-col"><strong>{{ ev.Node }}:</strong> {{ ev.Description }}</div>
                     </div>
                 {% endfor %}
-            {% else %}
-                <div class="empty-msg">No technical events.</div>
-            {% endif %}
-        </div>
+            </div>
 
-        <div id="staff-{{ case_index }}" class="tab-content">
-            {% if case.TimeTrackingItems %}
+            <div id="staff-{{ case_idx }}" class="tab-content">
                 {% for track in case.TimeTrackingItems %}
                     <div class="row-item">
                         <div class="time-col">[{{ track.TimeDisplay }}]</div>
-                        <div class="text-col">
-                            <b>{{ track.Description }}</b>
-                            {% if track.Username %}({{ track.Username }}){% endif %}
-                        </div>
+                        <div class="text-col"><b>{{ track.Description }}</b></div>
                     </div>
                 {% endfor %}
-            {% else %}
-                <div class="empty-msg">No staff tracking.</div>
-            {% endif %}
+            </div>
         </div>
+
     </div>
     {% endfor %}
 </div>
 
 <script>
-function openTab(evt, tabName) {
-    var i, tabcontent, tablinks;
-    // Get the specific card container for this tab
-    var card = evt.currentTarget.closest('.case-card');
+// 1. Updated Toggle for a single case
+function toggleCase(id, headerElement) {
+    const body = document.getElementById(id);
+    const btn = headerElement.querySelector('.toggle-btn');
     
-    // Hide all tab content within this card
-    tabcontent = card.getElementsByClassName("tab-content");
-    for (i = 0; i < tabcontent.length; i++) {
-        tabcontent[i].style.display = "none";
-    }
+    // Always remove inline styles first to prevent conflicts
+    body.style.display = ""; 
 
-    // Deactivate all tab buttons within this card
-    tablinks = card.getElementsByClassName("tab-btn");
-    for (i = 0; i < tablinks.length; i++) {
-        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    if (body.classList.contains('collapsed')) {
+        body.classList.remove('collapsed');
+        btn.innerText = "Collapse";
+    } else {
+        body.classList.add('collapsed');
+        btn.innerText = "Expand";
     }
-
-    // Show the current tab and add an "active" class to the button
-    document.getElementById(tabName).style.display = "block";
-    evt.currentTarget.className += " active";
 }
+
+// 2. Updated Global toggle (Now syncs correctly with single toggle)
+function toggleAll(expand) {
+    document.querySelectorAll('.case-body').forEach(body => {
+        const card = body.closest('.case-card');
+        const btn = card.querySelector('.toggle-btn');
+        
+        // Remove inline styles to let the CSS class take over
+        body.style.display = ""; 
+
+        if (expand) {
+            body.classList.remove('collapsed');
+            btn.innerText = "Collapse";
+        } else {
+            body.classList.add('collapsed');
+            btn.innerText = "Expand";
+        }
+    });
+}
+
+// Initialize Tabs (keeping logic from previous step)
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll('.case-card').forEach(card => {
+        const firstBtn = card.querySelector('.tab-btn');
+        if (firstBtn) activateTab(firstBtn);
+    });
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent the card from collapsing when clicking a tab
+            activateTab(this);
+        });
+    });
+
+    function activateTab(btn) {
+        const card = btn.closest('.case-card');
+        const targetId = btn.getAttribute('data-target');
+        card.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        card.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(targetId).classList.add('active');
+    }
+});
 </script>
+
+</body>
