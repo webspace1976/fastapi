@@ -1,0 +1,109 @@
+<style>
+    .case-card { border: 1px solid #007bff; margin-bottom: 30px; border-radius: 8px; background: #fff; overflow: hidden; font-family: sans-serif; }
+    .case-header { background: #007bff; color: white; padding: 12px 15px; font-weight: bold; }
+    
+    /* Tab Navigation Styling */
+    .tab-bar { display: flex; background: #f1f1f1; border-bottom: 1px solid #ddd; }
+    .tab-btn { padding: 10px 20px; border: none; background: none; cursor: pointer; font-size: 0.85em; font-weight: bold; color: #555; transition: 0.2s; }
+    .tab-btn:hover { background: #e2e2e2; }
+    .tab-btn.active { background: #fff; color: #007bff; border-bottom: 2px solid #007bff; margin-bottom: -1px; }
+
+    /* Tab Content Styling */
+    .tab-content { display: none; padding: 15px; min-height: 100px; }
+    .tab-content.active { display: block; }
+    
+    .row-item { display: flex; font-size: 0.85em; padding: 6px 0; border-bottom: 1px dotted #eee; }
+    .row-item:last-child { border-bottom: none; }
+    .time-col { color: #666; min-width: 160px; font-family: monospace; font-weight: bold; }
+    .text-col { flex: 1; padding-left: 10px; line-height: 1.4; color: #333; }
+    .empty-msg { color: #999; font-style: italic; font-size: 0.85em; }
+</style>
+
+<div class="container">
+    <h2>Tracking Results for: {{ search_query }}</h2>
+
+    {% for case in cases %}
+    {% set case_index = loop.index %}
+    <div class="case-card">
+        <div class="case-header">
+            {{ case.ShortDescription }}
+            <span style="float:right; font-size: 0.85em; opacity: 0.9;">Record: {{ case.record_id }}</span>
+        </div>
+
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="openTab(event, 'timelines-{{ case_index }}')">TimeLines</button>
+            <button class="tab-btn" onclick="openTab(event, 'events-{{ case_index }}')">Events</button>
+            <button class="tab-btn" onclick="openTab(event, 'staff-{{ case_index }}')">Tracking</button>
+        </div>
+
+        <div id="timelines-{{ case_index }}" class="tab-content active">
+            {% if case.TimeLines %}
+                {% for log in case.TimeLines %}
+                    <div class="row-item">
+                        <div class="time-col">[{{ log.TimeStampDisplay }}]</div>
+                        <div class="text-col">{{ log.Description | safe }}</div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-msg">No timeline history.</div>
+            {% endif %}
+        </div>
+
+        <div id="events-{{ case_index }}" class="tab-content">
+            {% if case.Events %}
+                {% for ev in case.Events %}
+                    <div class="row-item">
+                        <div class="time-col">[{{ ev.TimeSpanAllDisplay }}]</div>
+                        <div class="text-col">
+                            <strong>{{ ev.Node }}:</strong> {{ ev.Description }}
+                            <br><small style="color:#666;">Site: {{ ev.SiteName }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-msg">No technical events.</div>
+            {% endif %}
+        </div>
+
+        <div id="staff-{{ case_index }}" class="tab-content">
+            {% if case.TimeTrackingItems %}
+                {% for track in case.TimeTrackingItems %}
+                    <div class="row-item">
+                        <div class="time-col">[{{ track.TimeDisplay }}]</div>
+                        <div class="text-col">
+                            <b>{{ track.Description }}</b>
+                            {% if track.Username %}({{ track.Username }}){% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-msg">No staff tracking.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function openTab(evt, tabName) {
+    var i, tabcontent, tablinks;
+    // Get the specific card container for this tab
+    var card = evt.currentTarget.closest('.case-card');
+    
+    // Hide all tab content within this card
+    tabcontent = card.getElementsByClassName("tab-content");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+
+    // Deactivate all tab buttons within this card
+    tablinks = card.getElementsByClassName("tab-btn");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+
+    // Show the current tab and add an "active" class to the button
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " active";
+}
+</script>

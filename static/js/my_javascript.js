@@ -963,6 +963,7 @@ function setupLinkRadioToggle(tableId, stateId) {
     const servicenowBaseUrl = "https://healthbc.service-now.com/nav_to.do?uri=%2F$sn_global_search_results.do%3Fsysparm_search%3D";
     const udtBaseUrl = "https://orion.net.mgmt/Orion/UDT/EndpointDetails.aspx?NetObject=UE-IP:VAL=";
     const websshBaseUrl = "/webssh?ip=";
+    const ringerBaseUrl = "/api/ringer/opsapi?method=fetchOpsTracking&search=";
     const radios = document.querySelectorAll(`input[name="link_type_${tableId}"]`);
     const state = document.getElementById(stateId);
 
@@ -1026,6 +1027,11 @@ function setupLinkRadioToggle(tableId, stateId) {
                           e.preventDefault();
                           window.open(`/webssh?ip=${ip}`, '_blank');
                       };
+                  }               
+              } else if (mode === "Ringer") {
+                  const linkText = link.textContent.trim();
+                  if (linkText) {
+                      link.href = `${ringerBaseUrl}${encodeURIComponent(linkText)}`;
                   }
               } else {
                   // Restore normal link behavior for other modes

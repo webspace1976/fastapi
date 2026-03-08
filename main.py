@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 import mainconfig as mainconfig
 
 # import from routers
-from routers import devices, monitor, orion
+from routers import devices, monitor, orion, ringer
 
 app = FastAPI(
     title="SOC Network-Tools Portal",
@@ -65,6 +65,8 @@ logger = mainconfig.setup_module_logger(__name__)
 app.include_router(devices.router, prefix="/api/devices", tags=["Devices"])
 app.include_router(monitor.router, prefix="/api/monitor", tags=["Monitoring"])
 app.include_router(orion.router, prefix="/api/orion", tags=["Orion"])
+app.include_router(ringer.router, prefix="/api/ringer", tags=["Ringer"])
+
 
 # --- site index ---
 @app.get("/", response_class=HTMLResponse)

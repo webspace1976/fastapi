@@ -177,6 +177,59 @@ GROUP BY N.NodeID, N.Status,N.StatusDescription, NCP.Site,NCP.Address, NCP.City,
 ORDER BY Seconds 
 '''
 
+swis_nodeduration_2026='''
+SELECT 
+    ISNULL(Summary.TotalNodes, 0) AS TotalNodes,
+    ISNULL(Summary.DownCount, 0) AS DownCount,
+    N.NodeID, -- Added NodeID
+    N.NodeName,
+    N.IPAddress,
+    N.StatusDescription,
+    NCP.Site,
+    NCP.Address,
+    NCP.City,
+    NCP.SiteType,
+    N.DetailsUrl,
+    tolocal(MAX(E.EventTime)) AS DownTime, 
+    ToString(DayDiff(0,GETUTCDATE() - MAX(E.EventTime))) + 'd ' + 
+    ToString(Floor(HourDiff(0, GETUTCDATE() - MAX(E.EventTime)) % 24)) + 'h ' + 
+    ToString(Floor(MinuteDiff(0, GETUTCDATE() - MAX(E.EventTime)) % 60)) + 'm ' AS Duration, 
+    SecondDiff(0,GETUTCDATE() - MAX(E.EventTime)) as Seconds 
+FROM Orion.Nodes N
+INNER JOIN Orion.NodesCustomProperties NCP ON NCP.NodeID = N.NodeID
+INNER JOIN Orion.Events E ON E.NetworkNode = N.NodeID
+
+-- Summary Subquery to get Site Totals
+LEFT JOIN (
+    SELECT 
+        ISNULL(NCP_Sub.Site, '') AS Site,
+        ISNULL(NCP_Sub.Address, '') AS Address,
+        COUNT(N_Sub.NodeID) AS TotalNodes,
+        SUM(CASE WHEN N_Sub.Status NOT IN (1, 9, 11) THEN 1 ELSE 0 END) AS DownCount
+    FROM Orion.Nodes N_Sub
+    INNER JOIN Orion.NodesCustomProperties NCP_Sub ON NCP_Sub.NodeID = N_Sub.NodeID
+    GROUP BY ISNULL(NCP_Sub.Site, ''), ISNULL(NCP_Sub.Address, '')
+) AS Summary ON ISNULL(Summary.Site, '') = ISNULL(NCP.Site, '') 
+             AND ISNULL(Summary.Address, '') = ISNULL(NCP.Address, '')
+
+WHERE N.Status NOT IN (1, 9, 11)
+  AND E.EventType IN (1, 5, 9, 14)
+GROUP BY 
+    N.NodeID, -- Added to Group By
+    Summary.TotalNodes, 
+    Summary.DownCount, 
+    N.NodeName, 
+    N.IPAddress, 
+    N.Status, 
+    N.StatusDescription, 
+    N.DetailsUrl, 
+    NCP.Site, 
+    NCP.Address, 
+    NCP.City, 
+    NCP.SiteType
+ORDER BY Seconds ASC
+'''
+
 swis_bgp="SELECT  rn.NodeID,rr.Caption, rn.NeighborID, ln.Caption as RemoteRouter, rn.NeighborIP, orrp.DisplayName,rn.AutonomousSystem AS RemoteAS, rpsm.DisplayName AS Status, rn.LastChange FROM Orion.Routing.Neighbors rn  left JOIN orion.Nodes n on rn.NodeID=n.NodeID LEFT JOIN orion.Nodes ln on rn.NeighborIP=ln.IPAddress JOIN Orion.Routing.Router rr ON rn.NodeID=rr.NodeID JOIN Orion.Routing.RoutingProtocol orrp on rn.ProtocolID=orrp.ProtocolID JOIN Orion.Routing.RoutingProtocolStateMapping rpsm  ON rn.ProtocolID=rpsm.ProtocolID AND rn.ProtocolStatus=rpsm.ProtocolStatus WHERE orrp.ProtocolID=14 ORDER BY n.Caption"
 swis_ospf="SELECT NodeID,n.Caption, NeighborID, NeighborIP, ln.Caption AS RemoteRouter, orrp.DisplayName,   rpsm.DisplayName AS Status   FROM Orion.Routing.Neighbors rn JOIN orion.Nodes n on n.NodeID=rn.NodeID LEFT JOIN orion.Nodes ln on rn.NeighborIP=ln.IPAddress JOIN Orion.Routing.RoutingProtocol orrp on rn.ProtocolID=orrp.ProtocolID LEFT JOIN Orion.Routing.RoutingProtocolStateMapping rpsm  ON rn.ProtocolID=rpsm.ProtocolID AND rn.ProtocolStatus=rpsm.ProtocolStatus WHERE orrp.ProtocolID=13 ORDER BY n.Caption"
 swis_nodestatistic="SELECT COUNT(1) as value, Status, CASE WHEN Status = 1 THEN \'Up\' WHEN Status =2 THEN \'Down\' WHEN Status =3 THEN \'warning\' WHEN Status=9 THEN \'Unmanaged\' WHEN Status=11 THEN \'External\' WHEN Status=14 THEN\'Critical\' ELSE \'unknown\' END as NodeStatus FROM Orion.Nodes GROUP BY status ORDER BY value"
@@ -185,16 +238,6 @@ swis_nodestatistic="SELECT COUNT(1) as value, Status, CASE WHEN Status = 1 THEN 
 # 20251230 update ONS.NodeName, ONS.IPaddress, ONS.DetailsUrl
 swis_ncp="SELECT Site, ONS.NodeName, ONS.IPaddress, ONS.DetailsUrl, NodeID, ONS.Status, ONS.StatusDescription, Address, Architecture, AssetTag, Building, City, Closest_Poller, Closet, Comments, Configuration, ControlUpEventID, DeviceType, Floor, HA, HardwareIncidentStatus, Imported_From_NCM, IncidentStatus, Layer3, LdapTestFailureMessage, Make, New_Poller_Home, NodeOwner,  OutOfBand, PDIntegrationKey, PONumber, ProgramApplication, ProgramApplicationType, Provider, ProviderSiteID, Rack, Region, ServiceType, SiteContactName, SiteHours, SitePhone, SiteType, Technology, Topology, Unmanaged_, WANbandwidth, WANnode, WANProvider,WANProviderCSID,WANProviderDeviceID FROM Orion.NodesCustomProperties ONCP INNER JOIN Orion.Nodes ONS ON ONCP.NodeID = ONS.NodeID ORDER BY Site"
 
-# 20260102 updated Alert query
-# swis_alert='''
-# SELECT OAO.EntityDetailsUrl, OAO.RelatedNodeID,OAO.AlertConfigurations.Severity, OND.Status,OAS.TriggerCount,StatusDescription,ObjectType,ObjectName, AlertMessage,OAO.RelatedNodeCaption,OND.Vendor, OND.ObjectSubType,OND.IPAddress,TriggerTimeStamp 
-# FROM Orion.AlertStatus OAS 
-# LEFT JOIN Orion.AlertObjects OAO ON OAO.AlertObjectID=OAS.AlertObjectID 
-# LEFT JOIN orion.Nodes OND ON OND.Caption=OAO.RelatedNodeCaption 
-# WHERE AlertMessage NOT LIKE '%OrionNCMVCHA logged in%' AND AlertMessage NOT LIKE '%system logged in%' 
-# GROUP BY OND.IPAddress, OAS.AlertMessage -- 20260203 collapse all rows that share the exact same IP and exact same message into a single row.
-# ORDER BY triggertimestamp DESC
-# '''
 
 swis_alert='''
 SELECT 

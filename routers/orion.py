@@ -264,10 +264,11 @@ def generate_node_table(session):
             <tr>
                 <th style="width:14%">Duration</th> 
                 <th >
-                    <div>Node Link-Toggle:
+                    <div>Link:
                         <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="Orion" checked>Orion Node</label>
                         <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="SNOW">SNOW</label>
                         <label><input type="radio" name="link_type_nodedownTable" value="Orion_UDT">Orion UDT</label>
+                        <label><input type="radio" name="link_type_nodedownTable" value="Ringer">Ringer</label>
                     </div>
                 </th> 
                 <th style="width:12%">Type</th>
