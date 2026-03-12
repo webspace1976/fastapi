@@ -492,7 +492,7 @@ function countSite(inputTable, outputDiv) {
   const nodeList = table.querySelectorAll("b");         
 
   // Step 3: Map over the NodeList to create an array of objects containing text and parent <tr> class names
-const dataArray = Array.from(nodeList, (element) => {
+  const dataArray = Array.from(nodeList, (element) => {
     const parentTr = element.closest("tr");
     if (!parentTr) return null;
     const tds = parentTr.getElementsByTagName('td');
@@ -564,7 +564,6 @@ const dataArray = Array.from(nodeList, (element) => {
     for (let [siteName, { duration, siteType }] of sitesMap) {
       const sitesRow = document.createElement("tr");
       sitesRow.className = className; // Apply class for color
-      sitesRow.style.fontSize = "120%"; // Slightly bigger font
 
       // Duration cell
       const durationCell = document.createElement("td");    
@@ -577,6 +576,8 @@ const dataArray = Array.from(nodeList, (element) => {
       siteNameCell.setAttribute("colspan", totalColumns - 1); // Span remaining columns        
       siteNameCell.textContent = siteName;
       sitesRow.appendChild(siteNameCell);
+      siteNameCell.style.textAlign = "left"; // Slightly bigger font
+      siteNameCell.style.paddingLeft = "10px"; // Slightly bigger font
 
       // // SiteType cell
       // const siteTypeCell = document.createElement("td");
