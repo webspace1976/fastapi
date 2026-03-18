@@ -390,6 +390,15 @@ LEFT JOIN Orion.NPM.Interfaces TargetInt ON t.DestInterfaceID = TargetInt.Interf
 -- WHERE NCP.Site = '1190 Hornby (PHC)'
 '''
 
+swis_syslog_ospf='''
+SELECT top 500 NodeID, DateTime, Message
+FROM Orion.OLM.LogEntry 
+WHERE DateTime > AddHour(-2, GETUTCDATE()) 
+AND nodeid in ('11127','11128','11130','12682','11434','16110') -- Core devices only
+AND (Message LIKE '%OSPF_NBR_CHG:%' OR Message LIKE '%BGP_STATE_CHANGED:%')
+ORDER BY DateTime DESC
+'''
+
 # 20251023 UDT Queries for Endpoint Details including Device Inventory
 def swis_udt_all_query(node_id: int) -> str:
     swis_udt_all='''
@@ -464,3 +473,5 @@ def swis_udt_node_query(node_id: int) -> str:
     ORDER BY ae.PortNumber, ae.MACAddress
     '''
     return swis_udt_node_query.format(node_id=node_id)
+
+

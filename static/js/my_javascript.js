@@ -1090,7 +1090,10 @@ function setupLinkRadioToggle(tableId, stateId) {
                     } else if (tableId === "alertTable") {
                         let firstPart = link.textContent.trim().split(/[\s·]/)[0];
                         link.href = `${servicenowBaseUrl}${encodeURIComponent(firstPart)}`;
-                    }
+                    } else if (tableId === "syslogTable") {
+                      let linkText = link.dataset.hostname || link.textContent.trim().split(",")[0];
+                      if (linkText) link.href = `${servicenowBaseUrl}${encodeURIComponent(linkText)}`;
+                    }                    
                 } 
                 else if (mode === "Orion_UDT") {
                     const ipCell = row.cells[row.cells.length - 1];
@@ -1135,47 +1138,47 @@ function setupLinkRadioToggle(tableId, stateId) {
 }
 
 
-function linkToggle(inputId, toggleStateId, tableId) {
-  // const orionBaseUrl = "https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:";
-  const servicenowBaseUrl = "https://healthbc.service-now.com/nav_to.do?uri=%2F$sn_global_search_results.do%3Fsysparm_search%3D";
-  // const orionSearchBaseUrl = "https://orion.net.mgmt/apps/search/?q=";
+// function linkToggle(inputId, toggleStateId, tableId) {
+//   // const orionBaseUrl = "https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:";
+//   const servicenowBaseUrl = "https://healthbc.service-now.com/nav_to.do?uri=%2F$sn_global_search_results.do%3Fsysparm_search%3D";
+//   // const orionSearchBaseUrl = "https://orion.net.mgmt/apps/search/?q=";
 
-  const toggleInput = document.getElementById(inputId);
-  const toggleState = document.getElementById(toggleStateId);
+//   const toggleInput = document.getElementById(inputId);
+//   const toggleState = document.getElementById(toggleStateId);
 
-  if (!toggleInput || !toggleState) {
-    console.error("Toggle input or state element not found.");
-    return;
-  }
+//   if (!toggleInput || !toggleState) {
+//     console.error("Toggle input or state element not found.");
+//     return;
+//   }
 
-  toggleInput.addEventListener("change", () => {
-      toggleState.textContent = toggleInput.checked ? "ServiceNow" : "Orion";
-      console.log(tableId, `Toggled to ${toggleInput.checked ? "ServiceNow" : "Orion"}`); ;
-      toggleLinks(tableId, toggleInput.checked);
-  });
+//   toggleInput.addEventListener("change", () => {
+//       toggleState.textContent = toggleInput.checked ? "ServiceNow" : "Orion";
+//       console.log(tableId, `Toggled to ${toggleInput.checked ? "ServiceNow" : "Orion"}`); ;
+//       toggleLinks(tableId, toggleInput.checked);
+//   });
 
-  function toggleLinks(tableId, useServiceNow) {
-    const rows = document.querySelectorAll(`#${tableId} tbody tr`);
-    rows.forEach((row) => {
-      const links = row.querySelectorAll("a"); // Find all <a> tags in the row
-      links.forEach((link) => {
-        const originalHref = link.dataset.originalHref || link.href;
+//   function toggleLinks(tableId, useServiceNow) {
+//     const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+//     rows.forEach((row) => {
+//       const links = row.querySelectorAll("a"); // Find all <a> tags in the row
+//       links.forEach((link) => {
+//         const originalHref = link.dataset.originalHref || link.href;
 
-        // Save the original link if not already saved
-        if (!link.dataset.originalHref) {
-          link.dataset.originalHref = originalHref;
-        }
+//         // Save the original link if not already saved
+//         if (!link.dataset.originalHref) {
+//           link.dataset.originalHref = originalHref;
+//         }
 
-        if (useServiceNow) {
-          const linkText = link.textContent.trim();
-          link.href = `${servicenowBaseUrl}${encodeURIComponent(linkText)}`;
-        } else {
-          link.href = link.dataset.originalHref; // Restore the original link
-        }
-      });
-    });
-  }
-}
+//         if (useServiceNow) {
+//           const linkText = link.textContent.trim();
+//           link.href = `${servicenowBaseUrl}${encodeURIComponent(linkText)}`;
+//         } else {
+//           link.href = link.dataset.originalHref; // Restore the original link
+//         }
+//       });
+//     });
+//   }
+// }
 
 function tableToScript() {
   console.log('tableToScript starting:');

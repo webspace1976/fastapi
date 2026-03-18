@@ -648,6 +648,68 @@ def generate_apipoller_table(session):
     """
     return results_html, results_data  
 
+# 20260318
+def generate_syslog(session):
+    query = mainconfig.swis_syslog_ospf
+    results = session.query(query)
+    change_stauts = ""
+    # link sample :https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N%3a11127&ViewID=2453
+
+    table_rows = ""
+    for row in results.get("results", []):
+        message_syslog=row['Message']
+        message_syslog_time=mymodule.utc_convert(row['DateTime'])
+        message_syslog_link = f"{orion_prefix}/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:{row['NodeID']}&ViewID=2453"
+
+        node_id_to_find = str(row['NodeID'])
+        # Find the device dictionary that matches the nodeid
+        device = next((item for item in mainconfig.CORE_DEVICES if item["nodeid"] == node_id_to_find), None)
+        if device:
+            host_name = device['name']
+            host_ip = device['ip']
+        else:
+            host_name = "Unknown Node"
+            host_ip = "0.0.0.0"
+
+        if any(word in message_syslog for word in ["to UP", "to FULL"]):
+            change_stauts = "UP"
+            icon_gif = "/icons/Event-5.gif"
+        elif any(word in message_syslog for word in ["to DOWN", "to IDLE"]):
+            change_stauts = "DOWN"
+            icon_gif = "/icons/Event-10.gif"
+
+        table_rows += (f"""
+            <tr>
+                <td style='text-align:center'>{message_syslog_time}</td>
+                <td style='text-align:center'><img src="{icon_gif}" alt=""></td>
+                <td style='text-align:left'><a href="{message_syslog_link}" data-ip="{host_ip}" data-hostname="{host_name}" target="_blank">{message_syslog}</a></td></tr>
+        """)       
+
+    results_data = results.get("results", [])
+    results_html = f"""
+    <table id="syslogTable" style="font-size:11px; width:100%">
+        <thead>
+            <tr>
+                <th style='width:10%'>DateTime</th><th style='width:20px;'> </th>
+                <th>
+                    <div style="display:flex;justify-content: space-around;align-items: flex-end;">
+                        <div>Link-Toggle:
+                        <label style="margin-right: 10px;"><input type="radio" name="link_type_syslogTable" value="Orion" checked>OrionNode</label>
+                        <label style="margin-right: 10px;"><input type="radio" name="link_type_syslogTable" value="SNOW"> SNOW</label>
+                        <label><input type="radio" name="link_type_syslogTable" value="Ringer">RingerOPS</label>
+                        </div>
+                    </div>
+                </th>          
+            </tr>
+        </thead>
+        <tbody>
+            {table_rows}
+        </tbody>
+    </table>
+    """
+    return results_html, results_data  
+
+
 def get_orion_dashboard_html(request, npm_server, username, password, session_id):
     try:
         logger.debug("Debug: Starting main_all function")
@@ -709,7 +771,7 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
             "stale": False,  # <--- Not stale
             "node_table": node_table[0],
             "interface_table": interface_table[0],
-            # "event_table": event_table,
+            "syslog_table": generate_syslog(session)[0],
             "alert_table": alert_table[0],
             "netpath_table": netpath_table[0],
             "apipoller_table": apipoller_table[0],
