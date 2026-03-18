@@ -5,7 +5,7 @@
 #                       version history:
 #################################################################################################
 
-import time, sys, os,re, json, copyreg, requests, warnings
+import time, sys, os,re, json, copyreg, requests, warnings, pytz
 from datetime import datetime
 from orionsdk import SwisClient
 from netmiko import ConnectHandler, SSHDetect
@@ -178,6 +178,61 @@ def udt_update(src_file,data_file):
         json.dump(src_content, file, indent=4)
 
     logger.info(f"Updated {dst_udt}, BGP matched: {bgp_count}, OSPF matched: {ospf_count}")
+
+def get_dynamic_duration(last_change_str):
+    if not last_change_str or "UNKNOWN" in last_change_str:
+        return "UNKNOWN"
+
+    try:
+        # 1. Standardize formatting
+        # Replace the colon before milliseconds (:577) with a dot (.577)
+        clean_str = re.sub(r':(\d{3})\b', r'.\1', last_change_str)
+        
+        # 2. Extract parts to determine format
+        parts = clean_str.split()
+        tz = pytz.timezone('America/Vancouver')
+        now = datetime.now(tz)
+
+        # FORMAT A: '%Mar 15 11:38:38:712 2026' (VPN/Detailed style)
+        if len(parts[-1]) == 4 and parts[-1].isdigit():
+            fmt = "%b %d %H:%M:%S.%f %Y"
+            dt = datetime.strptime(clean_str, fmt)
+            dt = tz.localize(dt)
+
+        # FORMAT B: 'Mar 12 18:40:38 PST' (BGP/Standard style)
+        else:
+            # Strip PST/PDT to avoid %Z parsing errors
+            if parts[-1] in ['PST', 'PDT']:
+                clean_str = " ".join(parts[:-1])
+            
+            # Add current year since it's missing in this format
+            current_year = now.year
+            clean_str = f"{current_year} {clean_str}"
+            fmt = "%Y %b %d %H:%M:%S"
+            dt = datetime.strptime(clean_str, fmt)
+            dt = tz.localize(dt)
+
+        # 3. Calculate Difference
+        duration = now - dt
+        
+        # Handle Year-Flip (e.g., Log is Dec 2025, but it's now Jan 2026)
+        if duration.total_seconds() < 0:
+            dt = dt.replace(year=dt.year - 1)
+            duration = now - dt
+
+        # 4. Format for Display (Days, Hours, Minutes)
+        days = duration.days
+        hours, remainder = divmod(duration.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+
+        if days > 0:
+            return f"{days}d {hours:02}h {minutes:02}m"
+        return f"{hours:02}h {minutes:02}m"
+
+    except Exception as e:
+        print(f"Parser Error: {e}")
+        return "UNKNOWN"
+
 
 def format_size(size_bytes):
     """Converts bytes to a human-readable string (KB, MB)."""

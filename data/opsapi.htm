@@ -1,0 +1,1663 @@
+
+<!-- saved from url=(0138)http://ld027081.healthbc.org:8080/api/ringer/opsapi?method=fetchOpsTracking&search=Robert%20and%20Lily%20Lee%20Community%20Health%20Center -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><style>
+    .case-card { border: 1px solid #007bff; margin-bottom: 20px; border-radius: 8px; background: #fff; overflow: hidden; }
+    
+    /* Fixed Alignment for Header */
+    .case-header { 
+        background: #007bff; color: white; padding: 12px 15px; 
+        display: flex; align-items: center; cursor: pointer; gap: 15px;
+    }
+    .header-col-btn { flex: 0 0 80px; }
+    .header-col-time { flex: 0 0 160px; font-family: 'Courier New', monospace; font-size: 0.9em; }
+    .header-col-desc { flex: 1; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .toggle-btn {
+        background: rgba(255,255,255,0.2); border: 1px solid white;
+        color: white; border-radius: 4px; padding: 2px 8px; font-size: 0.8em; width: 100%;
+    }
+
+    /* Visible by default */
+    .case-body { display: block; } 
+
+    /* Hidden only when this class is present */
+    .case-body.collapsed { display: none; }
+
+    .tab-bar { display: flex; background: #f1f1f1; border-bottom: 1px solid #ddd; }
+    .tab-btn { padding: 10px 20px; border: none; background: none; cursor: pointer; font-size: 0.85em; font-weight: bold; color: #555; }
+    .tab-btn.active { background: #fff; color: #007bff; border-bottom: 2px solid #007bff; }
+    
+    .tab-content { display: none; padding: 15px; }
+    .tab-content.active { display: block; }
+
+    /* Fixed Alignment for Rows */
+    .row-item { display: flex; font-size: 0.85em; padding: 6px 0; border-bottom: 1px dotted #eee; align-items: flex-start; }
+    .time-col { 
+        color: #666; 
+        flex: 0 0 180px; /* Fixed width for timestamps */
+        font-family: 'Courier New', monospace; 
+        font-weight: bold; 
+        border-right: 1px solid #eee;
+        margin-right: 10px;
+    }
+    .text-col { flex: 1; padding-left: 5px; line-height: 1.4; } 
+</style>
+
+</head><body>
+    <h2>RingerOPS Search Results for: Robert and Lily Lee Community Health Center</h2>
+
+<div class="container">
+    <div style="margin-bottom: 15px;">
+        <button onclick="toggleAll(true)" class="btn">Expand All</button>
+        <button onclick="toggleAll(false)" class="btn">Collapse All</button>
+    </div>    
+
+    
+    
+    <div class="case-card" id="369483">
+        <div class="case-header" onclick="toggleCase(&#39;body-369483&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Collapse</button>
+            </div>
+            <div class="header-col-time">
+                2026-03-15 08:38 </div>
+            <div class="header-col-desc">
+                P3 INC4729208 Robert and Lily Lee Community Health Center - VC-GrandWdLands-4-PDU-1 node down
+            </div>
+        </div>
+
+        <div id="body-369483" class="case-body ">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn" data-target="timelines-369483">TimeLines (5)</button>
+                
+
+                
+                    <button class="tab-btn active" data-target="CaseDisplay-369483">Alarms (11)</button>
+                
+
+                
+                    <button class="tab-btn" data-target="incidents-369483">Incidents (1)</button>
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-369483">Staff (3)</button>
+                 -->
+            </div>
+
+            
+            <div id="incidents-369483" class="tab-content">
+                
+                    <div class="incident-entry" style="border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; background: #fff;">
+                        <div style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex;  align-items: center;">
+                            <div>
+                                <span style="font-weight: bold; color: #007bff; font-size: 1.1em;">P3 INC4729208 Robert and Lily Lee Community Health Center - VC-GrandWdLands-4-PDU-1 node down</span>
+                                <span style="margin-left: 10px; padding: 2px 8px; color: #fff; border-radius: 4px; font-size: 0.75em;">
+                                    Priority 
+                                </span>
+                            </div>
+                            <a href="https://healthbc.service-now.com/incident.do?sysparm_query=number=INC4729208" target="_blank" class="toggle-btn" style="background: #28a745; text-decoration: none; padding: 4px 12px; width: auto; font-size: 0.8em; line-height: 1.5;">View in SNOW</a>
+                        </div>
+
+                        <div style="padding: 12px;">
+                            <div style="margin-bottom: 8px; font-size: 0.9em;">
+                                <strong>Location:</strong> Robert and Lily Lee Family Community Health Centre 
+                                <span style="color: #888; margin-left: 10px;">| Reported: 2026-03-15 08:45</span>
+                            </div>
+                            <div style="font-weight: bold; margin-bottom: 5px; font-size: 0.9em;">Robert and Lily Lee Community Health Center - VC-GrandWdLands-4-PDU-1 node down</div>
+                            <div style="background: #f1f1f1; padding: 10px; border-radius: 4px; font-family: &#39;Courier New&#39;, monospace; font-size: 0.85em; white-space: pre-wrap; line-height: 1.4; color: #333;">Hi team,
+
+SOC received the following alerts regarding VC-GrandWdLands-4-PDU-1 node down. UPS is discharging, no BC Hydro and or change observed. Please investigate and remediate.
+
+Alerts:
+
+2026-03-15 08:38:53 - Robert and Lily Lee Community Health Center - PDU - VC-GrandWdLands-4-PDU-1
+
+ 
+VCHA Robert and Lily Lee Community Health Center
+1669 East Broadway,Vancouver
+Non-Acute 8hx5d 604-675-3980,,,20344
+site office hours: M-F 830AM-430PM</div>
+                        </div>
+                    </div>
+                
+            </div>
+            
+
+            <div id="timelines-369483" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15 09:15:48]</div>
+                        <div class="text-col">2026-03-15 08:50:55 - Robert and Lily Lee Community Health Center - Power Outage - Planned work being done on our equipment (ETR: Mar 15 15:30) bchydro2743530 Robert and Lily Lee Community Health Center
+
+
+</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15 08:46:48]</div>
+                        <div class="text-col">PDU down, UPS discharging, no hydro/change observed, site office hours: M-F 830AM-430PM</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15 08:45:30]</div>
+                        <div class="text-col">P3 INC4729208 Robert and Lily Lee Family Community Health Centre Robert and Lily Lee Community Health Center - VC-GrandWdLands-4-PDU-1 node down Reported</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15 08:38:18]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15 08:36:00]</div>
+                        <div class="text-col">Robert and Lily Lee Community Health Center Switch-Interface - VCH-RLL-241-R3-SW3.vch.ca - FastEthernet3/0/14 VCH-RLL-02A-R3-PDU01 10.27.50.35 (08:37:36)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-369483" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 15 08:36 - 10:19]</div>
+                        <div class="text-col"><strong>VCH-RLL-241-R3-SW3.vch.ca - FastEthernet3/0/14 VCH-RLL-02A-R3-PDU01 10.27.50.35:</strong> Interface Down</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-369483" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15T08:55:26]</div>
+                        <div class="text-col"><strong>SOC Queue:</strong> P3 INC4729208 SOC Queue Robert and Lily Lee Community Health Center - VC-GrandWdLands-4-PDU-1 node down</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15T08:50:56]</div>
+                        <div class="text-col"><strong>Crosstown Clinic:</strong> P3 INC4729208 Robert and Lily Lee Community Health Center - VC-GrandWdLands-4-PDU-1 node down</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15T08:50:55]</div>
+                        <div class="text-col"><strong>Robert and Lily Lee Community Health Center:</strong> Power Outage Planned work being done on our equipment (ETR: Mar 15 15:30) bchydro2743530 Robert and Lily Lee Community Health Center</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15T08:48:05]</div>
+                        <div class="text-col"><strong>Robert and Lily Lee Community Health Center:</strong> Switch-Interface VC-GrandWdLands-2-3750-st4 - FastEthernet1/0/11 VCH-RLL-02A-R1-PDU01 10.27.50.67</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15T08:40:28]</div>
+                        <div class="text-col"><strong>Robert and Lily Lee Community Health Center:</strong> PDU VCH-RLL-02A-R3-PDU01</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15T08:38:56]</div>
+                        <div class="text-col"><strong>Robert and Lily Lee Community Health Center:</strong> VC-GrandWdLands-4-UPS-1 input source Failure VC-GrandWdLands-4-UPS-1</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15T08:38:55]</div>
+                        <div class="text-col"><strong>Robert and Lily Lee Community Health Center:</strong> Switch-Interface VC-GrandWdLands-4-5510-st1 - GigabitEthernet1/0/48 PDU</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15T08:38:54]</div>
+                        <div class="text-col"><strong>Robert and Lily Lee Community Health Center:</strong> Switch-Interface VC-GrandWdLands-2-3750-st2 - FastEthernet1/0/4 VCH-RLL-02A-R2-PDU01 10.27.50.3</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15T08:38:53]</div>
+                        <div class="text-col"><strong>Robert and Lily Lee Community Health Center:</strong> PDU VC-GrandWdLands-4-PDU-1</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15T08:38:53]</div>
+                        <div class="text-col"><strong>Robert and Lily Lee Community Health Center:</strong> PDU VCH-RLL-02A-R1-PDU01</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-15T08:37:25]</div>
+                        <div class="text-col"><strong>Robert and Lily Lee Community Health Center:</strong> Switch-Interface VCH-RLL-241-R3-SW3.vch.ca - FastEthernet3/0/14 VCH-RLL-02A-R3-PDU01 10.27.50.35</div>
+                    </div>
+                
+            </div>
+
+            <div id="staff-369483" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 15 2026 09:15:48]</div>
+                        <div class="text-col"><b>2026-03-15 08:50:55 - Robert and Lily Lee Community Health Center - Power Outage - Planned work being done on our equipment (ETR: Mar 15 15:30) bchydro2743530 Robert and Lily Lee Community Health Center
+
+
+</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 15 2026 08:46:48]</div>
+                        <div class="text-col"><b>PDU down, UPS discharging, no hydro/change observed, site office hours: M-F 830AM-430PM</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 15 2026 08:38:18]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="369419">
+        <div class="case-header" onclick="toggleCase(&#39;body-369419&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-03-14 22:24 </div>
+            <div class="header-col-desc">
+                RLL - Orion Alert ALARM Node Reboot:  Node Up:  VCHA: Robert and Lily Lee Community Health Center: VCH-RLL-02A-R3-PDU01
+            </div>
+        </div>
+
+        <div id="body-369419" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-369419">TimeLines (3)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-369419">Staff (2)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-369419" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-14 23:29:59]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-14 22:26:00]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-14 22:21:44]</div>
+                        <div class="text-col">Robert and Lily Lee Community Health Center Orion Alert - ALARM Node Reboot:  Node Up:  VCHA: Robert and Lily Lee Community Health Center: VCH-RLL-02A-R3-PDU01 (22:24:36)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-369419" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 14 22:21 - 23:22]</div>
+                        <div class="text-col"><strong>ALARM Node Reboot:  Node Up:  VCHA: Robert and Lily Lee Community Health Center: VCH-RLL-02A-R3-PDU01:</strong>  orionalerts@phsa.ca</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-369419" class="tab-content">
+                
+            </div>
+
+            <div id="staff-369419" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 14 2026 23:29:59]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 14 2026 22:26:00]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="367945">
+        <div class="case-header" onclick="toggleCase(&#39;body-367945&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-03-08 09:10 </div>
+            <div class="header-col-desc">
+                P3 INC4713340 RLL - Power Outage Planned work being done on our equipment (ETR: Mar 8 17:30) bchydro2735794 Robert and Lily Lee Community Health Center
+            </div>
+        </div>
+
+        <div id="body-367945" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-367945">TimeLines (7)</button>
+                
+
+                
+
+                
+                    <button class="tab-btn" data-target="incidents-367945">Incidents (1)</button>
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-367945">Staff (5)</button>
+                 -->
+            </div>
+
+            
+            <div id="incidents-367945" class="tab-content">
+                
+                    <div class="incident-entry" style="border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; background: #fff;">
+                        <div style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex;  align-items: center;">
+                            <div>
+                                <span style="font-weight: bold; color: #007bff; font-size: 1.1em;">P3 INC4713340 RLL - Power Outage Planned work being done on our equipment (ETR: Mar 8 17:30) bchydro2735794 Robert and Lily Lee Community Health Center</span>
+                                <span style="margin-left: 10px; padding: 2px 8px; color: #fff; border-radius: 4px; font-size: 0.75em;">
+                                    Priority 
+                                </span>
+                            </div>
+                            <a href="https://healthbc.service-now.com/incident.do?sysparm_query=number=INC4713340" target="_blank" class="toggle-btn" style="background: #28a745; text-decoration: none; padding: 4px 12px; width: auto; font-size: 0.8em; line-height: 1.5;">View in SNOW</a>
+                        </div>
+
+                        <div style="padding: 12px;">
+                            <div style="margin-bottom: 8px; font-size: 0.9em;">
+                                <strong>Location:</strong> Community Link-Floor 1 
+                                <span style="color: #888; margin-left: 10px;">| Reported: 2026-03-08 09:18</span>
+                            </div>
+                            <div style="font-weight: bold; margin-bottom: 5px; font-size: 0.9em;">RLL - Power Outage Planned work being done on our equipment (ETR: Mar 8 17:30) bchydro2735794 Robert and Lily Lee Community Health Center</div>
+                            <div style="background: #f1f1f1; padding: 10px; border-radius: 4px; font-family: &#39;Courier New&#39;, monospace; font-size: 0.85em; white-space: pre-wrap; line-height: 1.4; color: #333;">Alarms received:
+2026-03-08 08:24:23 Robert and Lily Lee Community Health Center Power Outage Planned work being done on our equipment (ETR: Mar 8 17:30) bchydro2735794 Robert and Lily Lee Community Health Center
+2026-03-08 08:24:23 200  1333 W Broadway Power Outage Planned work being done on our equipment (ETR: Mar 8 17:30) bchydro2735794 200  1333 W Broadway
+2026-03-08 08:24:24 1333 W Broadway Power Outage Planned work being done on our equipment (ETR: Mar 8 17:30) bchydro2735794 1333 W Broadway
+2026-03-08 08:24:24 1333 West Broadway Power Outage Planned work being done on our equipment (ETR: Mar 8 17:30) bchydro2735794 1333 West Broadway
+2026-03-08 09:09:29 Robert and Lily Lee Community Health Center UPS WARNING - UPS Batteries Discharging VC-GrandWdLands-4-UPS-1 Eaton_xupsBatteryAbmStatus
+2026-03-08 09:09:30 Robert and Lily Lee Community Health Center VC-GrandWdLands-4-UPS-1 input source Failure VC-GrandWdLands-4-UPS-1
+2026-03-08 09:09:30 Robert and Lily Lee Community Health Center Orion Alert WARNING UPS alert: VC-GrandWdLands-4-UPS-1 batteryDischarging
+2026-03-08 09:09:31 Robert and Lily Lee Community Health Center UPS Discharging WARNING UPS alert: VC-GrandWdLands-4-UPS-1 batteryDischarging
+2026-03-08 09:11:07 Robert and Lily Lee Community Health Center PDU VCH-RLL-02A-R1-PDU01
+2026-03-08 09:11:08 Robert and Lily Lee Community Health Center Switch-Interface VC-GrandWdLands-2-3750-st4 - FastEthernet1/0/11 VCH-RLL-02A-R1-PDU01 10.27.50.67
+2026-03-08 09:11:08 Robert and Lily Lee Community Health Center PDU Node Down - VPP - Edge VCH-RLL-02A-R1-PDU01
+2026-03-08 09:12:24 Robert and Lily Lee Community Health Center PDU VCH-RLL-02A-R3-PDU01
+2026-03-08 09:12:25 Robert and Lily Lee Community Health Center PDU VC-GrandWdLands-4-PDU-1
+2026-03-08 09:12:25 Robert and Lily Lee Community Health Center Switch-Interface VC-GrandWdLands-2-3750-st2 - FastEthernet1/0/4 VCH-RLL-02A-R2-PDU01 10.27.50.3
+2026-03-08 09:13:54 Robert and Lily Lee Community Health Center PDU Node Down -</div>
+                        </div>
+                    </div>
+                
+            </div>
+            
+
+            <div id="timelines-367945" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-08 18:38:58]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-08 15:21:59]</div>
+                        <div class="text-col">Site up and green on orion</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-08 09:18:37]</div>
+                        <div class="text-col">P3 INC4713340 Community Link-Floor 1 RLL - Power Outage Planned work being done on our equipment (ETR: Mar 8 17:30) bchydro2735794 Robert and Lily Lee Community Health Center Reported</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-08 09:17:59]</div>
+                        <div class="text-col">Merged from SOC367942</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-08 09:10:18]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-08 08:25:04]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-03-08 08:20:52]</div>
+                        <div class="text-col">Robert and Lily Lee Community Health Center Power Outage - Planned work being done on our equipment (ETR: Mar 8 17:30) bchydro2735794 Robert and Lily Lee Community Health Center (08:24:53)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-367945" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 8 08:20 - 16:52]</div>
+                        <div class="text-col"><strong>Planned work being done on our equipment (ETR: Mar 8 17:30) bchydro2735794 Robert and Lily Lee Community Health Center:</strong> (Outage Start: Mar 8 08:19) Crew on-site Mar 8 08:20</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-367945" class="tab-content">
+                
+            </div>
+
+            <div id="staff-367945" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 8 2026 18:38:58]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 8 2026 15:21:59]</div>
+                        <div class="text-col"><b>Site up and green on orion</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 8 2026 09:17:59]</div>
+                        <div class="text-col"><b>Merged from SOC367942</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 8 2026 09:10:18]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Mar 8 2026 08:25:04]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="361165">
+        <div class="case-header" onclick="toggleCase(&#39;body-361165&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-02-03 22:12 </div>
+            <div class="header-col-desc">
+                RLL - Orion Alert ALARM Node Reboot:  Node Up:  VCHA: Robert and Lily Lee Community Health Center: VCH-RLL-02A-R3-PDU01
+            </div>
+        </div>
+
+        <div id="body-361165" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-361165">TimeLines (3)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-361165">Staff (2)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-361165" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-03 22:13:28]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-03 22:12:50]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-03 22:09:38]</div>
+                        <div class="text-col">Robert and Lily Lee Community Health Center Orion Alert - ALARM Node Reboot:  Node Up:  VCHA: Robert and Lily Lee Community Health Center: VCH-RLL-02A-R3-PDU01 (22:12:12)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-361165" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 3 22:09 - 23:09]</div>
+                        <div class="text-col"><strong>ALARM Node Reboot:  Node Up:  VCHA: Robert and Lily Lee Community Health Center: VCH-RLL-02A-R3-PDU01:</strong>  orionalerts@phsa.ca</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-361165" class="tab-content">
+                
+            </div>
+
+            <div id="staff-361165" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 3 2026 22:13:28]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 3 2026 22:12:50]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="360629">
+        <div class="case-header" onclick="toggleCase(&#39;body-360629&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-02-01 08:34 </div>
+            <div class="header-col-desc">
+                BC Hydro Alerts
+            </div>
+        </div>
+
+        <div id="body-360629" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-360629">TimeLines (3)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-360629">Staff (2)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-360629" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 18:42:14]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 08:34:25]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 08:31:10]</div>
+                        <div class="text-col">200  1333 W Broadway Power Outage - Planned work being done on our equipment (ETR: Feb 1 17:30) bchydro2721239 200  1333 W Broadway (08:33:51)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-360629" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 1 08:31 - 16:59]</div>
+                        <div class="text-col"><strong>Planned work being done on our equipment (ETR: Feb 1 17:30) bchydro2721239 200  1333 W Broadway:</strong> (Outage Start: Feb 1 08:29) Crew on-site Feb 1 08:30</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-360629" class="tab-content">
+                
+            </div>
+
+            <div id="staff-360629" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 1 2026 18:42:14]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 1 2026 08:34:25]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="360628">
+        <div class="case-header" onclick="toggleCase(&#39;body-360628&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-02-01 08:31 </div>
+            <div class="header-col-desc">
+                CHG0113378 (Feb 1 08:30 - 17:30) 3rd Party Change Notice   BC Hydro - Planned Power Outage - Robert and Lily Lee Family CHC
+            </div>
+        </div>
+
+        <div id="body-360628" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-360628">TimeLines (10)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-360628">Staff (6)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-360628" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 18:24:43]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 17:30:00]</div>
+                        <div class="text-col">CHG0113378 VCH-Robert and Lily Lee Family (CHC) 3rd Party Change Notice   BC Hydro - Planned Power Outage - Robert and Lily Lee Family CHC Planned End</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 16:24:55]</div>
+                        <div class="text-col">Merged from SOC360653</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 15:43:02]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 12:05:29]</div>
+                        <div class="text-col">Merged from SOC360640</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 12:04:36]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 08:31:38]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 08:30:00]</div>
+                        <div class="text-col">Crosstown Clinic CHG0113378 STANDARD - 3rd Party Change Notice   BC Hydro - Planned Power Outage - Robert and Lily Lee Family CHC (08:31:17)</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 08:30:00]</div>
+                        <div class="text-col">CHG0113378 VCH-Robert and Lily Lee Family (CHC) 3rd Party Change Notice   BC Hydro - Planned Power Outage - Robert and Lily Lee Family CHC - Planned Start</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-20 18:21:06]</div>
+                        <div class="text-col">CHG0113378 VCH-Robert and Lily Lee Family (CHC) 3rd Party Change Notice   BC Hydro - Planned Power Outage - Robert and Lily Lee Family CHC - Reported</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-360628" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 1 08:30 - 17:32]</div>
+                        <div class="text-col"><strong>3rd Party Change Notice   BC Hydro - Planned Power Outage - Robert and Lily Lee Family CHC:</strong> standard</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-360628" class="tab-content">
+                
+            </div>
+
+            <div id="staff-360628" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 1 2026 18:24:43]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 1 2026 16:24:55]</div>
+                        <div class="text-col"><b>Merged from SOC360653</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 1 2026 15:43:02]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 1 2026 12:05:29]</div>
+                        <div class="text-col"><b>Merged from SOC360640</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 1 2026 12:04:36]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 1 2026 08:31:38]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="360527">
+        <div class="case-header" onclick="toggleCase(&#39;body-360527&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-01-31 16:52 </div>
+            <div class="header-col-desc">
+                RLL - Switch-Interface VC-GrandWdLands-4-5510-st1 - GigabitEthernet1/0/48 PDU
+            </div>
+        </div>
+
+        <div id="body-360527" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-360527">TimeLines (3)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-360527">Staff (2)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-360527" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-31 17:40:05]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-31 16:52:17]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-31 16:49:00]</div>
+                        <div class="text-col">Robert and Lily Lee Community Health Center Switch-Interface - VC-GrandWdLands-4-5510-st1 - GigabitEthernet1/0/48 PDU (16:51:30)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-360527" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 31 16:49 - 17:01]</div>
+                        <div class="text-col"><strong>VC-GrandWdLands-4-5510-st1 - GigabitEthernet1/0/48 PDU:</strong> Interface Down</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-360527" class="tab-content">
+                
+            </div>
+
+            <div id="staff-360527" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 31 2026 17:40:05]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 31 2026 16:52:17]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="360498">
+        <div class="case-header" onclick="toggleCase(&#39;body-360498&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-01-31 08:53 </div>
+            <div class="header-col-desc">
+                RLL - Switch-Interface VC-GrandWdLands-4-5510-st1 - GigabitEthernet1/0/48 PDU
+            </div>
+        </div>
+
+        <div id="body-360498" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-360498">TimeLines (3)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-360498">Staff (2)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-360498" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-31 12:22:04]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-31 08:53:28]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-31 08:51:00]</div>
+                        <div class="text-col">Robert and Lily Lee Community Health Center Switch-Interface - VC-GrandWdLands-4-5510-st1 - GigabitEthernet1/0/48 PDU (08:52:32)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-360498" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 31 08:51 - 09:03]</div>
+                        <div class="text-col"><strong>VC-GrandWdLands-4-5510-st1 - GigabitEthernet1/0/48 PDU:</strong> Interface Down</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-360498" class="tab-content">
+                
+            </div>
+
+            <div id="staff-360498" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 31 2026 12:22:04]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 31 2026 08:53:28]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="360494">
+        <div class="case-header" onclick="toggleCase(&#39;body-360494&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-01-31 08:23 </div>
+            <div class="header-col-desc">
+                RLL - Power Outage Under investigation (No ETR)  bchydro2720794 Robert and Lily Lee Community Health Center
+            </div>
+        </div>
+
+        <div id="body-360494" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-360494">TimeLines (3)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-360494">Staff (2)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-360494" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-31 12:33:38]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-31 08:23:49]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-31 08:20:06]</div>
+                        <div class="text-col">Robert and Lily Lee Community Health Center Power Outage - Under investigation (No ETR)  bchydro2720794 Robert and Lily Lee Community Health Center (08:23:21)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-360494" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 31 08:20 - 08:27]</div>
+                        <div class="text-col"><strong>Under investigation (No ETR)  bchydro2720794 Robert and Lily Lee Community Health Center:</strong> (Outage Start: Jan 31 08:19) No crew assigned</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-360494" class="tab-content">
+                
+            </div>
+
+            <div id="staff-360494" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 31 2026 12:33:38]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 31 2026 08:23:49]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="360303">
+        <div class="case-header" onclick="toggleCase(&#39;body-360303&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-01-30 09:58 </div>
+            <div class="header-col-desc">
+                BCHydro Alerts
+            </div>
+        </div>
+
+        <div id="body-360303" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-360303">TimeLines (3)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-360303">Staff (2)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-360303" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-02-01 06:47:42]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-30 09:59:35]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-30 09:55:53]</div>
+                        <div class="text-col">Vancouver Island Cancer Centre (BCCA) Power Outage Nearby - Planned work being done on our equipment (ETR: Jan 30 16:00) bchydro2720541 Vancouver Island Cancer Centre (BCCA) (09:58:51)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-360303" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 30 09:55 - 14:11]</div>
+                        <div class="text-col"><strong>Planned work being done on our equipment (ETR: Jan 30 16:00) bchydro2720541 Vancouver Island Cancer Centre (BCCA):</strong> (Outage Start: Jan 30 09:54) Crew on-site Jan 30 09:55</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-360303" class="tab-content">
+                
+            </div>
+
+            <div id="staff-360303" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Feb 1 2026 06:47:42]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 30 2026 09:59:35]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="359534">
+        <div class="case-header" onclick="toggleCase(&#39;body-359534&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-01-27 08:59 </div>
+            <div class="header-col-desc">
+                BCHydro
+            </div>
+        </div>
+
+        <div id="body-359534" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-359534">TimeLines (3)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-359534">Staff (2)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-359534" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-27 18:50:06]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-27 09:00:37]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-27 08:54:43]</div>
+                        <div class="text-col">Robert and Lily Lee Community Health Center Power Outage Nearby - Planned work being done on our equipment (ETR: Jan 27 17:00) bchydro2719026 Robert and Lily Lee Community Health Center (08:59:27)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-359534" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 27 08:54 - 10:58]</div>
+                        <div class="text-col"><strong>Planned work being done on our equipment (ETR: Jan 27 17:00) bchydro2719026 Robert and Lily Lee Community Health Center:</strong> (Outage Start: Jan 27 08:52) Crew on-site Jan 27 08:55</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-359534" class="tab-content">
+                
+            </div>
+
+            <div id="staff-359534" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 27 2026 18:50:06]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 27 2026 09:00:37]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="358047">
+        <div class="case-header" onclick="toggleCase(&#39;body-358047&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-01-20 07:10 </div>
+            <div class="header-col-desc">
+                BC Hydro Alerts
+            </div>
+        </div>
+
+        <div id="body-358047" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-358047">TimeLines (4)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-358047">Staff (3)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-358047" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-24 06:48:16]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-22 06:37:59]</div>
+                        <div class="text-col">Merged from SOC358522</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-20 07:10:40]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-20 07:09:24]</div>
+                        <div class="text-col">Delta Hospital Power Outage Restored - Planned work being done on our equipment restored at Jan 20 07:09 bchydro2717472 Delta Hospital (07:10:25)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-358047" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 20 07:09 - 07:22]</div>
+                        <div class="text-col"><strong>Planned work being done on our equipment restored at Jan 20 07:09 bchydro2717472 Delta Hospital:</strong> (Outage Start: Jan 20 05:48 End: Jan 20 07:09)</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-358047" class="tab-content">
+                
+            </div>
+
+            <div id="staff-358047" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 24 2026 06:48:16]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 22 2026 06:37:59]</div>
+                        <div class="text-col"><b>Merged from SOC358522</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 20 2026 07:10:40]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="356879">
+        <div class="case-header" onclick="toggleCase(&#39;body-356879&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-01-14 08:34 </div>
+            <div class="header-col-desc">
+                BCHydro Alerts
+            </div>
+        </div>
+
+        <div id="body-356879" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-356879">TimeLines (3)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-356879">Staff (2)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-356879" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-16 06:54:23]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-14 08:34:10]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-14 08:30:55]</div>
+                        <div class="text-col">Texada Clinic Power Outage Nearby - Planned work being done on our equipment (ETR: Jan 14 09:30) bchydro2715700 Texada Clinic (08:34:01)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-356879" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 14 08:30 - 09:12]</div>
+                        <div class="text-col"><strong>Planned work being done on our equipment (ETR: Jan 14 09:30) bchydro2715700 Texada Clinic:</strong> (Outage Start: Jan 14 07:58) Crew on-site Jan 14 08:30</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-356879" class="tab-content">
+                
+            </div>
+
+            <div id="staff-356879" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 16 2026 06:54:23]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 14 2026 08:34:10]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="356547">
+        <div class="case-header" onclick="toggleCase(&#39;body-356547&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-01-13 07:45 </div>
+            <div class="header-col-desc">
+                BC Hydro Alerts
+            </div>
+        </div>
+
+        <div id="body-356547" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-356547">TimeLines (3)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-356547">Staff (2)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-356547" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-13 18:24:25]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-13 07:45:46]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-13 07:41:46]</div>
+                        <div class="text-col">Robert and Lily Lee Community Health Center Power Outage Nearby - Planned work being done on our equipment (ETR: Jan 13 17:00) bchydro2715063 Robert and Lily Lee Community Health Center (07:45:31)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-356547" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 13 07:41 - 16:07]</div>
+                        <div class="text-col"><strong>Planned work being done on our equipment (ETR: Jan 13 17:00) bchydro2715063 Robert and Lily Lee Community Health Center:</strong> (Outage Start: Jan 13 07:40) Crew on-site Jan 13 07:45</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-356547" class="tab-content">
+                
+            </div>
+
+            <div id="staff-356547" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 13 2026 18:24:25]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 13 2026 07:45:46]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="355097">
+        <div class="case-header" onclick="toggleCase(&#39;body-355097&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2026-01-07 15:06 </div>
+            <div class="header-col-desc">
+                RLL - Orion Alert ALARM Node Reboot:  Node Up:  VCHA: Robert and Lily Lee Community Health Center: VCH-RLL-02A-R2-PDU01
+            </div>
+        </div>
+
+        <div id="body-355097" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-355097">TimeLines (3)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-355097">Staff (2)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-355097" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-07 16:17:46]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-07 15:06:51]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2026-01-07 15:03:45]</div>
+                        <div class="text-col">Robert and Lily Lee Community Health Center Orion Alert - ALARM Node Reboot:  Node Up:  VCHA: Robert and Lily Lee Community Health Center: VCH-RLL-02A-R2-PDU01 (15:05:51)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-355097" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 7 15:03 - 16:04]</div>
+                        <div class="text-col"><strong>ALARM Node Reboot:  Node Up:  VCHA: Robert and Lily Lee Community Health Center: VCH-RLL-02A-R2-PDU01:</strong>  orionalerts@phsa.ca</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-355097" class="tab-content">
+                
+            </div>
+
+            <div id="staff-355097" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 7 2026 16:17:46]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Jan 7 2026 15:06:51]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+    
+    <div class="case-card" id="349700">
+        <div class="case-header" onclick="toggleCase(&#39;body-349700&#39;, this)">
+            <div class="header-col-btn">
+                <button class="toggle-btn">Expand</button>
+            </div>
+            <div class="header-col-time">
+                2025-12-10 08:34 </div>
+            <div class="header-col-desc">
+                BCHydro
+            </div>
+        </div>
+
+        <div id="body-349700" class="case-body collapsed">
+            <div class="tab-bar">
+                
+                    <button class="tab-btn active" data-target="timelines-349700">TimeLines (5)</button>
+                
+
+                
+
+                
+
+                <!-- 
+                    <button class="tab-btn" data-target="staff-349700">Staff (4)</button>
+                 -->
+            </div>
+
+            
+
+            <div id="timelines-349700" class="tab-content active">
+                
+                    <div class="row-item">
+                        <div class="time-col">[2025-12-17 13:17:07]</div>
+                        <div class="text-col">Case Closed</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2025-12-11 12:45:07]</div>
+                        <div class="text-col">Merged from SOC350082</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2025-12-10 08:34:25]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2025-12-10 08:34:20]</div>
+                        <div class="text-col">Acknowledged</div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[2025-12-10 08:31:57]</div>
+                        <div class="text-col">Children and Womens (CW) Power Outage Nearby - Under investigation (No ETR)  bchydro2683264 Children and Womens (CW) (08:34:07)</div>
+                    </div>
+                
+            </div>
+
+            <div id="events-349700" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Dec 10 08:31 - 08:35]</div>
+                        <div class="text-col"><strong>Under investigation (No ETR)  bchydro2683264 Children and Womens (CW):</strong> (Outage Start: Dec 10 08:30) Crew on-site</div>
+                    </div>
+                
+            </div>
+
+            <div id="case-display-349700" class="tab-content">
+                
+            </div>
+
+            <div id="staff-349700" class="tab-content">
+                
+                    <div class="row-item">
+                        <div class="time-col">[Dec 17 2025 13:17:07]</div>
+                        <div class="text-col"><b>Case Closed</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Dec 11 2025 12:45:07]</div>
+                        <div class="text-col"><b>Merged from SOC350082</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Dec 10 2025 08:34:25]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+                    <div class="row-item">
+                        <div class="time-col">[Dec 10 2025 08:34:20]</div>
+                        <div class="text-col"><b>Acknowledged</b></div>
+                    </div>
+                
+            </div>
+        </div>
+
+    </div>
+    
+</div>
+
+<script>
+// 1. Updated Toggle for a single case
+function toggleCase(id, headerElement) {
+    const body = document.getElementById(id);
+    const btn = headerElement.querySelector('.toggle-btn');
+    
+    // Always remove inline styles first to prevent conflicts
+    body.style.display = ""; 
+
+    if (body.classList.contains('collapsed')) {
+        body.classList.remove('collapsed');
+        btn.innerText = "Collapse";
+    } else {
+        body.classList.add('collapsed');
+        btn.innerText = "Expand";
+    }
+}
+
+// 2. Updated Global toggle (Now syncs correctly with single toggle)
+function toggleAll(expand) {
+    document.querySelectorAll('.case-body').forEach(body => {
+        const card = body.closest('.case-card');
+        const btn = card.querySelector('.toggle-btn');
+        
+        // Remove inline styles to let the CSS class take over
+        body.style.display = ""; 
+
+        if (expand) {
+            body.classList.remove('collapsed');
+            btn.innerText = "Collapse";
+        } else {
+            body.classList.add('collapsed');
+            btn.innerText = "Expand";
+        }
+    });
+}
+
+// Initialize Tabs (keeping logic from previous step)
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll('.case-card').forEach(card => {
+        const firstBtn = card.querySelector('.tab-btn');
+        if (firstBtn) activateTab(firstBtn);
+    });
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent the card from collapsing when clicking a tab
+            activateTab(this);
+        });
+    });
+
+    function activateTab(btn) {
+        const card = btn.closest('.case-card');
+        const targetId = btn.getAttribute('data-target');
+        card.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        card.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(targetId).classList.add('active');
+    }
+});
+</script>
+
+</body></html>

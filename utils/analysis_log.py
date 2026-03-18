@@ -6,7 +6,6 @@
 #################################################################################################
 # utils/analyst.py
 import os,sys, re, json
-import mainconfig
 
 # This finds the absolute path to the 'fastapi' root folder
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -15,6 +14,8 @@ if ROOT_DIR not in sys.path:
 
 import routers.monitor as monitor
 import mainconfig as mainconfig
+from utils.fastapi_mymodule import get_dynamic_duration
+
 logger = mainconfig.setup_module_logger(__name__)
 log_dir = mainconfig.CORE_LOGS_DIR    
 curr_dir= os.path.dirname(__file__)
@@ -756,7 +757,7 @@ def log_summary(log, hostname, ip):
             for entries in neighbors.values():
                 bgp_all_states.update(state for _, _, state in entries)
         header = (
-            "<tr><th style='width:15%'>Instance</th><th style='width:15%'>Neighbor</th><th style='width:20%'>Current</th>"
+            "<tr><th style='width:15%'>Instance</th><th style='width:10%'>Neighbor</th><th style='width:15%'>Current</th><th style='width:10%'>Duration</th>"
             + "".join(f"<th>{state}</th>" for state in sorted(bgp_all_states))
             + "<th style='width:20%'>LastChange</th></tr>"
         )
@@ -785,14 +786,19 @@ def log_summary(log, hostname, ip):
 
                 # bgp_vpn_stance = bgp_live_status.get('vpn_instance', 'UNKNOWN').upper() if bgp_live_status else 'UNKNOWN'   
                 bgp_vpn_stance = instance   #get instance name from log parsing instead of monitor function
-                bgp_peer_duration = bgp_live_status.get('up_down_time', 'UNKNOWN') if bgp_live_status else 'UNKNOWN'           
+                bgp_peer_duration_val = bgp_live_status.get('up_down_time', 'UNKNOWN') if bgp_live_status else 'UNKNOWN'   
+
+                if bgp_peer_duration_val != 'UNKNOWN':
+                    bgp_peer_duration = bgp_peer_duration_val
+                else:
+                    bgp_peer_duration = get_dynamic_duration(current_ts) 
 
                 state_counts = {state: 0 for state in bgp_all_states}
                 for _, _, state in entries:
                     state_counts[state] += 1
                 row_style = "style='background-color:Yellow'" if bgp_peer_state != "ESTABLISHED" else "style='background-color:lightgreen;'"
                 row = (
-                    f"<tr {row_style}><td>{bgp_vpn_stance}</td><td>{neighbor}</td><td>{bgp_peer_state}</td>"
+                    f"<tr {row_style}><td>{bgp_vpn_stance}</td><td>{neighbor}</td><td>{bgp_peer_state}</td><td>{bgp_peer_duration}</td>"
                     + "".join(f"<td>{state_counts[state]}</td>" for state in sorted(bgp_all_states))
                     + f"<td>{current_ts}</td></tr>"
                 )
@@ -809,8 +815,8 @@ def log_summary(log, hostname, ip):
                 ospf_all_states.update(state for _, _, state, _ in entries)
         
         header = (
-            "<tr><th style='width:10%'>Process</th><th style='width:10%'>VPN</th><th style='width:10%'>Neighbor</th><th style='width:20%'>Interface</th>"
-            "<th style='width:10%'>Current</th>"
+            "<tr><th style='width:7%'>Process</th><th style='width:10%'>VPN</th><th style='width:10%'>Neighbor</th><th style='width:13%'>Interface</th>"
+            "<th style='width:10%'>Current</th><th style='width:10%'>Duration</th>"
             + "".join(f"<th>{state}</th>" for state in sorted(ospf_all_states))
             + "<th style='width:20%'>LastChange</th></tr>"
         )
@@ -822,8 +828,6 @@ def log_summary(log, hostname, ip):
                 # Get current status from the last entry
                 current_ts, current_iface, current_state, _ = entries[-1]
 
-     
-
                 # Find the most recent valid VPN name by searching backwards
                 last_known_vpn = 'N/A'
                 for _, _, _, vpn in reversed(entries):
@@ -834,8 +838,13 @@ def log_summary(log, hostname, ip):
                 #20251031 get current state from monitor.peer_uptime function
                 ospf_live_status = monitor.get_peer_status('ospf', ip, vpn, neighbor)
                 ospf_peer_state = ospf_live_status.get('state', 'UNKNOWN').upper() if ospf_live_status else 'UNKNOWN'
-                ospf_peer_duration = ospf_live_status.get('verbose_uptime', 'UNKNOWN') if ospf_live_status else 'UNKNOWN'   
-                                   
+                ospf_peer_duration_val = ospf_live_status.get('verbose_uptime', 'UNKNOWN') if ospf_live_status else 'UNKNOWN'   
+
+                if ospf_peer_duration_val != 'UNKNOWN':
+                    ospf_peer_duration = ospf_peer_duration_val
+                else:
+                    ospf_peer_duration = get_dynamic_duration(current_ts) 
+
                 # Calculate state counts
                 state_counts = {state: 0 for state in ospf_all_states}
                 for _, _, state, _ in entries:
@@ -848,7 +857,7 @@ def log_summary(log, hostname, ip):
                 # Use the 'last_known_vpn' variable for the output
                 row = (
                     f"<tr {row_style}><td>{process}</td><td>{last_known_vpn}</td><td>{neighbor}</td><td>{current_iface}</td>"
-                    f"<td>{ospf_peer_state}</td>"
+                    f"<td>{ospf_peer_state}</td><td>{ospf_peer_duration}</td>"
                     + "".join(f"<td>{state_counts[state]}</td>" for state in sorted(ospf_all_states))
                     + f"<td>{current_ts}</td></tr>"
                 )

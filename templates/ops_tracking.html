@@ -52,6 +52,7 @@
 
     {% for case in cases %}
     {% set case_idx = case.record_id %}
+
     <div class="case-card" id="{{ case_idx }}">
         <div class="case-header" onclick="toggleCase('body-{{ case_idx }}', this)">
             <div class="header-col-btn">
@@ -74,13 +75,18 @@
                     <button class="tab-btn" data-target="events-{{ case_idx }}">Events ({{ case.Events|length }})</button>
                 {% endif %}
 
+                {% if case.CaseDisplay and case.CaseDisplay|length > 0 %}
+                    <button class="tab-btn" data-target="casedisplay-{{ case_idx }}">Alarms ({{ case.CaseDisplay|length }})</button>
+                {% endif %}
+
+                <!-- {% if case.TimeTrackingItems and case.TimeTrackingItems|length > 0 %}
+                    <button class="tab-btn" data-target="staff-{{ case_idx }}">Tracking ({{ case.TimeTrackingItems|length }})</button>
+                {% endif %} -->
+
                 {% if case.Incidents and case.Incidents|length > 0 %}
                     <button class="tab-btn" data-target="incidents-{{ case_idx }}">Incidents ({{ case.Incidents|length }})</button>
                 {% endif %}
 
-                <!-- {% if case.TimeTrackingItems and case.TimeTrackingItems|length > 0 %}
-                    <button class="tab-btn" data-target="staff-{{ case_idx }}">Staff ({{ case.TimeTrackingItems|length }})</button>
-                {% endif %} -->
             </div>
 
             {% if case.Incidents and case.Incidents|length > 0 %}
@@ -128,6 +134,16 @@
                 {% endfor %}
             </div>
 
+            
+            <div id="casedisplay-{{ case_idx }}" class="tab-content">
+                {% for cd in case.CaseDisplay %}
+                    <div class="row-item">
+                        <div class="time-col">[{{ cd.item_time }}]</div>
+                        <div class="text-col"><strong>{{ cd.item_text1 }}:</strong> {{ cd.item_text2 }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+            
             <div id="staff-{{ case_idx }}" class="tab-content">
                 {% for track in case.TimeTrackingItems %}
                     <div class="row-item">
@@ -201,6 +217,40 @@ document.addEventListener("DOMContentLoaded", function() {
         btn.classList.add('active');
         document.getElementById(targetId).classList.add('active');
     }
+
+function toggleAndFetch(caseId, header) {
+            const body = document.getElementById(`body-${caseId}`);
+            const btn = header.querySelector('.toggle-btn');
+            const container = body.querySelector('.tab-container');
+
+            // Toggle visibility
+            const isExpanding = !body.classList.contains('expanded');
+            body.classList.toggle('expanded');
+            btn.innerText = isExpanding ? "Collapse" : "Expand";
+
+            // If expanding and data not loaded, fetch it
+            if (isExpanding && body.getAttribute('data-loaded') !== 'true') {
+                fetch(`/api/ringer/opsapi?caseid=${caseId}`)
+                    .then(response => response.text())
+                    .then(html => {
+                        container.innerHTML = html;
+                        body.setAttribute('data-loaded', 'true');
+                    })
+                    .catch(err => {
+                        container.innerHTML = `<div style="color:red; padding:10px;">Error: Could not reach Ringer.</div>`;
+                    });
+            }
+        }
+
+        function switchTab(btn, targetId) {
+            const container = btn.closest('.tab-container');
+            container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            btn.classList.add('active');
+            document.getElementById(targetId).classList.add('active');
+        }    
+
 });
 </script>
 
