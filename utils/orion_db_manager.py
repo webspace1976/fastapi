@@ -73,6 +73,16 @@ class OrionDatabaseManager:
             EndTime DATETIME,
             DurationSeconds INTEGER)''')
 
+        # 1.6 20260320 Add Syslog Backup Table for historical log tracing (if needed in the future)
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS [Orion.SyslogTracking] (
+                LogEntryID INTEGER PRIMARY KEY,
+                NodeID INTEGER,
+                DateTime TEXT,
+                Message TEXT
+            )
+        ''')
+
         # 2. Orion.SitesCustomProperties Table
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS [Orion.SitesCustomProperties]
             (Site TEXT, Address TEXT, City Text,
@@ -335,7 +345,49 @@ class OrionDatabaseManager:
         except Exception as e:
             self.conn.rollback()
             logger.error(f"SQL Upsert Failed: {e} | Query: {query} | topology Data: {row}")
-   
+
+    def upsert_syslog(self, syslog_data):
+        """Inserts new syslog entries by comparing the latest LogEntryID."""
+        if not syslog_data:
+            return
+
+        try:
+            # 1. Identify the "First ID" (Highest current ID in the SQLite DB)
+            self.cursor.execute("SELECT MAX(LogEntryID) FROM [Orion.SyslogBackup]")
+            result = self.cursor.fetchone()
+            last_saved_id = result[0] if result and result[0] else 0
+
+            new_records = []
+            
+            # 2. Filter incoming data for only NEW entries
+            for row in syslog_data:
+                log_id = int(row.get('LogEntryID', 0))
+                
+                if log_id > last_saved_id:
+                    new_records.append((
+                        log_id,
+                        row.get('NodeID'),
+                        row.get('DateTime'),
+                        row.get('Message')
+                    ))
+
+            # 3. Batch insert the new records
+            if new_records:
+                insert_query = '''INSERT INTO [Orion.SyslogBackup] 
+                                 (LogEntryID, NodeID, DateTime, Message) 
+                                 VALUES (?, ?, ?, ?)'''
+                
+                self.cursor.executemany(insert_query, new_records)
+                self.conn.commit()
+                logger.debug(f"Successfully: upsert_syslog added {len(new_records)} new entries.")
+            else:
+                logger.debug("upsert_syslog: No new logs to sync.")
+
+        except Exception as e:
+            self.conn.rollback()
+            logger.error(f"SQL Syslog Sync Failed: {e}")
+
+
     def import_history_record(self, node_id, start_time, end_time, duration, StatusDescription):
         """Now correctly part of the class, so 'self' refers to the DB instance."""
         query = '''INSERT INTO [Orion.StatusHistory] 
@@ -395,6 +447,10 @@ def sync_orion_data(rendered_data):
         topology_data = rendered_data["sites_topology"]
         if topology_data:
             db_conn.upsert_topology(topology_data)  
+
+        syslog_data = rendered_data["syslog_table"]
+        if syslog_data:
+            db_conn.upsert_syslog(syslog_data)
 
     except Exception as e:
         logger.error(f"Error syncing Orion data: {e}")

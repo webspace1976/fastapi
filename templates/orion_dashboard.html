@@ -157,13 +157,16 @@
             <div id="output-right">
                 <div id="output-netpath">
                     {{ netpath_table | safe }}
-                </div><br>
+                </div>
                 <div id="output-apipoller">
                     {{ apipoller_table | safe }}
                 </div><br>
 
-                <div id="output-syslog-ospf">
-                    <h3 style="margin:0;">Recent CORE BGP|OSPF status changed Syslog: Last 2 Hours</h3>
+                <div id="output-syslog">
+                    <div style="display:flex;justify-content: space-between;">
+                        <div><h3 style="margin:0;">Recent CORE BGP|OSPF status changed: Last 2 Hours </h3></div>
+                        <div><a href="https://orion.net.mgmt/Orion/SummaryView.aspx?viewid=95" target="_blank">Syslog View </a></div>
+                    </div>
                     {{ syslog_table | safe }}
                 </div>
 
@@ -189,8 +192,8 @@
                     <select id="messageFilter" onchange="applyFilters()">
                         <option value="all">All Messages</option>
                         <option value="stack,AULTY_CABLE">Stack</option>
-                        <option value="core">Core</option>
-                        <option value="kdc">KDC</option>
+                        <!-- <option value="core">Core</option>
+                        <option value="kdc">KDC</option> -->
                         <option value="power">Power</option>
                         <option value="H/W,Hardware,BOARD">H/W</option>
                         <option value="Temp">Temperature</option>

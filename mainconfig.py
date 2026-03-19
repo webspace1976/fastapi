@@ -391,7 +391,7 @@ LEFT JOIN Orion.NPM.Interfaces TargetInt ON t.DestInterfaceID = TargetInt.Interf
 '''
 
 swis_syslog='''
-SELECT top 500 NodeID, DateTime, Message
+SELECT top 500  LogEntryID,NodeID, DateTime, Message
 FROM Orion.OLM.LogEntry 
 WHERE DateTime > AddHour(-2, GETUTCDATE()) 
 AND nodeid in ('11127','11128','11130','12682','11434','16110') -- Core devices only

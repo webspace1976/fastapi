@@ -1113,11 +1113,23 @@ function setupLinkRadioToggle(tableId, stateId) {
                             window.open(`/webssh?ip=${ip}`, '_blank');
                         };
                     }
+                    else if (tableId === "syslogTable") {
+                        const ip = link.dataset.hostip;
+                        link.href = "javascript:void(0);"; // Keep a valid attribute but prevent jump
+                        link.style.cursor = 'pointer';
+                        link.onclick = function(e) {
+                            e.preventDefault();
+                            window.open(`/webssh?ip=${ip}`, '_blank');
+                        };                    }
+
                 } 
                 else if (mode === "Ringer") {
                   let linkText = "";
                   if (tableId === "alertTable" ) {
                     linkText = link.textContent.trim().split(" ")[0];
+                  }
+                  else if (tableId === "syslogTable") {
+                    linkText = link.dataset.hostname || link.textContent.trim().split(",")[0];
                   }
                   else {
                     linkText = link.textContent.trim().split(",")[0];

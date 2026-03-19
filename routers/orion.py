@@ -652,11 +652,15 @@ def generate_apipoller_table(session):
 def generate_syslog(session):
     query = mainconfig.swis_syslog
     results = session.query(query)
-    change_stauts = ""
     # link sample :https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N%3a11127&ViewID=2453
+
+    log_filename = os.path.join(data_dir, f"syslog_tracking.json")
 
     table_rows = ""
     for row in results.get("results", []):
+        message_id = int(row.get('LogEntryID', 0))
+        if message_id > temp_max_id:
+            temp_max_id = message_id
         message_syslog=row['Message']
         message_syslog_time=mymodule.utc_convert(row['DateTime'])
         message_syslog_link = f"{orion_prefix}/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:{row['NodeID']}&ViewID=2453"
@@ -681,8 +685,8 @@ def generate_syslog(session):
         table_rows += (f"""
             <tr>
                 <td style='text-align:center'>{message_syslog_time}</td>
-                <td style='text-align:center'><img src="{icon_gif}" alt=""></td>
-                <td style='text-align:left'><a href="{message_syslog_link}" data-ip="{host_ip}" data-hostname="{host_name}" target="_blank">{message_syslog}</a></td></tr>
+                <td style='text-align:left'><img src="{icon_gif}" alt=""><a href="{message_syslog_link}" data-hostip="{host_ip}" data-hostname="{host_name}" target="_blank">{message_syslog}</a></td>
+            </tr>
         """)       
 
     results_data = results.get("results", [])
@@ -690,12 +694,13 @@ def generate_syslog(session):
     <table id="syslogTable" style="font-size:11px; width:100%">
         <thead>
             <tr>
-                <th style='width:10%'>DateTime</th><th style='width:20px;'> </th>
+                <th style='width:10%'>DateTime</th>
                 <th>
                     <div style="display:flex;justify-content: space-around;align-items: flex-end;">
                         <div>Link-Toggle:
                         <label style="margin-right: 10px;"><input type="radio" name="link_type_syslogTable" value="Orion" checked>OrionNode</label>
                         <label style="margin-right: 10px;"><input type="radio" name="link_type_syslogTable" value="SNOW"> SNOW</label>
+                        <label><input type="radio" name="link_type_syslogTable" value="webssh">WebSSH</label>
                         <label><input type="radio" name="link_type_syslogTable" value="Ringer">RingerOPS</label>
                         </div>
                     </div>
@@ -707,6 +712,11 @@ def generate_syslog(session):
         </tbody>
     </table>
     """
+    if results_data:
+        # Backup to file for historical tracing
+        with open(log_filename, "a", encoding="utf-8") as f:
+            json.dump(results_data, f, ensure_ascii=False, indent=4)
+
     return results_html, results_data  
 
 
@@ -761,6 +771,7 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
         alert_table = generate_alert_table(session)
         netpath_table = generate_netpath_table(session)
         apipoller_table = generate_apipoller_table(session)
+        syslog_table = generate_syslog(session)
 
         rendered_html = templates.get_template("orion_dashboard.html").render({
             "request": request,
@@ -771,7 +782,7 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
             "stale": False,  # <--- Not stale
             "node_table": node_table[0],
             "interface_table": interface_table[0],
-            "syslog_table": generate_syslog(session)[0],
+            "syslog_table": syslog_table[0],
             "alert_table": alert_table[0],
             "netpath_table": netpath_table[0],
             "apipoller_table": apipoller_table[0],
@@ -788,6 +799,18 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
         conn = sqlite3.connect(mainconfig.DB_ORION_PATH)
         curr = conn.cursor()
 
+        # 202603 syslog tracking: Get the "First ID" (Highest current ID in SQLite)
+        db_manager.cursor.execute("SELECT MAX(LogEntryID) FROM [Orion.SyslogTracking]")
+        row = db_manager.cursor.fetchone()
+        last_saved_id = row[0] if row and row[0] else 0
+        # db_manager.conn.close() # Close after getting the ID
+
+        # 2. Filter the syslog data
+        # Assuming syslog_table[1] contains the raw 'results' list from the SWIS query
+        all_syslogs = syslog_table[1]
+        new_syslogs = [log for log in all_syslogs if int(log['LogEntryID']) > last_saved_id]
+
+
         # Check if we have data
         db_manager.setup_tables()
 
@@ -799,6 +822,7 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
             "netpath_table": netpath_table[1], 
             "apipoller_table": apipoller_table[1],  
             "sites_topology": node_table[3],
+            "syslog_table": new_syslogs  # Only pass the genuinely NEW logs
             # add others if needed
         }
 
