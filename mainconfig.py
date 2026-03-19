@@ -390,7 +390,7 @@ LEFT JOIN Orion.NPM.Interfaces TargetInt ON t.DestInterfaceID = TargetInt.Interf
 -- WHERE NCP.Site = '1190 Hornby (PHC)'
 '''
 
-swis_syslog_ospf='''
+swis_syslog='''
 SELECT top 500 NodeID, DateTime, Message
 FROM Orion.OLM.LogEntry 
 WHERE DateTime > AddHour(-2, GETUTCDATE()) 

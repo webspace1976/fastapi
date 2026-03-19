@@ -1,4 +1,4 @@
-import re,requests,urllib3,urllib.parse,os,json,sys, uuid, pickle, atexit, logging, html, sqlite3, pickle
+import re,urllib3,urllib.parse,os,json,atexit, html, sqlite3, pickle, sys, traceback
 # from logging.handlers import RotatingFileHandler
 from time import perf_counter,time,ctime
 from datetime import datetime
@@ -213,7 +213,7 @@ def generate_node_table(session):
             node_name = str(row.get('NodeName') or '').strip()
             node_address = str(row.get('Address') or 'None').strip()
             node_city = str(row.get('City') or 'None').strip()
-            raw_site_name = row.get('Site', 'Unknown').strip()
+            raw_site_name = str(row.get('Site') or 'Unknown').strip()
             
             # 1. Find the match in the sitedown_list using a prefix match
             # We check if the item in the list starts with the specific site name
@@ -650,7 +650,7 @@ def generate_apipoller_table(session):
 
 # 20260318
 def generate_syslog(session):
-    query = mainconfig.swis_syslog_ospf
+    query = mainconfig.swis_syslog
     results = session.query(query)
     change_stauts = ""
     # link sample :https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N%3a11127&ViewID=2453
@@ -823,8 +823,11 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
         return rendered_html, session_id
     
     except Exception as e: # 20251110 Fix: Safe html.escape() with Default
-        logger.error(f"Dashboard generation failed: {type(e).__name__}: {e}")
-        # Do NOT return cached_html here. Raise the error to the router.
+# This will give you the exact "filename:line_number : function_name"
+        error_details = traceback.format_exc()
+        print(f"Dashboard generation failed: {e}")
+        print(f"DEBUG TRACE:\n{error_details}")
+        logger.error(f"Dashboard generation failed: {e} DEBUG TRACE:\n{error_details}")
         raise ConnectionError(str(e))
     
 ############## data sync functions

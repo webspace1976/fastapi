@@ -162,6 +162,12 @@
                     {{ apipoller_table | safe }}
                 </div><br>
 
+                <div id="output-syslog-ospf">
+                    <h3 style="margin:0;">Recent CORE BGP|OSPF status changed Syslog: Last 2 Hours</h3>
+                    {{ syslog_table | safe }}
+                </div>
+
+                <br>
                 <div style="font-size: 12px;box-sizing: border-box;display: flex;justify-content: space-between;">
                     <div style="width:5%;">
                         <label for="toggleAlertBtn"><button type="button" id="toggleAlertBtn">☰</button></label>
@@ -191,6 +197,7 @@
                     </select>
                     </div>
                 </div>
+
                 <div id="output-alert">
                     {{ alert_table | safe }}
                 </div>
@@ -232,11 +239,11 @@
                     ['kdc', 'core']  // OR logic
                 );
 
-
             // Toggle for links type via radio buttons
             setupLinkRadioToggle('nodedownTable', 'toggleStateNode'); 
             setupLinkRadioToggle('alertTable', 'toggleStateAlert');
             setupLinkRadioToggle('interfacedownTable', 'toggleStateInterface');
+            setupLinkRadioToggle('syslogTable', 'toggleStateSyslog');
 
             // toggleDisplay filter function
             toggleDisplay('toggleNodeBtn', 'nodedownTable')
