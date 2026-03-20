@@ -76,7 +76,6 @@
     <body>
         <header><h1>SOC Network-Tools Portal</h1></header>
 
-
         <div id="topContainer" class="container" style="justify-content:space-between;margin-left:1%;">  
                 <div style="width:50%; text-align: center;
                     background-color: {{ 'green' if orion_status else 'red' }};
@@ -163,11 +162,32 @@
                 </div><br>
 
                 <div id="output-syslog">
-                    <div style="display:flex;justify-content: space-between;">
-                        <div><h3 style="margin:0;">Recent CORE BGP|OSPF status changed: Last 2 Hours </h3></div>
-                        <div><a href="https://orion.net.mgmt/Orion/SummaryView.aspx?viewid=95" target="_blank">Syslog View </a></div>
+                    <div style="display:flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h3 style="margin:0;">CORE BGP|OSPF Status</h3>
+                        </div>
+                        <div style="font-size: 11px; display: flex; align-items: center; gap: 10px;">
+                            <label><input type="radio" name="link_type_syslogTable" value="Orion" checked> Orion</label>
+                            <label><input type="radio" name="link_type_syslogTable" value="SNOW">SNOW</label>
+                            <label><input type="radio" name="link_type_syslogTable" value="Ringer">RingerOPS</label>
+                            <label><input type="radio" name="link_type_syslogTable" value="webssh">WebSSH</label>
+                            <a href="https://orion.net.mgmt/Orion/SummaryView.aspx?viewid=95" target="_blank" style="margin-left:15px;">Syslog View</a>
+                        </div>
                     </div>
-                    {{ syslog_table | safe }}
+
+                    <div style="max-height: 40vh; overflow-y: auto;">
+                        <table id="syslogTable" class="table-custom" style="width:100%;font-size: 10px;">
+                            <thead>
+                                <tr>
+                                    <th style="width:12%;">Time</th>
+                                    <!-- <th style="width:40px;">State</th> -->
+                                    <th>Message</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <br>
@@ -246,7 +266,7 @@
             setupLinkRadioToggle('nodedownTable', 'toggleStateNode'); 
             setupLinkRadioToggle('alertTable', 'toggleStateAlert');
             setupLinkRadioToggle('interfacedownTable', 'toggleStateInterface');
-            setupLinkRadioToggle('syslogTable', 'toggleStateSyslog');
+            //setupLinkRadioToggle('syslogTable', 'toggleStateSyslog');
 
             // toggleDisplay filter function
             toggleDisplay('toggleNodeBtn', 'nodedownTable')
@@ -365,6 +385,67 @@ function regroupAndColspan() {
     $(document).ready(function() {
         setTimeout(regroupAndColspan);
     });
+
+    async function loadSyslogFromDB() {
+        try {
+            const response = await fetch('/api/orion/get_SyslogTracking');
+            const result = await response.json();
+            
+            if (!result.data) return;
+
+            const tableBody = document.querySelector('#syslogTable tbody');
+            tableBody.innerHTML = ''; // Clear existing content
+
+            result.data.forEach(log => {
+                // Determine Icon based on Message text (Up/Full = Green, Down = Red)
+                let iconGif = "/icons/Event-1.gif"; // Default blue/info
+                const syslogDetailsUrl = `https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:${log.NodeID}&ViewID=2453`;
+                const msg = log.Message.toLowerCase();
+                
+                if (msg.includes("to up") || msg.includes("to full")) {
+                    iconGif = "/icons/Event-5.gif"; // Green icon
+                } else if (msg.includes("to down") || msg.includes("to idle")) {
+                    iconGif = "/icons/Event-10.gif"; // Red icon
+                }
+
+                // "2026-03-20T01:07:05.7800000Z"
+                const utcDate = new Date(log.DateTime);
+
+                // 2. Convert to Vancouver Local Time
+                // Format: "2026-03-19 18:07:05" (Note: date changes because of timezone shift)
+                const localTime = utcDate.toLocaleString('en-CA', {
+                    timeZone: 'America/Vancouver',
+                    hour12: false,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }).replace(',', ''); // Remove comma from en-CA format
+
+                // Create the row
+                const row = `
+                    <tr>
+                        <td style="text-align:center; font-size:11px;">${localTime}</td>
+                        <td style="text-align:left;"><img src="${iconGif}" alt="state"><a href="${syslogDetailsUrl}" class="device-link" data-hostname="${log.NodeName}" data-hostip="${log.IPAddress}" target="_blank">${log.Message}</a></td>
+                    </tr>
+                `;
+                tableBody.insertAdjacentHTML('beforeend', row);
+            });
+
+            // Re-initialize your link radio logic so the new links respond to SNOW/Orion toggles
+            if (typeof setupLinkRadioToggle === "function") {
+                setupLinkRadioToggle('syslogTable', 'toggleStateSyslog');
+            }
+
+        } catch (error) {
+            console.error("Error loading syslog from SQLite:", error);
+        }
+    }
+
+    // Auto-load when the page opens
+    document.addEventListener('DOMContentLoaded', loadSyslogFromDB);    
         </script>
     </body>
 </html>

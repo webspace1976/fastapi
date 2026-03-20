@@ -75,12 +75,7 @@ class OrionDatabaseManager:
 
         # 1.6 20260320 Add Syslog Backup Table for historical log tracing (if needed in the future)
         self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS [Orion.SyslogTracking] (
-                LogEntryID INTEGER PRIMARY KEY,
-                NodeID INTEGER,
-                DateTime TEXT,
-                Message TEXT
-            )
+            CREATE TABLE IF NOT EXISTS [Orion.SyslogTracking] (LogEntryID INTEGER PRIMARY KEY, NodeID INTEGER, NodeName TEXT, IPAddress TEXT, DateTime TEXT, Message TEXT)
         ''')
 
         # 2. Orion.SitesCustomProperties Table
@@ -353,7 +348,7 @@ class OrionDatabaseManager:
 
         try:
             # 1. Identify the "First ID" (Highest current ID in the SQLite DB)
-            self.cursor.execute("SELECT MAX(LogEntryID) FROM [Orion.SyslogBackup]")
+            self.cursor.execute("SELECT MAX(LogEntryID) FROM [Orion.SyslogTracking]")
             result = self.cursor.fetchone()
             last_saved_id = result[0] if result and result[0] else 0
 
@@ -367,15 +362,17 @@ class OrionDatabaseManager:
                     new_records.append((
                         log_id,
                         row.get('NodeID'),
+                        row.get('NodeName'), 
+                        row.get('IPAddress'),
                         row.get('DateTime'),
                         row.get('Message')
                     ))
 
             # 3. Batch insert the new records
             if new_records:
-                insert_query = '''INSERT INTO [Orion.SyslogBackup] 
-                                 (LogEntryID, NodeID, DateTime, Message) 
-                                 VALUES (?, ?, ?, ?)'''
+                insert_query = '''INSERT INTO [Orion.SyslogTracking] 
+                                 (LogEntryID, NodeID, NodeName, IPAddress, DateTime, Message) 
+                                 VALUES (?, ?, ?, ?, ?, ?)'''
                 
                 self.cursor.executemany(insert_query, new_records)
                 self.conn.commit()

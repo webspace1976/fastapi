@@ -1,0 +1,778 @@
+[
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN."
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN."
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN."
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN."
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN."
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN."
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN."
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL."
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN."
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+][
+    {
+        "LogEntryID": 4348721928580628483,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:05.7800000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    },
+    {
+        "LogEntryID": 4348721927993425923,
+        "NodeID": 11128,
+        "DateTime": "2026-03-20T01:07:05.7470000Z",
+        "Message": "2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 100 Neighbor 10.252.254.13(Twenty-FiveGigE2/0/2) changed from LOADING to FULL.",
+        "NodeName": "ENG22-KAM-Core",
+        "IPAddress": "10.102.102.79"
+    },
+    {
+        "LogEntryID": 4348721882661404675,
+        "NodeID": 11127,
+        "DateTime": "2026-03-20T01:07:03.0430000Z",
+        "Message": "2026 ENG22-CW-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.41; OSPF 100 Neighbor 10.252.254.14(Twenty-FiveGigE2/0/2) changed from FULL to DOWN.",
+        "NodeName": "ENG22-CW-Core",
+        "IPAddress": "10.8.8.16"
+    }
+]

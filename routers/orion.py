@@ -259,6 +259,7 @@ def generate_node_table(session):
             )  
 
     results_html = f"""
+    <div style="max-height: 50vh; overflow-y: auto;">
     <table id="nodedownTable" style="display:none'; width:100%">
         <thead>
             <tr>
@@ -279,6 +280,7 @@ def generate_node_table(session):
             {table_rows}
         </tbody>
     </table>
+    </div>
     """
 
     return results_html, results_data, site_data, results_sitetopology_data
@@ -654,13 +656,11 @@ def generate_syslog(session):
     results = session.query(query)
     # link sample :https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N%3a11127&ViewID=2453
 
-    log_filename = os.path.join(data_dir, f"syslog_tracking.json")
-
     table_rows = ""
     for row in results.get("results", []):
-        message_id = int(row.get('LogEntryID', 0))
-        if message_id > temp_max_id:
-            temp_max_id = message_id
+        # message_id = int(row.get('LogEntryID', 0))
+        # if message_id > temp_max_id:
+        #     temp_max_id = message_id
         message_syslog=row['Message']
         message_syslog_time=mymodule.utc_convert(row['DateTime'])
         message_syslog_link = f"{orion_prefix}/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:{row['NodeID']}&ViewID=2453"
@@ -674,6 +674,10 @@ def generate_syslog(session):
         else:
             host_name = "Unknown Node"
             host_ip = "0.0.0.0"
+
+        # Add these to the dictionary so they are available for the DB upsert
+        row['NodeName'] = host_name
+        row['IPAddress'] = host_ip
 
         if any(word in message_syslog for word in ["to UP", "to FULL"]):
             change_stauts = "UP"
@@ -712,6 +716,9 @@ def generate_syslog(session):
         </tbody>
     </table>
     """
+
+    # 20260318 ---no need, save to db now
+    log_filename = os.path.join(data_dir, f"syslog_tracking.json")
     if results_data:
         # Backup to file for historical tracing
         with open(log_filename, "a", encoding="utf-8") as f:
@@ -782,7 +789,7 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
             "stale": False,  # <--- Not stale
             "node_table": node_table[0],
             "interface_table": interface_table[0],
-            "syslog_table": syslog_table[0],
+            # "syslog_table": syslog_table[0],  
             "alert_table": alert_table[0],
             "netpath_table": netpath_table[0],
             "apipoller_table": apipoller_table[0],
@@ -1070,3 +1077,31 @@ async def get_topology_data(site: str = None):
     db.conn.close()
     return {"data": df.to_dict(orient="records")}
 
+
+@router.get("/get_SyslogTracking")
+async def get_syslog_tracking():
+    """Fetches the latest 200 syslog entries from the SQLite backup."""
+    try:
+        conn = sqlite3.connect(mainconfig.DB_ORION_PATH)
+        # Using a dictionary factory makes it easy to convert to JSON for the frontend
+        conn.row_factory = sqlite3.Row 
+        curr = conn.cursor()
+        
+        query = """
+            SELECT LogEntryID, NodeID, NodeName, IPAddress, DateTime, Message 
+            FROM [Orion.SyslogTracking] 
+            ORDER BY LogEntryID DESC 
+            LIMIT 200
+        """
+        
+        curr.execute(query)
+        rows = curr.fetchall()
+        conn.close()
+        
+        # Convert sqlite3.Row objects to standard dictionaries
+        data = [dict(row) for row in rows]
+        
+        return {"data": data}
+    except Exception as e:
+        logger.error(f"Failed to fetch SyslogTracking: {e}")
+        return {"data": [], "error": str(e)}
