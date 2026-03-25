@@ -181,7 +181,7 @@
                                 <tr>
                                     <th style="width:12%;">Time</th>
                                     <!-- <th style="width:40px;">State</th> -->
-                                    <th>Message</th>
+                                    <th>Message (syslog may missed some info, please login to switch for details)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -397,12 +397,15 @@ function regroupAndColspan() {
             tableBody.innerHTML = ''; // Clear existing content
 
             result.data.forEach(log => {
+                // regex /^ \d{4} / matches 4 digits at the START (^) followed by a space
+                const cleanMessage = log.Message.replace(/^\d{4}\s/, '');
+
                 // Determine Icon based on Message text (Up/Full = Green, Down = Red)
-                let iconGif = "/icons/Event-1.gif"; // Default blue/info
+                let iconGif = "/icons/Event_Unknown.gif"; // Default blue/info
                 const syslogDetailsUrl = `https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:${log.NodeID}&ViewID=2453`;
-                const msg = log.Message.toLowerCase();
+                const msg = cleanMessage.toLowerCase();
                 
-                if (msg.includes("to up") || msg.includes("to full")) {
+                if (msg.includes("to up") || msg.includes("to full") || msg.includes("to established")) {
                     iconGif = "/icons/Event-5.gif"; // Green icon
                 } else if (msg.includes("to down") || msg.includes("to idle")) {
                     iconGif = "/icons/Event-10.gif"; // Red icon
@@ -428,7 +431,7 @@ function regroupAndColspan() {
                 const row = `
                     <tr>
                         <td style="text-align:center; font-size:11px;">${localTime}</td>
-                        <td style="text-align:left;"><img src="${iconGif}" alt="state"><a href="${syslogDetailsUrl}" class="device-link" data-hostname="${log.NodeName}" data-hostip="${log.IPAddress}" target="_blank">${log.Message}</a></td>
+                        <td style="text-align:left;"><img src="${iconGif}" alt="state"><a href="${syslogDetailsUrl}" class="device-link" data-hostname="${log.NodeName}" data-hostip="${log.IPAddress}" target="_blank">${cleanMessage}</a></td>
                     </tr>
                 `;
                 tableBody.insertAdjacentHTML('beforeend', row);

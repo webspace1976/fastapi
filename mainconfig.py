@@ -89,8 +89,8 @@ CORE_DEVICES = [
     {"os": "arista_eos", "ip": "10.26.101.8", "name": "VH-VGH-JPNB9-7508R-Core2", "nodeid":"3287"},
     {"os": "cisco_ios", "ip": "10.26.101.127", "name": "NS-LGH-LGAC-01A-C9600-Core1", "nodeid":"14539"},
     {"os": "cisco_ios", "ip": "10.26.101.128", "name": "NS-LGH-LGAC-PIMS-C9600-Core2", "nodeid":"14540"},
-    {"os": "cisco_ios", "ip": "10.26.101.2", "name": "(NEW) LGH-PIM-Core-1", "nodeid":"282"},
-    {"os": "cisco_ios", "ip": "10.26.101.1", "name": "(NEW) LGH-EVGH-Core-2", "nodeid":"281"},
+    # {"os": "cisco_ios", "ip": "10.26.101.2", "name": "(NEW) LGH-PIM-Core-1", "nodeid":"282"},
+    # {"os": "cisco_ios", "ip": "10.26.101.1", "name": "(NEW) LGH-EVGH-Core-2", "nodeid":"281"},
 ]
 
 # Core device commands

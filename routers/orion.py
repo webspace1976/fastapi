@@ -650,7 +650,7 @@ def generate_apipoller_table(session):
     """
     return results_html, results_data  
 
-# 20260318
+# 20260318 move to api module: no need to save syslog to file anymore, directly save to DB in generate_syslog function and display through table, also added link toggle for syslog table
 def generate_syslog(session):
     query = mainconfig.swis_syslog
     results = session.query(query)
@@ -679,7 +679,7 @@ def generate_syslog(session):
         row['NodeName'] = host_name
         row['IPAddress'] = host_ip
 
-        if any(word in message_syslog for word in ["to UP", "to FULL"]):
+        if any(word in message_syslog for word in ["to UP", "to FULL", "to ESTABLISHED"]):
             change_stauts = "UP"
             icon_gif = "/icons/Event-5.gif"
         elif any(word in message_syslog for word in ["to DOWN", "to IDLE"]):
