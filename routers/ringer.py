@@ -1,5 +1,5 @@
-import requests
-from fastapi import APIRouter, Request, Query
+import requests,json,os
+from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import mainconfig as mainconfig
@@ -72,4 +72,45 @@ async def get_ops_tracking(
         "cases": cases,
         "search_query": search or id
     })
+
+@router.get("/opsapi/test/{filename}")
+async def get_ops_test_data(request: Request, filename: str):
+    # Path to the file you uploaded
+    data_dir = mainconfig.DATA_DIR
+    json_path = os.path.join(data_dir, filename)
+    
+# Security check: Ensure the file is actually a .json file
+    if not filename.endswith(".json"):
+        raise HTTPException(status_code=400, detail="Only .json files are supported")
+
+    try:
+        if not os.path.exists(json_path):
+            raise HTTPException(status_code=404, detail=f"File {json_path} not found")
+
+        with open(json_path, "r") as f:
+            cases = json.load(f)
+
+        # # Process the data (apply your duration fix)
+        # for case in cases:
+        #     # Check for the different timestamp keys we've seen in your logs
+        #     raw_time = case.get('create_datetime') or case.get('LastChange')
+        #     if raw_time:
+        #         case['dynamic_duration'] = get_dynamic_duration(raw_time)
+            
+        #     # Feature: Highlight "Interface Down" events for VGH testing
+        #     desc = case.get('ShortDescription', '').lower()
+        #     if "goes down" in desc or "down" in desc:
+        #         case['status_color'] = "red" # You can use this in your HTML
+        #     else:
+        #         case['status_color'] = "normal"
+
+        return templates.TemplateResponse("ops_tracking.html", {
+            "request": request,
+            "cases": cases,
+            "search_query": f"TEST_FILE: {filename}"
+        })
+
+    except Exception as e:
+        logger.error(f"Test File Error: {e}")
+        return HTMLResponse(content=f"Error processing {filename}: {str(e)}", status_code=500)
 
