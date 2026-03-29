@@ -398,7 +398,7 @@ function regroupAndColspan() {
 
             result.data.forEach(log => {
                 // regex /^ \d{4} / matches 4 digits at the START (^) followed by a space
-                const cleanMessage = log.Message.replace(/^\d{4}\s/, '');
+                const cleanMessage = log.Message.replace(/^\d{4}\s/, ' ');
 
                 // Determine Icon based on Message text (Up/Full = Green, Down = Red)
                 let iconGif = "/icons/Event_Unknown.gif"; // Default blue/info

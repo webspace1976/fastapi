@@ -1,0 +1,120 @@
+<div class="case-detail-wrapper">
+    <div class="tab-bar">
+        {% if case.TimeTrackingItems %}
+            <button class="tab-btn active" onclick="switchSubTab(event, 'TimeTrackingItems-{{ case.record_id }}')">
+                Tracking Log ({{ case.TimeTrackingItems|length }})
+            </button>
+        {% endif %}
+        
+        {% if case.Events %}
+            <button class="tab-btn" onclick="switchSubTab(event, 'events-{{ case.record_id }}')">
+                Alarms ({{ case.Events|length }})
+            </button>
+        {% endif %}
+
+        {% if case.Incidents %}
+            <button class="tab-btn" onclick="switchSubTab(event, 'Incidents-{{ case.record_id }}')">
+                Incidents ({{ case.Incidents|length }})
+            </button>
+        {% endif %}
+
+        {% if case.Changes %}
+            <button class="tab-btn" onclick="switchSubTab(event, 'Changes-{{ case.record_id }}')">
+                Changes ({{ case.Changes|length }})
+            </button>
+        {% endif %}
+
+    </div>
+
+    <div class="tab-container-content">
+        {% if case.TimeTrackingItems %}
+        <div id="TimeTrackingItems-{{ case.record_id }}" class="tab-content active">
+            <table class="detail-table">
+            {% for item in case.TimeTrackingItems %}
+                <tr>
+				<td style="width:15%">{{ item.TimeDisplay }}</td>
+				<td style="width:18%">{{ item.Username }}</td>
+				<td>{{ item.Description }}</td>
+				</tr>
+            {% endfor %}
+            </table>
+        </div>
+        {% endif %}
+
+        {% if case.Events %}
+        <div id="events-{{ case.record_id }}" class="tab-content">
+                {% for ev in case.Events %}
+                    <div class="row-item">
+                        <div class="time-col">[{{ ev.TimeSpanAllDisplay }}]</div>
+                        <div class="text-col"><a href="{{ ev.SourceURL }}" target="_blank"><strong>{{ ev.Node }}:</strong></a> {{ ev.Description }}</div>
+                    </div>
+                {% endfor %}
+        </div>
+        {% endif %}
+
+		{% if case.Incidents%}
+		<div id="incidents-{{ case.record_id }}" class="tab-content">
+			{% for inc in case.Incidents %}
+				<div class="incident-entry" style="border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; background: #fff;">
+					<div style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex;  align-items: center;">
+						<div>
+							<span style="font-weight: bold; color: #007bff; font-size: 1.1em;">P{{ inc.Priority }} {{ inc.Number }} {{ inc.ShortDescription }}</span>
+							<span style="margin-left: 10px; padding: 2px 8px; color: #fff; border-radius: 4px; font-size: 0.75em;">
+								Priority 
+							</span>
+						</div>
+						<a href="{{ inc.URL }}" target="_blank" class="toggle-btn" style="background: #28a745; text-decoration: none; padding: 4px 12px; width: auto; font-size: 0.8em; line-height: 1.5;">SNOW</a>
+					</div>
+
+					<div style="padding: 12px;">
+						<div style="margin-bottom: 8px; font-size: 0.9em;">
+							<strong>Location:</strong> {{ inc.Location.Name }} 
+                            <strong> | State:</strong> {{ inc.state_description }} 
+							<span style="color: #888; margin-left: 10px;">| Reported: {{ inc.Reported[:16] | replace('T', ' ') }}</span>
+						</div>
+						<div style="font-weight: bold; margin-bottom: 5px; font-size: 0.9em;">{{ inc.ShortDescription }}</div>
+						<div style="background: #f1f1f1; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.85em; white-space: pre-wrap; line-height: 1.4; color: #333;">{{ inc.Description }}</div>
+					</div>
+				</div>
+			{% endfor %}
+		</div>
+		{% endif %}
+
+		{% if case.Changes%}
+		<div id="changes-{{ case.record_id }}" class="tab-content">
+			{% for chg in case.Changes %}
+				<div class="incident-entry" style="border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; background: #fff;">
+					<div style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex;  align-items: center;">
+						<div>
+							<span style="font-weight: bold; color: #007bff; font-size: 1.1em;"> {{ chg.Number }} {{ chg.ShortDescription }}</span>
+							<span style="margin-left: 10px; padding: 2px 8px; color: #fff; border-radius: 4px; font-size: 0.75em;">
+								Priority 
+							</span>
+						</div>
+						<a href="{{ chg.URL }}" target="_blank" class="toggle-btn" style="background: #28a745; text-decoration: none; padding: 4px 12px; width: auto; font-size: 0.8em; line-height: 1.5;">SNOW</a>
+					</div>
+
+					<div style="padding: 12px;">
+						<div style="margin-bottom: 8px; font-size: 0.9em;">
+							<strong>Schedule:</strong> {{ chg.StartDisplay }} - {{ chg.EndDisplay }}
+							<!-- <span style="color: #888; margin-left: 10px;">| Reported: {{ chg.Reported[:16] | replace('T', ' ') }}</span> -->
+						</div>
+						<div style="font-weight: bold; margin-bottom: 5px; font-size: 0.9em;">{{ chg.ShortDescription }}</div>
+						<div style="background: #f1f1f1; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.85em; white-space: pre-wrap; line-height: 1.4; color: #333;">{{ chg.Description }}</div>
+					</div>
+				</div>
+			{% endfor %}
+		</div>
+		{% endif %}
+		
+    </div>
+</div>
+
+<style>
+    .tab-bar { display: flex; background: #f8f9fa; border-bottom: 1px solid #ddd; }
+    .tab-btn { padding: 8px 16px; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; }
+    .tab-btn.active { border-bottom: 2px solid #007bff; color: #007bff; font-weight: bold; }
+    .tab-content { display: none; padding: 15px; }
+    .tab-content.active { display: block; }
+    .detail-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+</style>

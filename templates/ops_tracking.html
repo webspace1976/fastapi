@@ -42,7 +42,7 @@
 </style>
 
 <body>
-    <h2>RingerOPS Search Results for: {{ search_query }}</h2>
+    <h2>RingerOPS Search Results for: {{ search }}</h2>
 
 <div class="container">
     <div style="margin-bottom: 15px;">
@@ -51,128 +51,86 @@
     </div>    
 
     {% for case in cases %}
-    {% set case_idx = case.record_id %}
+        {% set case_idx = case.record_id %}
 
-    <div class="case-card" id="{{ case_idx }}">
-        <div class="case-header" onclick="toggleCase('body-{{ case_idx }}', this)">
-            <div class="header-col-btn">
-                <button class="toggle-btn">{% if loop.first %}Collapse{% else %}Expand{% endif %}</button>
+        <div class="case-card">
+            <div class="case-header" onclick="toggleCase(event, '{{ case.record_id }}')">
+                <div class="header-col-time">{{ case.create_datetime[:16] | replace('T', ' ') }}</div>
+                <div class="header-col-desc">{{ case.ShortDescription }}</div>
+                <div class="header-col-btn">
+                    <button class="toggle-btn">Expand</button>
+                </div>
             </div>
-            <div class="header-col-time">
-                {{ case.create_datetime[:16] | replace('T', ' ') }} </div>
-            <div class="header-col-desc">
-                {{ case.ShortDescription | safe }}
+
+            <div id="body-{{ case.record_id }}" class="case-body collapsed" data-loaded="false">
+                <div class="tab-container">
+                    </div>
             </div>
         </div>
 
-        <div id="body-{{ case_idx }}" class="case-body {% if not loop.first %}collapsed{% endif %}">
-            <div class="tab-bar">
-                {% if case.TimeLines and case.TimeLines|length > 0 %}
-                    <button class="tab-btn" data-target="timelines-{{ case_idx }}">TimeLines ({{ case.TimeLines|length }})</button>
-                {% endif %}
-
-                {% if case.Events and case.Events|length > 0 %}
-                    <button class="tab-btn" data-target="events-{{ case_idx }}">Events ({{ case.Events|length }})</button>
-                {% endif %}
-
-                {% if case.CaseDisplay and case.CaseDisplay|length > 0 %}
-                    <button class="tab-btn" data-target="casedisplay-{{ case_idx }}">Alarms ({{ case.CaseDisplay|length }})</button>
-                {% endif %}
-
-                <!-- {% if case.TimeTrackingItems and case.TimeTrackingItems|length > 0 %}
-                    <button class="tab-btn" data-target="staff-{{ case_idx }}">Tracking ({{ case.TimeTrackingItems|length }})</button>
-                {% endif %} -->
-
-                {% if case.Incidents and case.Incidents|length > 0 %}
-                    <button class="tab-btn" data-target="incidents-{{ case_idx }}">Incidents ({{ case.Incidents|length }})</button>
-                {% endif %}
-
-            </div>
-
-            {% if case.Incidents and case.Incidents|length > 0 %}
-            <div id="incidents-{{ case_idx }}" class="tab-content">
-                {% for inc in case.Incidents %}
-                    <div class="incident-entry" style="border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; background: #fff;">
-                        <div style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex;  align-items: center;">
-                            <div>
-                                <span style="font-weight: bold; color: #007bff; font-size: 1.1em;">P{{ inc.Priority }} {{ inc.Number }} {{ inc.ShortDescription }}</span>
-                                <span style="margin-left: 10px; padding: 2px 8px; color: #fff; border-radius: 4px; font-size: 0.75em;">
-                                    Priority 
-                                </span>
-                            </div>
-                            <a href="{{ inc.URL }}" target="_blank" class="toggle-btn" style="background: #28a745; text-decoration: none; padding: 4px 12px; width: auto; font-size: 0.8em; line-height: 1.5;">View in SNOW</a>
-                        </div>
-
-                        <div style="padding: 12px;">
-                            <div style="margin-bottom: 8px; font-size: 0.9em;">
-                                <strong>Location:</strong> {{ inc.Location.Name }} 
-                                <span style="color: #888; margin-left: 10px;">| Reported: {{ inc.Reported[:16] | replace('T', ' ') }}</span>
-                            </div>
-                            <div style="font-weight: bold; margin-bottom: 5px; font-size: 0.9em;">{{ inc.ShortDescription }}</div>
-                            <div style="background: #f1f1f1; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.85em; white-space: pre-wrap; line-height: 1.4; color: #333;">{{ inc.Description }}</div>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-
-            <div id="timelines-{{ case_idx }}" class="tab-content">
-                {% for log in case.TimeLines %}
-                    <div class="row-item">
-                        <div class="time-col">[{{ log.TimeStampDisplay }}]</div>
-                        <div class="text-col">{{ log.Description | safe }}</div>
-                    </div>
-                {% endfor %}
-            </div>
-
-            <div id="events-{{ case_idx }}" class="tab-content">
-                {% for ev in case.Events %}
-                    <div class="row-item">
-                        <div class="time-col">[{{ ev.TimeSpanAllDisplay }}]</div>
-                        <div class="text-col"><strong>{{ ev.Node }}:</strong> {{ ev.Description }}</div>
-                    </div>
-                {% endfor %}
-            </div>
-
-            
-            <div id="casedisplay-{{ case_idx }}" class="tab-content">
-                {% for cd in case.CaseDisplay %}
-                    <div class="row-item">
-                        <div class="time-col">[{{ cd.item_time }}]</div>
-                        <div class="text-col"><strong>{{ cd.item_text1 }}:</strong> {{ cd.item_text2 }}</div>
-                    </div>
-                {% endfor %}
-            </div>
-            
-            <div id="staff-{{ case_idx }}" class="tab-content">
-                {% for track in case.TimeTrackingItems %}
-                    <div class="row-item">
-                        <div class="time-col">[{{ track.TimeDisplay }}]</div>
-                        <div class="text-col"><b>{{ track.Description }}</b></div>
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
-
-    </div>
     {% endfor %}
 </div>
 
 <script>
 // 1. Updated Toggle for a single case
-function toggleCase(id, headerElement) {
-    const body = document.getElementById(id);
-    const btn = headerElement.querySelector('.toggle-btn');
+// Change the function signature to accept the event
+function toggleCase(event, caseId) {
+    // 1. Get the actual header div that has the onclick listener
+    const header = event.currentTarget; 
     
-    // Always remove inline styles first to prevent conflicts
-    body.style.display = ""; 
+    // 2. Find the parent card and the body to expand
+    const card = header.parentElement; // .case-card
+    const body = document.getElementById(`body-${caseId}`);
+    
+    if (!body) {
+        console.error("Could not find body for case:", caseId);
+        return;
+    }
 
-    if (body.classList.contains('collapsed')) {
+    const btn = header.querySelector('.toggle-btn');
+    const container = body.querySelector('.tab-container');
+
+    // Toggle the 'collapsed' class
+    const isExpanding = body.classList.contains('collapsed');
+    
+    if (isExpanding) {
         body.classList.remove('collapsed');
-        btn.innerText = "Collapse";
+        if(btn) btn.innerText = "Collapse";
+        
+        // Lazy Load check
+        if (body.getAttribute('data-loaded') !== 'true') {
+            container.innerHTML = "<div style='padding:20px;'>Fetching details from Ringer...</div>";
+            
+            // Calling your dynamic detail route
+            fetch(`/api/ringer/opsapi/detail/${caseId}.html`)
+                .then(response => response.text())
+                .then(html => {
+                    container.innerHTML = html;
+                    body.setAttribute('data-loaded', 'true');
+                })
+                .catch(err => {
+                    container.innerHTML = "<div style='color:red; padding:20px;'>Error: Ringer unreachable.</div>";
+                });
+        }
     } else {
         body.classList.add('collapsed');
-        btn.innerText = "Expand";
+        if(btn) btn.innerText = "Expand";
+    }
+}
+
+function switchSubTab(event, targetId) {
+    // 1. Get the container for this specific case
+    const wrapper = event.currentTarget.closest('.case-detail-wrapper');
+    
+    // 2. Deactivate all buttons and contents in THIS case only
+    wrapper.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    wrapper.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    // 3. Activate the clicked button and target content
+    event.currentTarget.classList.add('active');
+    const target = wrapper.querySelector(`#${targetId}`);
+    if (target) {
+        target.classList.add('active');
     }
 }
 
