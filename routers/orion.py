@@ -791,8 +791,8 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
             "interface_table": interface_table[0],
             # "syslog_table": syslog_table[0],  
             "alert_table": alert_table[0],
-            "netpath_table": netpath_table[0],
-            "apipoller_table": apipoller_table[0],
+            # "netpath_table": netpath_table[0],
+            # "apipoller_table": apipoller_table[0],
         })
         # Save the last good page
         with open("data/last_orion_dashboard.html", "w", encoding="utf-8") as f:

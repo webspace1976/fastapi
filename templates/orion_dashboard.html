@@ -154,12 +154,17 @@
             </div>
 
             <div id="output-right">
+
+                <div id="power-outage" > <h3 style="margin:0;"><a href="https://www.bchydro.com/power-outages/app/outage-map.html" target="_blank">Hydro Outage</a> (RingerOPS):</h3>
+                    <iframe style="margin:0;width:100%;max-height:20vh;" id="power-outage" name="powerFrame" src="/api/ringer/opsapi/poweroutage" title="power outage display area"></iframe>
+                </div><br>
+<!-- 
                 <div id="output-netpath">
                     {{ netpath_table | safe }}
                 </div>
                 <div id="output-apipoller">
                     {{ apipoller_table | safe }}
-                </div><br>
+                </div><br> -->
 
                 <div id="output-syslog">
                     <div style="display:flex; justify-content: space-between; align-items: center;">

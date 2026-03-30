@@ -175,7 +175,9 @@ def get_ha_power_alerts(raw_data):
     all_events.sort(key=lambda x: x.get('record_id', 0))
 
     outage_tracker = {}
-    HYDRO_REGEX = r"(bchydro\d+)"
+    HYDRO_REGEX = r"((?:bchydro|fortisbc)\d+)"  # Matches bchydro or fortisbc followed by digits
+    ignore_list = ["bchydro2752838","bchydro2753010"]  # Words that indicate an outage is resolved
+    reserve_list = ["fortisbc30616 "]  # Words that indicate an outage is resolved
 
     for event in all_events:
         node_text = (event.get("Node") or "")
@@ -185,9 +187,13 @@ def get_ha_power_alerts(raw_data):
         match = re.search(HYDRO_REGEX, node_text)
         if match:
             h_id = match.group(1)
-            
+
+            # Check ignore list first. If found, skip this entire event.
+            if h_id in ignore_list:
+                continue            
             # ONLY remove if the text explicitly confirms restoration
             # We ignore the 'End' timestamp because it can be misleading
+
             is_confirmed_restored = any(word in combined_text for word in ["restored", "completed", "cleared"])
 
             if is_confirmed_restored:

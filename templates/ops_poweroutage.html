@@ -1,15 +1,17 @@
 {% for event in cases %}
 <div class="case-card power-critical">
-    <div class="case-header" style="background: #cc0000;">
+    <div class="case-header">
         <div class="header-col-desc">
             <span class="flash-icon">⚡</span> 
+            <a style="background: #cc9600c2;" href="{{ event.SourceURL }}" target="_blank" >
             [{{ event.SiteNameShort }}] {{ event.SiteName }} - {{ event.Name }}
+            </a>
         </div>
-        <div class="header-col-time">{{ event.TimeSpanAllDisplay }}</div>
+        <!-- <div class="header-col-time">{{ event.TimeSpanAllDisplay }}</div> -->
     </div>
     <div class="case-body" style="padding: 10px; font-size: 0.9em;">
         <strong>Details:</strong> {{ event.Node }} <br>
-        <strong>Address:</strong> {{ event.SiteAddress }}, {{ event.SiteCity }} <br>
+        <!-- <strong>Address:</strong> {{ event.SiteAddress }}, {{ event.SiteCity }} <br> -->
         <strong>ETR:</strong> {{ event.Description }}
     </div>
 </div>
