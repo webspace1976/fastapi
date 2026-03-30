@@ -1,4 +1,5 @@
-import requests, json, os
+import requests, json, os, re
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -119,6 +120,7 @@ async def get_case_detail(request: Request, caseid: str):
         "case": case_data  # This line will no longer throw NameError
     })
 
+
 @router.get("/opsapi/test/{filename}")
 async def get_ops_test_data(request: Request, filename: str):
     # Path to the file you uploaded
@@ -159,4 +161,102 @@ async def get_ops_test_data(request: Request, filename: str):
     except Exception as e:
         logger.error(f"Test File Error: {e}")
         return HTMLResponse(content=f"Error processing {filename}: {str(e)}", status_code=500)
+
+
+########## helper functions for data processing ##########
+# Helper to find the latest state per bchydro ID across all sites
+def get_ha_power_alerts(raw_data):
+    all_events = []
+    for case in (raw_data if isinstance(raw_data, list) else []):
+        if "Events" in case:
+            all_events.extend(case["Events"])
+
+    # Sort by record_id so the newest update is processed last
+    all_events.sort(key=lambda x: x.get('record_id', 0))
+
+    outage_tracker = {}
+    HYDRO_REGEX = r"(bchydro\d+)"
+
+    for event in all_events:
+        node_text = (event.get("Node") or "")
+        name_text = (event.get("Name") or "")
+        combined_text = (name_text + " " + node_text).lower()
+        
+        match = re.search(HYDRO_REGEX, node_text)
+        if match:
+            h_id = match.group(1)
+            
+            # ONLY remove if the text explicitly confirms restoration
+            # We ignore the 'End' timestamp because it can be misleading
+            is_confirmed_restored = any(word in combined_text for word in ["restored", "completed", "cleared"])
+
+            if is_confirmed_restored:
+                if h_id in outage_tracker:
+                    del outage_tracker[h_id]
+            else:
+                # If it doesn't say "restored", it's still an active outage
+                event["is_active_outage"] = True
+                event["impacted_site"] = event.get("SiteName", "Unknown Site")
+                outage_tracker[h_id] = event
+
+    return list(outage_tracker.values())
+
+
+@router.get("/opsapi/poweroutage", response_class=HTMLResponse)
+async def get_poweroutage(request: Request):
+    base_url = "https://ringer.healthbc.org/opsapi"
+    
+    # 1. Setup Time Window (Last 7 Days)
+    end_date = datetime.now().strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    search_str = f"power outage|{start_date}|00:00:00|{end_date}|23:59:59"
+    # search_str = "power outage"
+    
+    params = {
+        "method": "fetchOpsTracking",
+        "search": search_str,
+        "open": 0
+    }
+
+    try:
+        # Initial search call
+        search_response = requests.get(base_url, params=params, verify=False, timeout=10)
+        case_summaries = search_response.json()
+        
+        all_detailed_cases = []
+
+        # STEP 2: Loop through each case to fetch full event details
+        for summary in (case_summaries if isinstance(case_summaries, list) else []):
+            case_id = summary.get("record_id")
+            if not case_id:
+                continue
+                
+            # Second API call for the specific Case ID
+            detail_params = {"method": "fetchOpsTrackingById", "id": case_id}
+            detail_response = requests.get(base_url, params=detail_params, verify=False, timeout=5)
+            full_case_data = detail_response.json()
+
+            # Ringer returns a list for ById; append the actual case object
+            if isinstance(full_case_data, list) and len(full_case_data) > 0:
+                all_detailed_cases.append(full_case_data[0])
+            else:
+                all_detailed_cases.append(full_case_data)
+
+        # Now pass the full detailed data to your existing filter logic
+        # This ensures get_ha_power_alerts can actually see the 'Events' array
+        final_active_events = get_ha_power_alerts(all_detailed_cases)
+
+        # Save to JSON for debugging as you requested
+        debug_path = os.path.join(mainconfig.DATA_DIR, "debug_active_poweroutages.json")
+        with open(debug_path, "w", encoding="utf-8") as f:
+            json.dump(final_active_events, f, indent=4)
+
+        return templates.TemplateResponse("ops_poweroutage.html", {
+            "request": request, 
+            "cases": final_active_events
+        })
+
+    except Exception as e:
+        logger.error(f"Two-step Fetch Error: {e}")
+        return HTMLResponse(content=f"Error loading power events: {str(e)}", status_code=500)
 

@@ -165,16 +165,16 @@ document.addEventListener("DOMContentLoaded", function() {
             e.stopPropagation(); // Prevent the card from collapsing when clicking a tab
             activateTab(this);
         });
-    });
+});
 
-    function activateTab(btn) {
-        const card = btn.closest('.case-card');
-        const targetId = btn.getAttribute('data-target');
-        card.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        card.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById(targetId).classList.add('active');
-    }
+function activateTab(btn) {
+    const card = btn.closest('.case-card');
+    const targetId = btn.getAttribute('data-target');
+    card.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    card.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(targetId).classList.add('active');
+}
 
 function toggleAndFetch(caseId, header) {
             const body = document.getElementById(`body-${caseId}`);

@@ -1,0 +1,16 @@
+{% for event in cases %}
+<div class="case-card power-critical">
+    <div class="case-header" style="background: #cc0000;">
+        <div class="header-col-desc">
+            <span class="flash-icon">⚡</span> 
+            [{{ event.SiteNameShort }}] {{ event.SiteName }} - {{ event.Name }}
+        </div>
+        <div class="header-col-time">{{ event.TimeSpanAllDisplay }}</div>
+    </div>
+    <div class="case-body" style="padding: 10px; font-size: 0.9em;">
+        <strong>Details:</strong> {{ event.Node }} <br>
+        <strong>Address:</strong> {{ event.SiteAddress }}, {{ event.SiteCity }} <br>
+        <strong>ETR:</strong> {{ event.Description }}
+    </div>
+</div>
+{% endfor %}
