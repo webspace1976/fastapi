@@ -155,8 +155,13 @@
 
             <div id="output-right">
 
-                <div id="power-outage" > <h3 style="margin:0;"><a href="https://www.bchydro.com/power-outages/app/outage-map.html" target="_blank">Hydro Outage</a> (RingerOPS):</h3>
-                    <iframe style="margin:0;width:100%;max-height:25vh;" id="power-outage" name="powerFrame" src="/api/ringer/opsapi/poweroutage" title="power outage display area"></iframe>
+                <div id="power-outage" style="max-height: 25vh; overflow-y: auto; border: 1px solid #ddd; padding: 5px;">
+                    <h3 style="margin:0;"><a href="https://www.bchydro.com/power-outages/app/outage-map.html" target="_blank">BCHydro</a> | <a href="https://outages.fortisbc.com/Outages/Home/OutageMap" target="_blank">FortisBC</a> Outage (RingerOPS):</h3>
+                    <iframe id="powerFrame" name="powerFrame"
+                        src="/api/ringer/opsapi/poweroutage" 
+                        style="width:100%; border:none;" 
+                        onload="this.style.height=this.contentWindow.document.body.scrollHeight+'px';">
+                    </iframe>
                 </div><br>
 <!-- 
                 <div id="output-netpath">

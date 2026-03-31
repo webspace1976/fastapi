@@ -207,6 +207,8 @@ def get_ha_power_alerts(raw_data):
                 if h_id in outage_tracker:
                     # Entry exists for this HydroID, append new site info
                     existing = outage_tracker[h_id]
+                    # Update the ETR/Status to the most recent one found in the logs
+                    existing["Description"] = event.get("Description", "No ETR")
                     
                     if current_site not in existing["all_sites"]:
                         existing["all_sites"].append(current_site)

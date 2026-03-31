@@ -3,15 +3,17 @@
     <div class="case-card power-critical">
         <div class="case-header">
             <div class="header-col-desc">
-                <span class="flash-icon">⚡</span> 
+                <span class="flash-icon">⚡ {{ event.Name }} - {{ event.all_sites|length }} Site(s) Affected</span> 
+                <br>
                 <a style="background: #cc9600c2;" >
-                {{ event.Name }} - {{ event.impacted_site }}
+                 {{ event.impacted_site }}
                 </a>
             </div>
         </div>
-        <div class="case-body" style="padding: 5px; font-size: 0.9em;">
-
-            <strong>Details:</strong>
+        
+        <div class="case-body" style="font-size: 0.9em;">
+            <div>
+                <strong>Details:</strong>
                 {% if 'bchydro' in event.Node.lower() %}
                     {% set display_details = event.Node.split('bchydro')[0] + 'bchydro' + event.Node.split('bchydro')[1].split(' ')[0] %}
                 {% elif 'fortisbc' in event.Node.lower() %}
@@ -19,10 +21,12 @@
                 {% else %}
                     {% set display_details = event.Node %}
                 {% endif %}            
-                
-                    <a  href="{{ event.SourceURL }}" target="_blank"> {{ display_details }}</a>
-            <br>
-            <strong>ETR:</strong> {{ event.Description }}
+                <a  href="{{ event.SourceURL }}" target="_blank"> {{ display_details }}</a>
+                {% set display_update = event.Update | replace('T', ' ') %}
+                <strong>    Update:</strong> {{ display_update }}
+            </div>
+
+            <strong>Description:</strong> {{ event.Description }}
         </div>
     </div>
     {% endfor %}
