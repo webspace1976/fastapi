@@ -200,10 +200,29 @@ def get_ha_power_alerts(raw_data):
                 if h_id in outage_tracker:
                     del outage_tracker[h_id]
             else:
-                # If it doesn't say "restored", it's still an active outage
-                event["is_active_outage"] = True
-                event["impacted_site"] = event.get("SiteName", "Unknown Site")
-                outage_tracker[h_id] = event
+                current_site = event.get("SiteName", "Unknown Site")
+                current_short = event.get("SiteNameShort", "??")
+
+                # OPTION 2: Match by HydroID
+                if h_id in outage_tracker:
+                    # Entry exists for this HydroID, append new site info
+                    existing = outage_tracker[h_id]
+                    
+                    if current_site not in existing["all_sites"]:
+                        existing["all_sites"].append(current_site)
+                        existing["all_shorts"].append(current_short)
+                        
+                        # Update the display strings used in the HTML template
+                        existing["impacted_site"] = " / ".join(existing["all_sites"])
+                        existing["SiteNameShort"] = "/".join(existing["all_shorts"])
+                else:
+                    # New HydroID detected, create fresh entry
+                    event["is_active_outage"] = True
+                    event["all_sites"] = [current_site]
+                    event["all_shorts"] = [current_short]
+                    event["impacted_site"] = current_site
+                    event["SiteNameShort"] = current_short
+                    outage_tracker[h_id] = event
 
     return list(outage_tracker.values())
 
@@ -211,7 +230,8 @@ def get_ha_power_alerts(raw_data):
 @router.get("/opsapi/poweroutage", response_class=HTMLResponse)
 async def get_poweroutage(request: Request):
     base_url = "https://ringer.healthbc.org/opsapi"
-    
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     # 1. Setup Time Window (Last 7 Days)
     end_date = datetime.now().strftime("%Y-%m-%d")
     start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
@@ -259,7 +279,8 @@ async def get_poweroutage(request: Request):
 
         return templates.TemplateResponse("ops_poweroutage.html", {
             "request": request, 
-            "cases": final_active_events
+            "cases": final_active_events,
+            "last_check": now
         })
 
     except Exception as e:

@@ -1,18 +1,35 @@
-{% for event in cases %}
-<div class="case-card power-critical">
-    <div class="case-header">
-        <div class="header-col-desc">
-            <span class="flash-icon">⚡</span> 
-            <a style="background: #cc9600c2;" href="{{ event.SourceURL }}" target="_blank" >
-            [{{ event.SiteNameShort }}] {{ event.SiteName }} - {{ event.Name }}
-            </a>
+{% if cases and cases|length > 0 %}
+    {% for event in cases %}
+    <div class="case-card power-critical">
+        <div class="case-header">
+            <div class="header-col-desc">
+                <span class="flash-icon">⚡</span> 
+                <a style="background: #cc9600c2;" >
+                {{ event.Name }} - {{ event.impacted_site }}
+                </a>
+            </div>
         </div>
-        <!-- <div class="header-col-time">{{ event.TimeSpanAllDisplay }}</div> -->
+        <div class="case-body" style="padding: 5px; font-size: 0.9em;">
+
+            <strong>Details:</strong>
+                {% if 'bchydro' in event.Node.lower() %}
+                    {% set display_details = event.Node.split('bchydro')[0] + 'bchydro' + event.Node.split('bchydro')[1].split(' ')[0] %}
+                {% elif 'fortisbc' in event.Node.lower() %}
+                    {% set display_details = event.Node.split('fortisbc')[0] + 'fortisbc' + event.Node.split('fortisbc')[1].split(' ')[0] %}
+                {% else %}
+                    {% set display_details = event.Node %}
+                {% endif %}            
+                
+                    <a  href="{{ event.SourceURL }}" target="_blank"> {{ display_details }}</a>
+            <br>
+            <strong>ETR:</strong> {{ event.Description }}
+        </div>
     </div>
-    <div class="case-body" style="padding: 10px; font-size: 0.9em;">
-        <strong>Details:</strong> {{ event.Node }} <br>
-        <!-- <strong>Address:</strong> {{ event.SiteAddress }}, {{ event.SiteCity }} <br> -->
-        <strong>ETR:</strong> {{ event.Description }}
+    {% endfor %}
+{% else %}
+    <div style="text-align: center; background: #e9f7ef; border: 2px solid #28a745; border-radius: 8px; color: #155724;">
+        <h2 style="margin: 0;">✅ All Sites Power Normal</h2>
+        <p style="margin-top: 10px; font-size: 1.1em;">No active power outages detected across monitored sites.</p>
+        <span style="font-size: 0.85em; color: #666;">Last Check: {{ last_check }}</span>
     </div>
-</div>
-{% endfor %}
+{% endif %}
