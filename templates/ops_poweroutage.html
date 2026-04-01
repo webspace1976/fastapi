@@ -1,5 +1,14 @@
+
+{% set total_sites = cases | map(attribute='all_sites') | map('count') | sum %}
+<h3 style="margin:0;">
+    <a href="https://www.bchydro.com/power-outages/app/outage-map.html" target="_blank">BCHydro</a> | <a href="https://outages.fortisbc.com/Outages/Home/OutageMap" target="_blank">FortisBC</a> Outage: 
+    <span id="case-count"> {{ cases|length }} </span> Area(s) - <span id="site-count"> {{ total_sites }} </span> Site(s)
+</h3>
+
 {% if cases and cases|length > 0 %}
+    {% set totalsite = 0 %}
     {% for event in cases %}
+        {% set totalsite = totalsite + event.all_sites|length %}
     <div class="case-card power-critical">
         <div class="case-header">
             <div class="header-col-desc">
@@ -37,3 +46,7 @@
         <span style="font-size: 0.85em; color: #666;">Last Check: {{ last_check }}</span>
     </div>
 {% endif %}
+
+
+<script>
+</script>

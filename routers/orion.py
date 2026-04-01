@@ -134,6 +134,23 @@ def generate_node_table(session):
     nodedown_list = []
     table_rows = ""
 
+    # --- UPDATED: Load Active Power Outages with URLs ---
+    power_lookup = {} # Use a dictionary to store SiteName: SourceURL
+    debug_path = os.path.join(mainconfig.DATA_DIR, "debug_active_poweroutages.json")
+    
+    if os.path.exists(debug_path):
+        try:
+            with open(debug_path, "r", encoding="utf-8") as f:
+                power_data = json.load(f)
+                for case in power_data:
+                    url = case.get('SourceURL', '#')
+                    # Map every site in this case to the same SourceURL
+                    for site in case.get('all_sites', []):
+                        power_lookup[site] = url
+        except Exception as e:
+            logger.error(f"Error loading power data for tags: {e}")
+    # ----------------------------------------------------
+
     query_site = swis_site
     results_site = session.query(query_site)
     site_data = results_site.get("results", [])
@@ -190,14 +207,8 @@ def generate_node_table(session):
             # Convert seconds to minutes and remaining seconds
             # (total_sec // 60) gives minutes, (total_sec % 60) gives remaining seconds
             total_minutes, _ = divmod(total_sec, 60)
-
-            # Convert total minutes into hours and remaining minutes
             total_hours, minutes = divmod(total_minutes, 60)
-
-            # Convert total hours into days and remaining hours
             days, hours = divmod(total_hours, 24)
-
-            # Formatted output: "25d 13h 45m"
             duration_str = f"{days}d {hours:02d}h {minutes:02d}m"
 
             # url="{DetailsUrl}".format(**row)
@@ -212,7 +223,6 @@ def generate_node_table(session):
             site_searchurl = "https://orion.net.mgmt/apps/search/?q="
             node_name = str(row.get('NodeName') or '').strip()
             node_address = str(row.get('Address') or 'None').strip()
-            node_city = str(row.get('City') or 'None').strip()
             raw_site_name = str(row.get('Site') or 'Unknown').strip()
             
             # 1. Find the match in the sitedown_list using a prefix match
@@ -237,14 +247,31 @@ def generate_node_table(session):
                 # display_site_name = raw_site_name + ", " + node_address + ", " + node_city
                 display_site_name = nodedown_match['FullDisplay'] if nodedown_match else raw_site_name
                 is_down = False
-                
+
+            # --- NEW: Check for Power Outage Tag ---
+            power_tag = ""
+            if raw_site_name in power_lookup:
+                target_url = power_lookup[raw_site_name]
+                power_tag = (
+                    f'<a href="{target_url}" target="_blank" style="text-decoration: none;">'
+                    f'<span style="background-color: #ffc107; color: #000; padding: 2px 5px; '
+                    f'font-size: 10px; border-radius: 3px; font-weight: bold; margin-left: 5px; '
+                    f'cursor: pointer;" title="View Outage Map">⚡OUTAGE</span></a>'
+                )
+            # else:
+            #     power_tag = '<span style="background-color: lightgreen; color: #000; padding: 2px 5px; font-size: 8px; border-radius: 3px; font-weight: bold; margin-left: 5px;">POWER</span>'
+            # ---------------------------------------
+
+
             escaped_node_name = html.escape(node_name)
+            # escaped_site_display = html.escape(display_site_name)
             escaped_site_display = html.escape(display_site_name)
             encoded_site_search = urllib.parse.quote(raw_site_name) # Search by raw name for better results
 
             table_rows += (
                 "<tr class=\"{}\"><td style=\"text-align:right;padding-right:5px\">{}</td><td><a href=\"{}\" target=\"_blank\">{}</a></td>"
-                "<td><a href=\"{}\" target=\"_blank\">{}</a></td><td>{}</td>"
+                "<td><div style=\"display: flex;justify-content: space-between;\"><div><a href=\"{}\" target=\"_blank\">{}</a></div><div>{}</div></div></td>"
+                "<td>{}</td>"
                 "<td id=\"IPAddress\" style=\"display:none\">{}</td></tr>\n"
             ).format(
                 class_tag,
@@ -253,7 +280,7 @@ def generate_node_table(session):
                 url_link if url_link is not None else "",
                 escaped_node_name,
                 f"{site_searchurl}{encoded_site_search}",
-                f"<b>{escaped_site_display} **Site Down** </b>" if is_down else escaped_site_display,
+                f"<b>{escaped_site_display} **Site Down** </b>" if is_down else escaped_site_display, power_tag,
                 row.get('SiteType', ""),
                 row.get('IPAddress', "")
             )  
@@ -791,8 +818,8 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
             "interface_table": interface_table[0],
             # "syslog_table": syslog_table[0],  
             "alert_table": alert_table[0],
-            # "netpath_table": netpath_table[0],
-            # "apipoller_table": apipoller_table[0],
+            "netpath_table": netpath_table[0],
+            "apipoller_table": apipoller_table[0],
         })
         # Save the last good page
         with open("data/last_orion_dashboard.html", "w", encoding="utf-8") as f:

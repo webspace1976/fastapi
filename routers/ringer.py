@@ -284,6 +284,12 @@ async def get_poweroutage(request: Request):
             "cases": final_active_events,
             "last_check": now
         })
+    
+        # if os.path.exists(debug_path):
+        #     with open(debug_path, "r", encoding="utf-8") as f:
+        #         data = json.load(f)
+        #     return {"cases": data}
+        # return {"cases": []}
 
     except Exception as e:
         logger.error(f"Two-step Fetch Error: {e}")
