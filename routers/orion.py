@@ -254,8 +254,7 @@ def generate_node_table(session):
                 target_url = power_lookup[raw_site_name]
                 power_tag = (
                     f'<a href="{target_url}" target="_blank" style="text-decoration: none;">'
-                    f'<span style="background-color: #ffc107; color: #000; padding: 2px 5px; '
-                    f'font-size: 10px; border-radius: 3px; font-weight: bold; margin-left: 5px; '
+                    f'<span style="background-color: #ffc107; color: #000;border-radius: 3px; font-weight: bold; margin-left: 5px; '
                     f'cursor: pointer;" title="View Outage Map">⚡OUTAGE</span></a>'
                 )
             # else:

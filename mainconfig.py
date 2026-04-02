@@ -171,7 +171,7 @@ SELECT N.NodeID,N.DetailsUrl,N.NodeName,N.Status,N.StatusDescription,N.IPAddress
 FROM orion.Nodes N  
 INNER JOIN orion.Events E ON E.NetworkNode = N.NodeID  
 INNER JOIN orion.NodesCustomProperties NCP ON NCP.NodeID = N.NodeID  
-where N.status NOT IN (1,9,11) -- 9 unmanager, 11 external
+where N.status = 2 -- NOT IN (1,9,11) -- 9 unmanager, 11 external
 AND e.eventtype IN (1,5,9,14)  --1 Down, 5 Up, added, reboot
 GROUP BY N.NodeID, N.Status,N.StatusDescription, NCP.Site,NCP.Address, NCP.City, N.Caption,NCP.Site,NCP.SiteType,N.DetailsUrl,N.IPAddress
 ORDER BY Seconds 
@@ -314,10 +314,8 @@ INNER JOIN
 INNER JOIN
     Orion.NodesCustomProperties AS NCP ON NCP.NodeID = N.NodeID
 WHERE
-    i.Status = 2
-    OR not i.StatusIcon LIKE '%Up%'
+    i.Status = 2 -- NOT IN (1,9,11) -- 1 up, 9 unmanager, 11 external
     AND e.EventTime > GETDATE() - 1000
-    AND e.EventType = 10
 GROUP BY
     n.NodeName + ' ' + i.InterfaceCaption,
     NCP.SiteType,
