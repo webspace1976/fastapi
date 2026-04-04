@@ -24,7 +24,13 @@
             </button>
         {% endif %}
 
-    </div>
+		{% if case.Problems %}
+			<button class="tab-btn" onclick="switchSubTab(event, 'Problems-{{ case.record_id }}')">
+				Problems ({{ case.Problems|length }})
+			</button>
+		{% endif %}
+
+	</div>
 
     <div class="tab-container-content">
         {% if case.TimeTrackingItems %}
@@ -106,7 +112,34 @@
 			{% endfor %}
 		</div>
 		{% endif %}
-		
+
+		{% if case.Problems%}
+		<div id="problems-{{ case.record_id }}" class="tab-content">
+			{% for prb in case.Problems %}
+				<div class="incident-entry" style="border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; background: #fff;">
+					<div style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex;  align-items: center;">
+						<div>
+							<span style="font-weight: bold; color: #007bff; font-size: 1.1em;"> {{ prb.Number }} {{ prb.ShortDescription }}</span>
+							<span style="margin-left: 10px; padding: 2px 8px; color: #fff; border-radius: 4px; font-size: 0.75em;">
+								Priority 
+							</span>
+						</div>
+						<a href="{{ prb.URL }}" target="_blank" class="toggle-btn" style="background: #28a745; text-decoration: none; padding: 4px 12px; width: auto; font-size: 0.8em; line-height: 1.5;">SNOW</a>
+					</div>
+
+					<div style="padding: 12px;">
+						<div style="margin-bottom: 8px; font-size: 0.9em;">
+							<strong>Schedule:</strong> {{ prb.StartDisplay }} - {{ prb.EndDisplay }}
+							<!-- <span style="color: #888; margin-left: 10px;">| Reported: {{ prb.Reported[:16] | replace('T', ' ') }}</span> -->
+						</div>
+						<div style="font-weight: bold; margin-bottom: 5px; font-size: 0.9em;">{{ prb.ShortDescription }}</div>
+						<div style="background: #f1f1f1; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.85em; white-space: pre-wrap; line-height: 1.4; color: #333;">{{ prb.ShortDescription }}</div>
+					</div>
+				</div>
+			{% endfor %}
+		</div>
+		{% endif %}		
+
     </div>
 </div>
 

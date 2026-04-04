@@ -158,7 +158,7 @@
                     {% if "Event-10.gif" in netpath_table %}
                         {{ netpath_table | safe }}
                     {% elif "Event-5.gif" in netpath_table %}
-                        <a>✅ NetPath: </a>
+                        <a>✅ CST Cerner NetPath: </a>
                         <a href="https://orion.net.mgmt/ui/netpath/routeinspector/216/13/2023/05/05/0/0/0/" target="_blank">C&W </a> | 
                         <a href="https://orion.net.mgmt/ui/netpath/routeinspector/208/9/2023/05/05/0/0/0/" target="_blank">KDC </a> poller are healthy.
                     {% endif %}
@@ -176,15 +176,14 @@
 
                 <br>
                 <div id="power-outage-container" style="max-height: 25vh; overflow-y: auto; border: 1px solid #ddd; padding: 5px;">
-                    <!-- <h3 style="margin:0;"><a href="https://www.bchydro.com/power-outages/app/outage-map.html" target="_blank">BCHydro</a> | <a href="https://outages.fortisbc.com/Outages/Home/OutageMap" target="_blank">FortisBC</a> Outage:</h3> -->
-                    <!-- <div id="power-list">
-                        <p style="font-size: 0.8em; color: #666;">Initializing power monitor...</p>
-                    </div> -->
-                    <iframe id="powerFrame" name="powerFrame"
+                    <div id="power-content">
+                        <p style="text-align: center; color: #666;">Checking BC Hydro & FortisBC status from RingerOPS</p>
+                    </div>                    
+                    <!-- <iframe id="powerFrame" name="powerFrame"
                         src="/api/ringer/opsapi/poweroutage" 
                         style="width:100%; border:none;" 
                         onload="this.style.height=this.contentWindow.document.body.scrollHeight+'px';">
-                    </iframe>
+                    </iframe> -->
                 </div><br>
 
                 <div id="output-syslog">
@@ -473,54 +472,33 @@ function regroupAndColspan() {
         }
     }
 
-    async function updatePowerOutages() {
-        try {
-            const response = await fetch('/api/ringer/opsapi/poweroutage');
-            const result = await response.json();
-            const container = document.getElementById('power-list');
+async function updatePowerOutages() {
+    const container = document.getElementById('power-outage-container');
+    const contentArea = document.getElementById('power-content') || container;
+    
+    try {
+        const response = await fetch('/api/ringer/opsapi/poweroutage');
+        const html = await response.text();
+        
+        contentArea.innerHTML = html;
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }            
-            
-            if (result.cases && result.cases.length > 0) {
-                let html = '';
-                result.cases.forEach(event => {
-                    // Apply the 'cut' logic before the site name repeat
-                    let nodeText = event.Node || "";
-                    let cleanNode = nodeText.split(/bchydro|fortisbc/i)[0];
-                    let idMatch = nodeText.match(/(bchydro|fortisbc)\d+/i);
-                    let displayNode = cleanNode + (idMatch ? idMatch[0] : "");
-
-                    html += `
-                    <div class="case-card power-critical" style="margin-top:10px; border-left: 4px solid #cc9600;">
-                        <div style="font-size: 0.9em; font-weight: bold; background: #fff3cd; padding: 5px;">
-                            <span class="flash-icon">⚡</span> 
-                            <a href="${event.SourceURL}" target="_blank" style="color: #856404;">
-                                [${event.SiteNameShort}] ${event.impacted_site || event.SiteName}
-                            </a>
-                        </div>
-                        <div style="padding: 5px; font-size: 0.85em; background: #fff;">
-                            <strong>Details:</strong> ${displayNode}<br>
-                            <strong>ETR:</strong> ${event.Description}
-                        </div>
-                    </div>`;
-                });
-                container.innerHTML = html;
-                // Visual alert for the dashboard header if outages exist
-                document.getElementById('power-outage-container').style.borderColor = "#dc3545";
-            } else {
-                container.innerHTML = `
-                    <div style="text-align: center; color: #155724; background: #d4edda; padding: 10px; margin-top:10px; border-radius: 4px;">
-                        ✅ All Sites Power Normal
-                    </div>`;
-                document.getElementById('power-outage-container').style.borderColor = "#ddd";
-            }
-        } catch (error) {
-            console.error("Power Fetch Error:", error);
+        // Check if the returned HTML contains a "critical" class or high count
+        // This lets the parent dashboard "glow" red when an outage exists
+        if (html.includes('power-critical') || html.includes('flash-icon')) {
+            container.style.borderColor = "#dc3545"; // Red border
+            container.style.boxShadow = "0 0 10px rgba(220, 53, 69, 0.2)";
+        } else {
+            container.style.borderColor = "#28a745"; // Green border
+            container.style.boxShadow = "none";
         }
+    } catch (error) {
+        console.error("Power Fetch Error:", error);
+        contentArea.innerHTML = "<p style='color:red;'>Failed to load power data.</p>";
     }
+}
 
+// Auto-refresh every 5 minutes to keep SOC updated
+// setInterval(updatePowerOutages, 300000);
     // Auto-load when the page opens
     document.addEventListener('DOMContentLoaded', loadSyslogFromDB);    
     document.addEventListener('DOMContentLoaded', updatePowerOutages);

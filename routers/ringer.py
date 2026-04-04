@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import mainconfig as mainconfig
+from utils.fastapi_mymodule import get_dynamic_duration 
 logger = mainconfig.setup_module_logger(__name__)
 
 router = APIRouter()
@@ -202,6 +203,7 @@ def get_ha_power_alerts(raw_data):
             else:
                 current_site = event.get("SiteName", "Unknown Site")
                 current_short = event.get("SiteNameShort", "??")
+                duration = get_dynamic_duration(event.get("Start"))
 
                 # OPTION 2: Match by HydroID
                 if h_id in outage_tracker:
@@ -220,6 +222,7 @@ def get_ha_power_alerts(raw_data):
                 else:
                     # New HydroID detected, create fresh entry
                     event["is_active_outage"] = True
+                    event["duration"] = duration
                     event["all_sites"] = [current_site]
                     event["all_shorts"] = [current_short]
                     event["impacted_site"] = current_site
@@ -232,14 +235,25 @@ def get_ha_power_alerts(raw_data):
 @router.get("/opsapi/poweroutage", response_class=HTMLResponse)
 async def get_poweroutage(request: Request):
     base_url = "https://ringer.healthbc.org/opsapi"
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # 1. Setup Time Window (Last 7 Days)
-    end_date = datetime.now().strftime("%Y-%m-%d")
-    start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-    search_str = f"power outage|{start_date}|00:00:00|{end_date}|23:59:59"
-    # search_str = "power outage"
-    
+    # 1. Setup Exact 48-Hour Window
+    now = datetime.now()
+    yesterday = now - timedelta(hours=48)
+
+    # 2. Format components for the Ringer search string
+    # Format: YYYY-MM-DD|HH:MM:SS
+    end_date_str = now.strftime("%Y-%m-%d")
+    end_time_str = now.strftime("%H:%M:%S")
+
+    start_date_str = yesterday.strftime("%Y-%m-%d")
+    start_time_str = yesterday.strftime("%H:%M:%S")
+
+    # 3. Construct the Ringer-specific search string
+    # Pattern: query|start_date|start_time|end_date|end_time
+    search_str = f"power outage|{start_date_str}|{start_time_str}|{end_date_str}|{end_time_str}"
+
+
     params = {
         "method": "fetchOpsTracking",
         "search": search_str,
@@ -282,7 +296,8 @@ async def get_poweroutage(request: Request):
         return templates.TemplateResponse("ops_poweroutage.html", {
             "request": request, 
             "cases": final_active_events,
-            "last_check": now
+            "search_str": search_str,
+            "last_check": now.strftime("%Y-%m-%d %H:%M:%S")
         })
     
         # if os.path.exists(debug_path):
