@@ -200,15 +200,20 @@ def get_dynamic_duration(last_change_str):
             dt = tz.localize(dt)
 
         # FORMAT B: 'Mar 12 18:40:38 PST' (BGP/Standard style)
-        else:
-            # Strip PST/PDT to avoid %Z parsing errors
-            if parts[-1] in ['PST', 'PDT']:
-                clean_str = " ".join(parts[:-1])
+        elif parts[-1] in ['PST', 'PDT']:
+            clean_str = " ".join(parts[:-1])
             
             # Add current year since it's missing in this format
             current_year = now.year
             clean_str = f"{current_year} {clean_str}"
             fmt = "%Y %b %d %H:%M:%S"
+            dt = datetime.strptime(clean_str, fmt)
+            dt = tz.localize(dt)
+
+        # --- NEW FORMAT C: '2026-04-03T23:11:09' (ISO Style) ---
+        elif 'T' in clean_str:
+            # Handle cases with or without microseconds
+            fmt = "%Y-%m-%dT%H:%M:%S.%f" if '.' in clean_str else "%Y-%m-%dT%H:%M:%S"
             dt = datetime.strptime(clean_str, fmt)
             dt = tz.localize(dt)
 
@@ -232,7 +237,6 @@ def get_dynamic_duration(last_change_str):
     except Exception as e:
         print(f"Parser Error: {e}")
         return "UNKNOWN"
-
 
 def format_size(size_bytes):
     """Converts bytes to a human-readable string (KB, MB)."""
@@ -1321,7 +1325,6 @@ def generate_dropdown_list(reports_data):
         }
     </script>
     ''')
-
 
 def main():
     fname = ""

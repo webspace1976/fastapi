@@ -173,43 +173,72 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
         # %Jul 10 00:39:55:758 2025 ENG22-KEL-Core OSPF/5/OSPF_NBR_CHG: OSPF 7 Neighbor 10.251.8.113(Vsi-interface877) changed from FULL to DOWN.
         # Updated OSPF regex to handle interface names like Twenty-FiveGigE1/0/2
         hpe_ospf_log_regex = re.compile(
-            r"%(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}:\d{3}).*?OSPF/5/OSPF_NBR_CHG:.*?OSPF\s+(\d+).*?Neighbor\s+([\d\.]+)\(([\w\-\/]+)\)\s+changed from\s+([\w/]+)\s+to\s+([\w/]+)"
-        )        
-        for match in hpe_ospf_log_regex.finditer(content):
-            timestamp = parse_timestamp(match.group(1), log_year)
-            cursor.execute(
-                '''INSERT OR IGNORE INTO ospf_state_changes 
-                (hostname, process, neighbor_address, interface, from_state, to_state, timestamp, log_file) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
-                (hostname, match.group(2), match.group(3), match.group(4), match.group(5), match.group(6), timestamp, filename_only)
-            )
-            logger.debug(f"Inserted OSPF state change: Neighbor {match.group(3)} on {match.group(4)} from {match.group(5)} to {match.group(6)}")
+            r"%(\w{3}\s+\d+\s+[\d:]+:\d{3}).*?OSPF/5/OSPF_NBR_CHG:.*?OSPF\s+(?P<proc>\d+).*?Neighbor\s+(?P<nbr>[\d\.]+)\((?P<iface>[\w\-\/]+)\)\s+changed from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)"
+        )
 
-        # Handle OSPF last neighbor down event
+        for match in hpe_ospf_log_regex.finditer(content):
+            g = match.groupdict()
+            ts = parse_timestamp(match.group(1), log_year)
+            cursor.execute(
+                'INSERT OR IGNORE INTO ospf_state_changes (hostname, process, neighbor_address, interface, from_state, to_state, timestamp, log_file) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                (hostname, g['proc'], g['nbr'], g['iface'], g['old'], g['new'], ts, filename_only)
+            )
+
+        # 2. Parse LAST_NBR_DOWN (This is what updates the status table)
         hpe_ospf_last_down_regex = re.compile(
-            r"%(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}:\d{3}).*?OSPF/6/OSPF_LAST_NBR_DOWN: OSPF (\d+) Last neighbor down event: Router ID: ([\d\.]+) Local address: ([\d\.]+) Remote address: ([\d\.]+) Reason: ([^\.]+)"
+            r"%(\w{3}\s+\d+\s+[\d:]+:\d{3}).*?OSPF/6/OSPF_LAST_NBR_DOWN: OSPF (?P<proc>\d+) Last neighbor down event: Router ID: (?P<rid>[\d\.]+) Local address: (?P<loc>[\d\.]+) Remote address: (?P<rem>[\d\.]+) Reason: (?P<reason>[^.]+)"
         )
-        # New multi-line regex to capture from 'display ospf peer verbose' output
-        verbose_down_regex = re.compile(
-            r"Last Neighbor Down Event:.*?Router ID:\s+([\d\.]+).*?Local Address:\s+([\d\.]+).*?Remote Address:\s+([\d\.]+).*?Time:\s+(.*?)\n\s+Reason:\s+(.*)",
-            re.DOTALL
-        )
+
         for match in hpe_ospf_last_down_regex.finditer(content):
-        # for match in verbose_down_regex.finditer(content):
-            timestamp = parse_timestamp(match.group(1), log_year)
-            process = match.group(2)
-            router_id = match.group(3)
-            local_address = match.group(4)
-            remote_address = match.group(5)
-            reason = match.group(6).strip()
-            # Update ospf_peer_status with last down event details
+            g = match.groupdict()
+            ts = parse_timestamp(match.group(1), log_year)
+            
+            # Corrected Update: Use the groups captured by THIS regex
             cursor.execute(
                 '''UPDATE ospf_peer_status 
                 SET last_down_time = ?, last_routerid = ?, last_local = ?, last_remote = ?, last_reason = ?
-                WHERE hostname = ? AND process = ? AND neighbor_address = ?''',
-                (timestamp, router_id, local_address, remote_address, reason, hostname, process, remote_address)
+                WHERE hostname = ? AND (process = ? OR neighbor_address = ?)''',
+                (ts, g['rid'], g['loc'], g['rem'], g['reason'].strip(), hostname, g['proc'], g['rem'])
             )
-            logger.debug(f"Updated OSPF peer status with last down event: Neighbor {remote_address}, Process {process}, Reason: {reason}")
+
+        # hpe_ospf_log_regex = re.compile(
+        #     r"%(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}:\d{3}).*?OSPF/5/OSPF_NBR_CHG:.*?OSPF\s+(\d+).*?Neighbor\s+([\d\.]+)\(([\w\-\/]+)\)\s+changed from\s+([\w/]+)\s+to\s+([\w/]+)"
+        # )        
+        # for match in hpe_ospf_log_regex.finditer(content):
+        #     timestamp = parse_timestamp(match.group(1), log_year)
+        #     cursor.execute(
+        #         '''INSERT OR IGNORE INTO ospf_state_changes 
+        #         (hostname, process, neighbor_address, interface, from_state, to_state, timestamp, log_file) 
+        #         VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
+        #         (hostname, match.group(2), match.group(3), match.group(4), match.group(5), match.group(6), timestamp, filename_only)
+        #     )
+        #     logger.debug(f"Inserted OSPF state change: Neighbor {match.group(3)} on {match.group(4)} from {match.group(5)} to {match.group(6)}")
+
+        # # Handle OSPF last neighbor down event
+        # hpe_ospf_last_down_regex = re.compile(
+        #     r"%(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}:\d{3}).*?OSPF/6/OSPF_LAST_NBR_DOWN: OSPF (\d+) Last neighbor down event: Router ID: ([\d\.]+) Local address: ([\d\.]+) Remote address: ([\d\.]+) Reason: ([^\.]+)"
+        # )
+        # # New multi-line regex to capture from 'display ospf peer verbose' output
+        # verbose_down_regex = re.compile(
+        #     r"Last Neighbor Down Event:.*?Router ID:\s+([\d\.]+).*?Local Address:\s+([\d\.]+).*?Remote Address:\s+([\d\.]+).*?Time:\s+(.*?)\n\s+Reason:\s+(.*)",
+        #     re.DOTALL
+        # )
+        # for match in hpe_ospf_last_down_regex.finditer(content):
+        # # for match in verbose_down_regex.finditer(content):
+        #     timestamp = parse_timestamp(match.group(1), log_year)
+        #     process = match.group(2)
+        #     router_id = match.group(3)
+        #     local_address = match.group(4)
+        #     remote_address = match.group(5)
+        #     reason = match.group(6).strip()
+        #     # Update ospf_peer_status with last down event details
+        #     cursor.execute(
+        #         '''UPDATE ospf_peer_status 
+        #         SET last_down_time = ?, last_routerid = ?, last_local = ?, last_remote = ?, last_reason = ?
+        #         WHERE hostname = ? AND process = ? AND neighbor_address = ?''',
+        #         (timestamp, router_id, local_address, remote_address, reason, hostname, process, remote_address)
+        #     )
+        #     logger.debug(f"Updated OSPF peer status with last down event: Neighbor {remote_address}, Process {process}, Reason: {reason}")
             
     elif vendor in ('cisco', 'arista'):
         # cisco_ospf_log_regex = re.compile(r"(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}).*?Ospf.*?: Instance (\d+):.*?NGB ([\d\.]+), interface ([\d\.]+) adjacency (dropped|established).*?(?:state was: (\w+))?")  
