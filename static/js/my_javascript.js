@@ -1335,6 +1335,49 @@ function toggleDisplay(buttonId, containerId) {
     });
 }
 
+async function muteOutage(rawDetails) {
+    // Extract the ID (bchydroXXXX) from the string
+    const match = rawDetails.match(/(bchydro|fortisbc)\d+/i);
+    if (!match) return alert("Could not find ID to mute");
+    
+    const h_id = match[0];
+    
+    if (confirm(`Do you want to ignore ${h_id}? This outage will be hidden until manually removed from restore list.`)) {
+        const response = await fetch(`/api/ringer/opsapi/ignore-id/${h_id}`, { method: 'POST' });
+        if (response.ok) {
+            location.reload(); // Refresh to hide the muted card
+        } else {
+            alert("Failed to mute ID");
+        }
+    }
+}        
+async function toggleIgnoreModal(show) {
+    const modal = document.getElementById('ignoreModal');
+    if (show) {
+        // Fetch data when opening
+        const response = await fetch('/api/ringer/opsapi/ignore-list/raw');
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('ignoreListTextarea').value = data.raw_text;
+            modal.style.display = 'block';
+        }
+    } else {
+        modal.style.display = 'none';
+    }
+}
+
+async function saveIgnoreList() {
+    const rawText = document.getElementById('ignoreListTextarea').value;
+    const response = await fetch('/api/ringer/opsapi/ignore-list/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw_text: rawText })
+    });
+    if (response.ok) {
+        location.reload(); 
+    }
+}
+
 // Attach the function to radio buttons
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll('input[name="interface_info"], input[name="node_info"]').forEach(radio => {

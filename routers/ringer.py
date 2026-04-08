@@ -9,48 +9,13 @@ logger = mainconfig.setup_module_logger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+CONFIG_PATH = os.path.join(mainconfig.DATA_DIR, "power_config.json")
 
-# Example API calls:
-# global search https://ringer.healthbc.org/opsapi?method=fetchOpsTracking&search=&eventid=&open=0
-# case search https://ringer.healthbc.org/opsapi?method=fetchOpsTrackingById&id=369483
-# specific search https://ringer.healthbc.org/opsapi?method=fetchOpsTracking&search=VCH-RLL-02A-R1-PDU01|2025-12-15|00:00:00|2026-03-15|23:59:00&eventid=&open=0
-# open=1 (Active/Open Cases Only Live) or open=0 (All Cases Historical)
-
-# @router.get("/opsapi")
-# async def get_ops_tracking(
-#     request: Request,
-#     method: str = Query("fetchOpsTracking"),
-#     search: str = Query(None), 
-#     id: str = Query(None), # Added ID parameter
-#     eventid: str = Query(""),
-#     open: int = Query(0)
-# ):
-#     base_url = "https://ringer.healthbc.org/opsapi"
-    
-#     # Logic switch: If ID is provided, use the specific detail method
-#     if id:
-#         params = {"method": "fetchOpsTrackingById", "id": id}
-#     else:
-#         params = {"method": method, "search": search, "eventid": eventid, "open": open}
-    
-#     try:
-#         # Note: Added verify=False as per your existing config for internal healthbc certs
-#         response = requests.get(base_url, params=params, verify=False, timeout=10)
-#         raw_data = response.json()
-        
-#         # If fetching by ID, Ringer usually returns a single object or a list with one item
-#         # Ensure 'cases' is always a list for the Jinja template loop
-#         cases = raw_data if isinstance(raw_data, list) else [raw_data]
-            
-#     except Exception as e:
-#         logger.error(f"Ringer API Error: {e}")
-#         return HTMLResponse(content=f"Error fetching data: {e}", status_code=500)
-
-#     return templates.TemplateResponse("ops_tracking.html", {
-#         "request": request, 
-#         "cases": cases,
-#         "search_query": search or id
-#     })
+def load_ignore_list():
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, "r") as f:
+            return json.load(f).get("ignore_list", [])
+    return ["bchydro2752838","bchydro2753010"] # Fallback
 
 @router.get("/opsapi")
 async def get_ops_tracking(
@@ -177,7 +142,7 @@ def get_ha_power_alerts(raw_data):
 
     outage_tracker = {}
     HYDRO_REGEX = r"((?:bchydro|fortisbc)\d+)"  # Matches bchydro or fortisbc followed by digits
-    ignore_list = ["bchydro2752838","bchydro2753010"]  # Words that indicate an outage is resolved
+    ignore_list = ignore_list = load_ignore_list() # Load fresh from file
     reserve_list = ["fortisbc30616 "]  # Words that indicate an outage is resolved
 
     for event in all_events:
@@ -190,7 +155,7 @@ def get_ha_power_alerts(raw_data):
             h_id = match.group(1)
 
             # Check ignore list first. If found, skip this entire event.
-            if h_id in ignore_list:
+            if str(h_id) in ignore_list:
                 continue            
             # ONLY remove if the text explicitly confirms restoration
             # We ignore the 'End' timestamp because it can be misleading
@@ -203,7 +168,7 @@ def get_ha_power_alerts(raw_data):
             else:
                 current_site = event.get("SiteName", "Unknown Site")
                 current_short = event.get("SiteNameShort", "??")
-                duration = get_dynamic_duration(event.get("Start"))
+                duration = get_dynamic_duration(event.get("Start"))[0]
 
                 # OPTION 2: Match by HydroID
                 if h_id in outage_tracker:
@@ -325,4 +290,32 @@ async def get_poweroutage(request: Request):
         "last_check": now.strftime("%Y-%m-%d %H:%M:%S")
     })
 
+# --- New Endpoint to add to ignore list ---
+@router.post("/opsapi/ignore-id/{h_id}")
+async def ignore_hydroid(h_id: str):
+    config = {"ignore_list": load_ignore_list()}
+    if h_id not in config["ignore_list"]:
+        config["ignore_list"].append(h_id)
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(config, f)
+    return {"status": "success", "ignored": h_id}
 
+# --- Get the raw list for the notepad ---
+@router.get("/opsapi/ignore-list/raw")
+async def get_raw_ignore_list():
+    current_list = load_ignore_list()
+    return {"raw_text": "\n".join(current_list)}
+
+# --- Save the raw list from the notepad ---
+@router.post("/opsapi/ignore-list/save")
+async def save_raw_ignore_list(request: Request):
+    data = await request.json()
+    raw_text = data.get("raw_text", "")
+    
+    # Split by lines, strip whitespace, and remove empty entries
+    new_list = [line.strip() for line in raw_text.split("\n") if line.strip()]
+    
+    with open(CONFIG_PATH, "w") as f:
+        json.dump({"ignore_list": new_list}, f)
+        
+    return {"status": "success"}

@@ -1,11 +1,55 @@
-    
-    {% if is_offline %}
-    <div class="alert alert-warning alert-dismissible fade show" role="alert">
-        <h2><strong><i class="bi bi-exclamation-triangle-fill"></i> API Offline:</strong> </h2>
-        Could not connect to Ringer. Displaying cached data from the last successful check.
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-    {% endif %}
+<head>
+        <link rel="stylesheet" type="text/css" href="/static/css/mystyle.css">
+    <style>
+        /* This targets the ID specifically to keep it hidden by default */
+        #ignoreModal {
+            display: none; /* Keeps it off the main page */
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7); /* Dims the background */
+        }
+
+        /* The actual box inside the popup */
+        .modal-content-custom {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 450px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            color: #333;
+            font-family: sans-serif;
+        }
+
+        .modal-header-custom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+
+        .modal-body-custom textarea {
+            width: 100%;
+            margin-top: 15px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+{% if is_offline %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <h2><strong><i class="bi bi-exclamation-triangle-fill"></i> API Offline:</strong> </h2>
+    Could not connect to Ringer. Displaying cached data from the last successful check.
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
 
 
 {% set total_sites = cases | map(attribute='all_sites') | map('count') | sum %}
@@ -13,17 +57,56 @@
     <a href="https://www.bchydro.com/power-outages/app/outage-map.html" target="_blank">BCHydro</a> | <a href="https://outages.fortisbc.com/Outages/Home/OutageMap" target="_blank">FortisBC</a>
     <a href="/api/ringer/opsapi/poweroutage" target="_blank"> Outage - last 48 hours: </a>
     <span id="case-count"> {{ cases|length }} </span> Area(s) - <span id="site-count"> {{ total_sites }} </span> Site(s) 
+
+    <button class="btn btn-sm btn-dark" onclick="toggleIgnoreModal(true)">
+        <i class="bi bi-pencil-square"></i> Ignore List
+    </button>
+
+    <div id="ignoreModal" class="modal-custom">
+        <div class="modal-content-custom">
+            <div class="modal-header-custom">
+                <h5 style="margin:0; color:black;">Edit Ignore List</h5>
+                <span style="cursor:pointer;" onclick="toggleIgnoreModal(false)">&times;</span>
+            </div>
+            <div class="modal-body-custom">
+                <p style="font-size: 12px; color: #666;">For restored outages <b>NOT</b> received via Ringer, one ID per line (e.g., bchydro12345).</p>
+                <textarea id="ignoreListTextarea" rows="10"></textarea>
+            </div>
+            <div class="modal-footer-custom">
+                <button class="btn-close-modal" onclick="toggleIgnoreModal(false)">Cancel</button>
+                <button class="btn-save" onclick="saveIgnoreList()">Save Changes</button>
+            </div>
+        </div>
+    </div>
 </h3>
 
-{% if cases and cases|length > 0 %}
+    {% if cases and cases|length > 0 %}
     {% set totalsite = 0 %}
+    
     {% for event in cases %}
         {% set totalsite = totalsite + event.all_sites|length %}
+
+        {% if 'bchydro' in event.Node.lower() %}
+            {% set display_details = event.Node.split('bchydro')[0] + 'bchydro' + event.Node.split('bchydro')[1].split(' ')[0] %}
+        {% elif 'fortisbc' in event.Node.lower() %}
+            {% set display_details = event.Node.split('fortisbc')[0] + 'fortisbc' + event.Node.split('fortisbc')[1].split(' ')[0] %}
+        {% else %}
+            {% set display_details = event.Node %}
+        {% endif %}            
+
+<table style="width: 100%;">
     <div class="case-card power-critical">
         <div class="case-header">
             <div class="header-col-desc">
-                <span class="flash-icon">⚡ {{ event.Name }} - {{ event.all_sites|length }} Site(s) Affected - Duration: {{ event.duration }}</span> 
+            <tr>
+                <td style="padding: 0; margin: 0;">
+                <span class="flash-icon">⚡ {{ event.Name }} - {{ event.all_sites|length }} Site(s) Affected - Duration: {{ event.duration }}    </span> 
+                <button class="btn btn-sm btn-outline-secondary float-end" 
+                        onclick="muteOutage('{{ display_details }}')">
+                    <i class="bi bi-bell-slash"></i> Mute
+                </button>
                 <br>
+
                 <a style="background: #cc9600c2;" >
                  {{ event.impacted_site }}
                 </a>
@@ -33,22 +116,20 @@
         <div class="case-body" style="font-size: 0.9em;">
             <div>
                 <strong>Details:</strong>
-                {% if 'bchydro' in event.Node.lower() %}
-                    {% set display_details = event.Node.split('bchydro')[0] + 'bchydro' + event.Node.split('bchydro')[1].split(' ')[0] %}
-                {% elif 'fortisbc' in event.Node.lower() %}
-                    {% set display_details = event.Node.split('fortisbc')[0] + 'fortisbc' + event.Node.split('fortisbc')[1].split(' ')[0] %}
-                {% else %}
-                    {% set display_details = event.Node %}
-                {% endif %}            
+
                 <a  href="{{ event.SourceURL }}" target="_blank"> {{ display_details }}</a>
                 {% set display_update = event.Update | replace('T', ' ') %}
                 <strong>    Update:</strong> {{ display_update }}
             </div>
 
             <strong>Description:</strong> {{ event.Description }}
+            </td>
+        </tr>    
         </div>
-    </div>
+    </div>                    
     {% endfor %}
+</table>
+
 {% else %}
     <div style="text-align: center; background: #e9f7ef; border: 2px solid #28a745; border-radius: 8px; color: #155724;">
         <h2 style="margin: 0;">✅ All Sites Power Normal</h2>
@@ -58,7 +139,11 @@
 {% endif %}
 
 
+
 <script>
         console.log("Searching PowerOutage from {{ search_str }}")
+
+
 </script>
+<script src="/static/js/my_javascript.js"></script>
 
