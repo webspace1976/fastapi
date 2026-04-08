@@ -26,22 +26,59 @@ def setup_database(db_path):
         (hostname TEXT, host_ip TEXT, vpn_instance TEXT, local_router_id TEXT, local_as_number TEXT, neighbor_ip TEXT, remote_router_id TEXT, remote_as TEXT, up_down_time TEXT, state TEXT, last_updated_ts TEXT, 
         last_snapshot_id TEXT, source_log_file TEXT,
         PRIMARY KEY (host_ip, vpn_instance, neighbor_ip))''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS bgp_state_changes (id INTEGER PRIMARY KEY AUTOINCREMENT, hostname TEXT, host_ip TEXT,vpn_instance TEXT, neighbor_ip TEXT, from_state TEXT, to_state TEXT, timestamp TEXT, log_file TEXT, message TEXT,
+        UNIQUE(host_ip, neighbor_address, timestamp)
+        FOREIGN KEY (host_ip, neighbor_address) 
+            REFERENCES bgp_peer_status (host_ip, neighbor_address))
+                   ''')
+
     # Create OSPF peer status table with corrected schema 20 columns
     cursor.execute('''CREATE TABLE IF NOT EXISTS ospf_peer_status
         (hostname TEXT, host_ip TEXT, process TEXT, process_routerid TEXT, vrf TEXT, area TEXT, interface TEXT, neighbor_routerid TEXT, neighbor_address TEXT, state TEXT, mode TEXT, verbose_uptime TEXT, state_count TEXT, last_down_time TEXT, last_routerid TEXT, last_local TEXT, last_remote TEXT, last_reason TEXT, last_updated_ts TEXT, last_snapshot_id TEXT, source_log_file TEXT,
         PRIMARY KEY (host_ip, process, neighbor_address)
                    )''')
-    # Create tables for BGP/OSPF state changes
-    # cursor.execute('CREATE TABLE IF NOT EXISTS ospf_state_changes 
-    #               (id INTEGER PRIMARY KEY AUTOINCREMENT, hostname TEXT, process TEXT, neighbor_address    TEXT, interface TEXT, from_state TEXT, to_state TEXT, timestamp TEXT, log_file TEXT)')   
-    cursor.execute('''CREATE TABLE IF NOT EXISTS ospf_state_changes 
-                    (id INTEGER PRIMARY KEY AUTOINCREMENT, hostname TEXT, process TEXT, neighbor_address TEXT, interface TEXT, from_state TEXT, to_state TEXT, timestamp TEXT, log_file TEXT,
-                    UNIQUE (hostname, process, neighbor_address, interface, from_state, to_state, timestamp, log_file ))''') 
-										 
-    cursor.execute('CREATE TABLE IF NOT EXISTS bgp_state_changes (id INTEGER PRIMARY KEY AUTOINCREMENT, hostname TEXT, vpn_instance TEXT, neighbor_ip TEXT, from_state TEXT, to_state TEXT, timestamp TEXT, log_file TEXT)')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS ospf_state_changes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hostname TEXT,
+            host_ip TEXT,
+            process TEXT,
+            neighbor_address TEXT,
+            interface TEXT,
+            from_state TEXT,
+            to_state TEXT,
+            timestamp TEXT,
+            log_file TEXT,
+            message TEXT,  -- <--- 202604 Add this column
+            UNIQUE(host_ip, neighbor_address, timestamp)
+            FOREIGN KEY (host_ip, neighbor_address) 
+                REFERENCES ospf_peer_status (host_ip, neighbor_address)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_ospf_unique_event 
+        ON ospf_state_changes (host_ip, neighbor_address, timestamp, to_state)
+    ''')	
+
 
     # Create table for processed files
     cursor.execute('CREATE TABLE IF NOT EXISTS processed_files (filename TEXT PRIMARY KEY)')
+
+
+    #update ospf status
+    cursor.execute("""
+UPDATE ospf_peer_status
+SET state = (
+    SELECT to_state FROM ospf_state_changes h
+    WHERE h.neighbor_address = ospf_peer_status.neighbor_address
+      AND h.hostname = ospf_peer_status.hostname
+    ORDER BY ROWID DESC LIMIT 1
+);
+    """)
 
     conn.commit()
     return conn
@@ -89,6 +126,61 @@ def cleanup_bgp_peer_status(conn):
         conn.rollback()
         return -1
     
+def cleanup_ospf_peer_status(conn): #(One-time Run)
+    """
+    Cleans up the ospf_peer_status table, keeping only the record 
+    with the latest last_updated_ts for each unique peer 
+    (host_ip, vpn_instance, neighbor_ip).
+    """
+    cursor = conn.cursor()
+    logger.info("Starting ospf peer status cleanup for historical duplicates...")
+
+    # Robust SQL to find the single rowid with the latest timestamp (MAX(last_updated_ts)) 
+    # for each unique peer key, and delete all other rows.
+    cleanup_sql = '''
+        DELETE FROM ospf_state_changes 
+        WHERE rowid NOT IN (
+            SELECT MIN(rowid) 
+            FROM ospf_state_changes 
+            GROUP BY hostname, neighbor_address, timestamp, to_state
+        );
+    '''
+    update_sql = '''
+UPDATE ospf_peer_status
+SET 
+    -- Sync the State
+    state = (
+        SELECT to_state FROM ospf_state_changes h
+        WHERE h.neighbor_address = ospf_peer_status.neighbor_address
+          AND h.hostname = ospf_peer_status.hostname
+        ORDER BY ROWID DESC LIMIT 1
+    ),
+    -- Sync the Timestamp (Start point for Duration)
+    last_updated_ts = (
+        SELECT timestamp FROM ospf_state_changes h
+        WHERE h.neighbor_address = ospf_peer_status.neighbor_address
+          AND h.hostname = ospf_peer_status.hostname
+        ORDER BY ROWID DESC LIMIT 1
+    )
+WHERE EXISTS (
+    SELECT 1 FROM ospf_state_changes h 
+    WHERE h.neighbor_address = ospf_peer_status.neighbor_address 
+      AND h.hostname = ospf_peer_status.hostname
+);
+        '''
+    
+    try:
+        cursor.execute(cleanup_sql)
+        cursor.execute(update_sql)
+        deleted_rows = cursor.rowcount
+        conn.commit()
+        logger.info(f"Cleanup complete. Deleted {deleted_rows} older duplicate BGP peer records.")
+        return deleted_rows
+    except sqlite3.Error as e:
+        logger.error(f"SQLite error during cleanup: {e}")
+        conn.rollback()
+        return -1
+
 def parse_timestamp(raw_ts_str, log_year):
     """Converts various log timestamp formats to a standard ISO 8601 format."""
     try:
@@ -150,10 +242,9 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
         return False
     
     if not hostname: hostname = routing_info.get("hostname", None)
-    host_ip = routing_info.get("host_ip", None)
-    if not host_ip:
-        logger.error(f"No host IP found for file '{log_file_path}'")
-        return False
+    
+    if not host_ip: host_ip = routing_info.get("host_ip", None)
+
 
     # --- Historical Log Parsing ---
     if vendor == 'hpe':
@@ -172,44 +263,77 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
             
         # %Jul 10 00:39:55:758 2025 ENG22-KEL-Core OSPF/5/OSPF_NBR_CHG: OSPF 7 Neighbor 10.251.8.113(Vsi-interface877) changed from FULL to DOWN.
         # Updated OSPF regex to handle interface names like Twenty-FiveGigE1/0/2
+# 1. Parse OSPF State Changes (NBR_CHG)
         hpe_ospf_log_regex = re.compile(
-            r"%(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}:\d{3}).*?OSPF/5/OSPF_NBR_CHG:.*?OSPF\s+(\d+).*?Neighbor\s+([\d\.]+)\(([\w\-\/]+)\)\s+changed from\s+([\w/]+)\s+to\s+([\w/]+)"
-        )        
-        for match in hpe_ospf_log_regex.finditer(content):
-            timestamp = parse_timestamp(match.group(1), log_year)
-            cursor.execute(
-                '''INSERT OR IGNORE INTO ospf_state_changes 
-                (hostname, process, neighbor_address, interface, from_state, to_state, timestamp, log_file) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
-                (hostname, match.group(2), match.group(3), match.group(4), match.group(5), match.group(6), timestamp, filename_only)
-            )
-            logger.debug(f"Inserted OSPF state change: Neighbor {match.group(3)} on {match.group(4)} from {match.group(5)} to {match.group(6)}")
+            r"%(\w{3}\s+\d+\s+[\d:]+:\d{3}).*?OSPF/5/OSPF_NBR_CHG:.*?OSPF\s+(?P<proc>\d+).*?Neighbor\s+(?P<nbr>[\d\.]+)\((?P<iface>[\w\-\/]+)\)\s+changed from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)"
+        )
 
-        # Handle OSPF last neighbor down event
+        for match in hpe_ospf_log_regex.finditer(content):
+            log_message = match.group(0)  # Capture the entire log line
+            g = match.groupdict()
+            ts = parse_timestamp(match.group(1), log_year)
+            cursor.execute('''
+                INSERT OR IGNORE INTO ospf_state_changes 
+                (hostname, host_ip, process, neighbor_address, interface, from_state, to_state, timestamp, log_file, log_message) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (hostname, host_ip, g['proc'], g['nbr'], g['iface'], g['old'], g['new'], timestamp, filename_only, log_message))
+                        
+
+        # 2. Parse LAST_NBR_DOWN (This is what updates the status table)
         hpe_ospf_last_down_regex = re.compile(
-            r"%(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}:\d{3}).*?OSPF/6/OSPF_LAST_NBR_DOWN: OSPF (\d+) Last neighbor down event: Router ID: ([\d\.]+) Local address: ([\d\.]+) Remote address: ([\d\.]+) Reason: ([^\.]+)"
+            r"%(\w{3}\s+\d+\s+[\d:]+:\d{3}).*?OSPF/6/OSPF_LAST_NBR_DOWN: OSPF (?P<proc>\d+) Last neighbor down event: Router ID: (?P<rid>[\d\.]+) Local address: (?P<loc>[\d\.]+) Remote address: (?P<rem>[\d\.]+) Reason: (?P<reason>[^.]+)"
         )
-        # New multi-line regex to capture from 'display ospf peer verbose' output
-        verbose_down_regex = re.compile(
-            r"Last Neighbor Down Event:.*?Router ID:\s+([\d\.]+).*?Local Address:\s+([\d\.]+).*?Remote Address:\s+([\d\.]+).*?Time:\s+(.*?)\n\s+Reason:\s+(.*)",
-            re.DOTALL
-        )
+
         for match in hpe_ospf_last_down_regex.finditer(content):
-        # for match in verbose_down_regex.finditer(content):
-            timestamp = parse_timestamp(match.group(1), log_year)
-            process = match.group(2)
-            router_id = match.group(3)
-            local_address = match.group(4)
-            remote_address = match.group(5)
-            reason = match.group(6).strip()
-            # Update ospf_peer_status with last down event details
+            g = match.groupdict()
+            ts = parse_timestamp(match.group(1), log_year)
+            
+            # Corrected Update: Use the groups captured by THIS regex
             cursor.execute(
                 '''UPDATE ospf_peer_status 
                 SET last_down_time = ?, last_routerid = ?, last_local = ?, last_remote = ?, last_reason = ?
-                WHERE hostname = ? AND process = ? AND neighbor_address = ?''',
-                (timestamp, router_id, local_address, remote_address, reason, hostname, process, remote_address)
+                WHERE hostname = ? AND (process = ? OR neighbor_address = ?)''',
+                (ts, g['rid'], g['loc'], g['rem'], g['reason'].strip(), hostname, g['proc'], g['rem'])
             )
-            logger.debug(f"Updated OSPF peer status with last down event: Neighbor {remote_address}, Process {process}, Reason: {reason}")
+
+        # hpe_ospf_log_regex = re.compile(
+        #     r"%(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}:\d{3}).*?OSPF/5/OSPF_NBR_CHG:.*?OSPF\s+(\d+).*?Neighbor\s+([\d\.]+)\(([\w\-\/]+)\)\s+changed from\s+([\w/]+)\s+to\s+([\w/]+)"
+        # )        
+        # for match in hpe_ospf_log_regex.finditer(content):
+        #     timestamp = parse_timestamp(match.group(1), log_year)
+        #     cursor.execute(
+        #         '''INSERT OR IGNORE INTO ospf_state_changes 
+        #         (hostname, process, neighbor_address, interface, from_state, to_state, timestamp, log_file) 
+        #         VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
+        #         (hostname, match.group(2), match.group(3), match.group(4), match.group(5), match.group(6), timestamp, filename_only)
+        #     )
+        #     logger.debug(f"Inserted OSPF state change: Neighbor {match.group(3)} on {match.group(4)} from {match.group(5)} to {match.group(6)}")
+
+        # # Handle OSPF last neighbor down event
+        # hpe_ospf_last_down_regex = re.compile(
+        #     r"%(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}:\d{3}).*?OSPF/6/OSPF_LAST_NBR_DOWN: OSPF (\d+) Last neighbor down event: Router ID: ([\d\.]+) Local address: ([\d\.]+) Remote address: ([\d\.]+) Reason: ([^\.]+)"
+        # )
+        # # New multi-line regex to capture from 'display ospf peer verbose' output
+        # verbose_down_regex = re.compile(
+        #     r"Last Neighbor Down Event:.*?Router ID:\s+([\d\.]+).*?Local Address:\s+([\d\.]+).*?Remote Address:\s+([\d\.]+).*?Time:\s+(.*?)\n\s+Reason:\s+(.*)",
+        #     re.DOTALL
+        # )
+        # for match in hpe_ospf_last_down_regex.finditer(content):
+        # # for match in verbose_down_regex.finditer(content):
+        #     timestamp = parse_timestamp(match.group(1), log_year)
+        #     process = match.group(2)
+        #     router_id = match.group(3)
+        #     local_address = match.group(4)
+        #     remote_address = match.group(5)
+        #     reason = match.group(6).strip()
+        #     # Update ospf_peer_status with last down event details
+        #     cursor.execute(
+        #         '''UPDATE ospf_peer_status 
+        #         SET last_down_time = ?, last_routerid = ?, last_local = ?, last_remote = ?, last_reason = ?
+        #         WHERE hostname = ? AND process = ? AND neighbor_address = ?''',
+        #         (timestamp, router_id, local_address, remote_address, reason, hostname, process, remote_address)
+        #     )
+        #     logger.debug(f"Updated OSPF peer status with last down event: Neighbor {remote_address}, Process {process}, Reason: {reason}")
             
     elif vendor in ('cisco', 'arista'):
         # cisco_ospf_log_regex = re.compile(r"(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}).*?Ospf.*?: Instance (\d+):.*?NGB ([\d\.]+), interface ([\d\.]+) adjacency (dropped|established).*?(?:state was: (\w+))?")  
@@ -354,6 +478,7 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
                     WHEN excluded.last_reason IS NOT NULL THEN excluded.last_reason 
                     ELSE last_reason 
                 END
+            WHERE excluded.last_updated_ts >= ospf_peer_status.last_updated_ts  -- ONLY update if newer
         '''
 
         for ospf_process in routing_info["OSPF"]:
@@ -382,7 +507,8 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
                 logger.debug(f"Upserted OSPF peer: {neighbor.get('neighbor_routerid')} on interface {neighbor.get('Interface')} with last_down_time: {event_data.get('last_time') if event_data else 'None'}")
     
     #  Call the cleanup function after processing each file
-    cleanup_bgp_peer_status(conn)   
+    cleanup_bgp_peer_status(conn)  
+    cleanup_ospf_peer_status(conn) 
     conn.commit()
     return True
 

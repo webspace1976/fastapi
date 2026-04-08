@@ -122,6 +122,13 @@ def parse_uptime(up_str):
         up_str = '99999h48m'
         
     try:
+        match = re.search(r'(?:(\d+)d\s*)?(?:(\d+)h\s*)?(\d+)m', up_str)
+        if match:
+            d = int(match.group(1)) if match.group(1) else 0
+            h = int(match.group(2)) if match.group(2) else 0
+            m = int(match.group(3)) if match.group(3) else 0
+            return (d * 1440) + (h * 60) + m
+        
         if 'h' in up_str and up_str.endswith('m'):
             h_part, m_part = up_str.split('h')
             return int(h_part) * 60 + int(m_part.rstrip('m'))
@@ -818,8 +825,8 @@ def html_ospf_peers(conn, recent_ospf_flaps, problem_ospf):
             <th>Process</th>
             <th>VRF</th>
             <th>Neighbor</th>
+            <th>State</th>
             <th>Duration</th>
-            <th>Last State:Mode</th>
             <th>Last Event</th>
             <th>Last Check</th>
         </tr>
@@ -837,7 +844,21 @@ def html_ospf_peers(conn, recent_ospf_flaps, problem_ospf):
     <tbody>
         """)
 
-        all_ospf_peers = sorted(ospf_peers, key=lambda p: parse_uptime(p['verbose_uptime'] or "0:00"))
+        # all_ospf_peers = sorted(ospf_peers, key=lambda p: parse_uptime(p['verbose_uptime'] or "0:00"))
+        # time = peer['last_down_time'] or "N/A"
+
+        # up_time = fastapi_mymodule.get_dynamic_duration(time)[0] if time != "N/A" else "N/A"
+
+        all_ospf_peers = sorted(
+            ospf_peers, 
+            key=lambda p: (
+                # 1. Try dynamic duration first (returns int)
+                parse_uptime(fastapi_mymodule.get_dynamic_duration(p['last_down_time'])[0]) 
+                if p['last_down_time'] != "N/A" 
+                # 2. Fallback to verbose uptime (passed through parse_uptime to get int)
+                else  parse_uptime(p['verbose_uptime'] or "****h")
+            ),
+        )
         seen_ospf = set()
         for peer in all_ospf_peers:
             key = (peer['hostname'], peer['neighbor_address'])
@@ -852,19 +873,31 @@ def html_ospf_peers(conn, recent_ospf_flaps, problem_ospf):
                 history_link = f"<a href='history?protocol=ospf&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
                 logfile_link = f"<a href='..\..\logs\{peer['source_log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
 
-                up_time = peer['verbose_uptime'] or "N/A"
-                if up_time.startswith('****'):
-                    up_time = "&gt;9999 Hours"
-                elif parse_uptime(up_time) < 12*60 and up_time != "N/A":
-                    up_time = f"<span class='uptime-warning'>{up_time}</span>"
+
+                # if peer['state'] == 'DOWN':
+                #     time = peer['last_down_time'] or "N/A"
+                #     up_time = fastapi_mymodule.get_dynamic_duration(time)[0] if time != "N/A" else "N/A"
+                # else:
+                #     up_time = peer['verbose_uptime'] or "N/A"
+                #     if up_time.startswith('****'):
+                #         up_time = "&gt;9999 Hours"
+                #     elif parse_uptime(up_time) < 12*60 and up_time != "N/A":
+                #         up_time = f"<span class='uptime-warning'>{up_time}</span>"
+
+
+                time = peer['last_down_time'] or "N/A"
+
+                up_time = fastapi_mymodule.get_dynamic_duration(time)[0] if time != "N/A" else "N/A"
+
 
                 html_output.append(f"<tr class='{' '.join(row_classes)}'>")
                 html_output.append(f"<td>{peer['hostname'] or 'N/A'}</td>")
                 html_output.append(f"<td>{peer['process'] or 'N/A'}</td>")
                 html_output.append(f"<td>{peer['vrf'] or 'N/A'}</td>")
                 html_output.append(f"<td>{history_link}</td>")
+                html_output.append(f"<td>{peer['state'] or 'N/A'}</td>")
                 html_output.append(f"<td>{up_time}</td>") 
-                html_output.append(f"<td>{peer['state'] or 'N/A'} : {peer['mode'] or 'N/A'}</td>")
+                # html_output.append(f"<td>{peer['state'] or 'N/A'} : {peer['mode'] or 'N/A'}</td>")
                 html_output.append(f"<td>{peer['last_down_time'] or 'N/A'}</td>")
                 html_output.append(f"<td>{logfile_link}</td></tr>")
         html_output.append("</tbody></table>")
@@ -1156,7 +1189,7 @@ def display_history_page(conn, hostname, protocol, neighbor):
         html_history.append("</div>")
     return html_history
 
-
+                   
 @router.get("/", response_class=HTMLResponse)
 async def monitor_dashboard(request: Request):
     conn = get_db_conn(DB_PATH)

@@ -1,3 +1,12 @@
+    
+    {% if is_offline %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <h2><strong><i class="bi bi-exclamation-triangle-fill"></i> API Offline:</strong> </h2>
+        Could not connect to Ringer. Displaying cached data from the last successful check.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
 
 {% set total_sites = cases | map(attribute='all_sites') | map('count') | sum %}
 <h3 style="margin:0;">
@@ -52,3 +61,4 @@
 <script>
         console.log("Searching PowerOutage from {{ search_str }}")
 </script>
+

@@ -259,10 +259,13 @@ async def get_poweroutage(request: Request):
         "search": search_str,
         "open": 0
     }
+    is_offline = False  # Flag to trigger the popup/warning
+    debug_path = os.path.join(mainconfig.DATA_DIR, "debug_active_poweroutages.json")
 
     try:
         # Initial search call
         search_response = requests.get(base_url, params=params, verify=False, timeout=10)
+        search_response.raise_for_status()
         case_summaries = search_response.json()
         
         all_detailed_cases = []
@@ -289,7 +292,6 @@ async def get_poweroutage(request: Request):
         final_active_events = get_ha_power_alerts(all_detailed_cases)
 
         # Save to JSON for debugging as you requested
-        debug_path = os.path.join(mainconfig.DATA_DIR, "debug_active_poweroutages.json")
         with open(debug_path, "w", encoding="utf-8") as f:
             json.dump(final_active_events, f, indent=4)
 
@@ -307,6 +309,20 @@ async def get_poweroutage(request: Request):
         # return {"cases": []}
 
     except Exception as e:
-        logger.error(f"Two-step Fetch Error: {e}")
-        return HTMLResponse(content=f"Error loading power events: {str(e)}", status_code=500)
+        logger.error(f"Ringer API Offline. Loading cache: {e}")
+        is_offline = True
+        # Failover: Load from JSON
+        if os.path.exists(debug_path):
+            with open(debug_path, "r", encoding="utf-8") as f:
+                display_cases = json.load(f)
+        else:
+            display_cases = []
+
+    return templates.TemplateResponse("ops_poweroutage.html", {
+        "request": request, 
+        "cases": display_cases,
+        "is_offline": is_offline, # Pass this to HTML
+        "last_check": now.strftime("%Y-%m-%d %H:%M:%S")
+    })
+
 
