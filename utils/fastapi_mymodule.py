@@ -193,12 +193,22 @@ def get_dynamic_duration(last_change_str):
         tz = pytz.timezone('America/Vancouver')
         now = datetime.now(tz)
 
-        # FORMAT A: '%Mar 15 11:38:38:712 2026' (VPN/Detailed style)
-        if len(parts[-1]) == 4 and parts[-1].isdigit():
-            fmt = "%b %d %H:%M:%S.%f %Y"
+        # FORMAT A: '%Mar 15 11:38:38:712 2026' , 'Oct  8 21:43:36 2025' ,Apr 4 03.00.34:326 2026
+        if len(parts[-1]) in [3, 4] and parts[-1].isdigit():
+            clean_str = clean_str.replace(".", ":")  # Replace . to :
+            if "." in parts[-2] and len(parts[-1]) == 4:  # Handle the case where milliseconds are separated by a dot
+                fmt = "%b %d %H:%M:%S:%f %Y"
+            else:
+                fmt = "%b %d %H:%M:%S %Y"
             dt = datetime.strptime(clean_str, fmt)
             dt = tz.localize(dt)
-
+        # FORMAT C: '2026-03-23 09:16:22' (ISO/SQLite format)
+        elif '-' in parts[0]:
+            # If it already has the year at the front, just parse it
+            fmt = "%Y-%m-%d %H:%M:%S"
+            # Remove fractional seconds if they exist for consistency
+            clean_str = clean_str.split('.')[0] 
+            dt = datetime.strptime(clean_str, fmt)
         # FORMAT B: 'Mar 12 18:40:38 PST' (BGP/Standard style)
         elif parts[-1] in ['PST', 'PDT']:
             clean_str = " ".join(parts[:-1])
@@ -231,8 +241,8 @@ def get_dynamic_duration(last_change_str):
         minutes, _ = divmod(remainder, 60)
 
         if days > 0:
-            return f"{days}d {hours:02}h {minutes:02}m"
-        return f"{hours:02}h {minutes:02}m"
+            return f"{days}d {hours:02}h {minutes:02}m", duration
+        return f"{hours:02}h {minutes:02}m", duration
 
     except Exception as e:
         print(f"Parser Error: {e}")
