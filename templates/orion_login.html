@@ -4,8 +4,7 @@
     <title>Orion Login</title>
 </head>
 <body>
-    <h2>Orion on-line Check</h2>
-    <!-- <form method="post" enctype="multipart/form-data" action="/orion/run-orioncheck" target="_blank"> -->
+    <h2><b>Orion DashBoard:</b></h2>
     <form method="post" enctype="multipart/form-data" action="/api/orion/check_output" target="_blank">
 
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}"> <!-- Add CSRF token -->

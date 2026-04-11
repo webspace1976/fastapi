@@ -36,9 +36,9 @@
 </head>
 
 <div style='display:flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
-    <h2 style='margin:0'>BGP&OSPF Peer Analyzer</h2>
-    <div style='text-align: right; margin: 0; display:none;'>
-        <button class='toggle-btn' onclick='flushStatus()'>Flush Status</button>
+    <h2 style='margin:0'>ENG|KDC CORE BGP&OSPF Peer Tracker</h2>
+    <div style='text-align: right; margin: 0;'>
+        <button class='toggle-btn' onclick='flushStatus()'>Flush DataBase</button>
     </div>
 </div>
 
@@ -56,4 +56,23 @@
 
     {{ html_ospf | safe }}
 
+<script>    
+function flushStatus() {
+    if (!confirm("Are you sure you want to flush the database?")) return;
+
+    // Use /api/monitor/flush (or just /flush depending on your main.py setup)
+    fetch('/api/monitor/flush', { 
+        method: 'POST' 
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+    })
+    .then(data => {
+        alert("Success: " + data.message);
+        location.reload();
+    })
+    .catch(error => alert("Error: " + error.message));
+}
+</script>
 </html>

@@ -26,8 +26,8 @@ logger = mainconfig.setup_module_logger(__name__)
 def get_recently_changed_peers(conn):
     if conn is None:
         return [], []
-    # bgp_peers = set(row['neighbor_ip'] for row in conn.execute(
-        # "SELECT DISTINCT neighbor_ip FROM bgp_state_changes"
+    # bgp_peers = set(row['neighbor_address'] for row in conn.execute(
+        # "SELECT DISTINCT neighbor_address FROM bgp_state_changes"
     bgp_peers = conn.execute(        
         "SELECT * FROM bgp_state_changes"
     ).fetchall()
@@ -42,7 +42,7 @@ def get_problem_peers(conn):
     if conn is None:
         return set(), [], []
     problem_bgp = conn.execute(
-        "SELECT * FROM bgp_peer_status WHERE state != 'Established'"
+        "SELECT * FROM bgp_peer_status WHERE state != 'Established' AND UPPER(hostname) NOT LIKE '%LGH%'"
     ).fetchall()
     
     # problem_ospf = conn.execute(
@@ -54,7 +54,7 @@ def get_problem_peers(conn):
     
     since_time = (datetime.now() - timedelta(hours=12)).strftime("%Y-%m-%d %H:%M:%S")
     recent_bgp = conn.execute(
-        "SELECT DISTINCT neighbor_ip FROM bgp_state_changes WHERE timestamp >= ?",
+        "SELECT DISTINCT neighbor_address FROM bgp_state_changes WHERE timestamp >= ?",
         (since_time,)
     ).fetchall()
     
@@ -65,7 +65,7 @@ def get_problem_peers(conn):
     
     problem_ips = set()
     for row in problem_bgp + recent_bgp:
-        problem_ips.add(row['neighbor_ip'])
+        problem_ips.add(row['neighbor_address'])
     for row in problem_ospf + recent_ospf:
         problem_ips.add(row['neighbor_address'])
     
@@ -85,7 +85,8 @@ def get_bgp_current_status(conn):
     if conn is None:
         return []
     try:
-        query = "SELECT * FROM bgp_peer_status ORDER BY hostname, vpn_instance, neighbor_ip"
+        # query = "SELECT * FROM bgp_peer_status ORDER BY hostname, vpn_instance, neighbor_address"
+        query = "SELECT * FROM bgp_peer_status where UPPER(hostname) NOT LIKE '%LGH%' "
     except sqlite3.OperationalError as e:
         logger.error(f"Error get_bgp_current_status query: {e}")
         return []
@@ -95,7 +96,7 @@ def get_peer_history(conn, hostname, protocol, ip):
     if conn is None:
         return []
     table = 'bgp_state_changes' if protocol == 'bgp' else 'ospf_state_changes'
-    neighbor_column = 'neighbor_ip' if protocol == 'bgp' else 'neighbor_address'
+    neighbor_column = 'neighbor_address' if protocol == 'bgp' else 'neighbor_address'
     try:
         query = f"SELECT * FROM {table} WHERE {neighbor_column} = ? AND hostname = ? ORDER BY timestamp DESC"
     except sqlite3.OperationalError as e:
@@ -112,6 +113,7 @@ def parse_uptime(up_str):
         - 01:23:45, 45:30
         - ****h, never
         - 123 (minutes, fallback)
+        - 2768:19:43
     Returns: int (minutes)
     """    
     up_str = str(up_str).strip() if up_str is not None else "0"
@@ -171,7 +173,7 @@ def get_persistent_non_full_peers(conn):
             AND s1.neighbor_address = s2.neighbor_address 
             AND s1.timestamp = s2.max_ts
             AND s1.ROWID = s2.max_rowid
-        WHERE UPPER(s1.to_state) NOT LIKE 'FULL%'
+        WHERE UPPER(s1.to_state) NOT LIKE 'FULL%' and UPPER(s1.hostname) NOT LIKE '%LGH%' 
     """)
     last_events_non_full = cursor.fetchall()
     
@@ -376,7 +378,7 @@ def get_peer_status(protocol: str, host_ip: str, instance_name: str, neighbor: s
             row = conn.execute(
                 """
                 SELECT * FROM bgp_peer_status
-                WHERE host_ip = ? AND vpn_instance = ? AND neighbor_ip = ?
+                WHERE host_ip = ? AND vpn_instance = ? AND neighbor_address = ?
                 ORDER BY last_snapshot_id DESC
                 LIMIT 1
                 """,
@@ -511,17 +513,17 @@ def html_problem_peers(conn, problem_bgp, problem_ospf, recent_bgp_flaps, recent
             all_problem_bgp_peers = sorted(problem_bgp, key=lambda p: parse_uptime(p['up_down_time'] or "0:00"))
             seen_bgp = set()
             for peer in all_problem_bgp_peers:
-                key = (peer['hostname'], peer['neighbor_ip'])
+                key = (peer['hostname'], peer['neighbor_address'])
                 if key not in seen_bgp:
                     seen_bgp.add(key)
                     row_classes = []
                     if peer['state'] != 'Established':
                         row_classes.append("status-down")
-                    if peer['neighbor_ip'] in recent_bgp_flaps:
+                    if peer['neighbor_address'] in recent_bgp_flaps:
                         row_classes.append("recent-flap")
                     row_classes.append("problem-peer")
                     display_instance = f"{peer['vpn_instance'] or 'N/A'}"
-                    history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_ip']}'>{peer['neighbor_ip']}</a>"
+                    history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
                     logfile_link = f"<a href='..\..\logs\{peer['source_log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
 
                     up_time = peer['up_down_time'] or "N/A"
@@ -639,12 +641,12 @@ def html_state_event(conn, recent_bgp_flaps, recent_ospf_flaps):
 
             for peer in recent_bgp_flaps_limited:
                 display_instance = f"{peer['vpn_instance'] or 'N/A'}"
-                history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_ip']}'>{peer['neighbor_ip']}</a>"
+                history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
                 logfile_link = f"<a href='..\..\logs\{peer['log_file']}' target='_blank'>{peer['log_file'] or 'N/A'}</a>"
 
                 current_status = conn.execute(
-                    "SELECT up_down_time, state FROM bgp_peer_status WHERE neighbor_ip = ? AND hostname = ?", 
-                    (peer['neighbor_ip'], peer['hostname'])
+                    "SELECT up_down_time, state FROM bgp_peer_status WHERE neighbor_address = ? AND hostname = ?", 
+                    (peer['neighbor_address'], peer['hostname'])
                 ).fetchone()
 
                 print(f"""
@@ -765,17 +767,17 @@ def html_bgp_peers(conn, recent_bgp_flaps, problem_bgp):
         all_bgp_peers = sorted(bgp_peers, key=lambda p: parse_uptime(p['up_down_time'] or "0:00"))
         seen_bgp = set()
         for peer in all_bgp_peers:
-            key = (peer['hostname'], peer['vpn_instance'], peer['neighbor_ip'])
+            key = (peer['hostname'], peer['vpn_instance'], peer['neighbor_address'])
             if key not in seen_bgp:
                 seen_bgp.add(key)
                 row_classes = [f"status-{str(peer['state']).lower()}"]
-                if peer['neighbor_ip'] in recent_bgp_flaps: 
+                if peer['neighbor_address'] in recent_bgp_flaps: 
                     row_classes.append("recent-flap")
-                if peer['neighbor_ip'] in problem_bgp:
+                if peer['neighbor_address'] in problem_bgp:
                     row_classes.append("problem-peer")
                     
                 display_instance = f"{peer['vpn_instance'] or 'N/A'}"
-                history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_ip']}'>{peer['neighbor_ip']}</a>"
+                history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
                 logfile_link = f"<a href='..\..\logs\{peer['source_log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
                 
                 up_time = peer['up_down_time'] or "N/A"
@@ -874,20 +876,39 @@ def html_ospf_peers(conn, recent_ospf_flaps, problem_ospf):
                 logfile_link = f"<a href='..\..\logs\{peer['source_log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
 
 
-                # if peer['state'] == 'DOWN':
-                #     time = peer['last_down_time'] or "N/A"
-                #     up_time = fastapi_mymodule.get_dynamic_duration(time)[0] if time != "N/A" else "N/A"
-                # else:
-                #     up_time = peer['verbose_uptime'] or "N/A"
-                #     if up_time.startswith('****'):
-                #         up_time = "&gt;9999 Hours"
-                #     elif parse_uptime(up_time) < 12*60 and up_time != "N/A":
-                #         up_time = f"<span class='uptime-warning'>{up_time}</span>"
+                if peer['state'] not in ['FULL','Full']:
+                    time = peer['last_down_time'] or "N/A"
+                    up_time = fastapi_mymodule.get_dynamic_duration(time)[0] if time != "N/A" else "N/A"
+                else:
+                    up_time = peer['verbose_uptime'] or "N/A"
+                    if up_time.startswith('****'):
+                        up_time = "&gt;9999 Hours"
+                    elif ':' in up_time:
+                        parts = [int(x) for x in up_time.split(':')]
+                        
+                        if len(parts) == 3:
+                            h, m, s = parts
+                            # Calculate total days and the remaining hours
+                            days = h // 24
+                            rem_hours = h % 24
+                            
+                            if days > 0:
+                                up_time = f"{days}d {rem_hours}h"
+                            else:
+                                up_time = f"{h}h {m}m"
+                                
+                        elif len(parts) == 2:
+                            m, s = parts
+                            # Standardize minutes if seconds are present
+                            up_time = f"{m}m"                  
+                        
+                    elif parse_uptime(up_time) < 12*60 and up_time != "N/A":
+                        up_time = f"<span class='uptime-warning'>{up_time}</span>"
 
 
-                time = peer['last_down_time'] or "N/A"
+                # time = peer['last_down_time'] or "N/A"
 
-                up_time = fastapi_mymodule.get_dynamic_duration(time)[0] if time != "N/A" else "N/A"
+                # up_time = fastapi_mymodule.get_dynamic_duration(time)[0] if time != "N/A" else "N/A"
 
 
                 html_output.append(f"<tr class='{' '.join(row_classes)}'>")
@@ -949,28 +970,6 @@ function showSubTab(subTabName) {
     subtab.style.display = 'block';
     document.querySelector(`.problem-tabs .tab-btn[data-tab="${subTabName}"]`).classList.add('active');
     localStorage.setItem('activeSubTab', subTabName);
-}
-
-function flushStatus() {
-    if (confirm("Are you want to flush the status and update the last log analysis?")) {
-        const formData = new FormData();
-        formData.append('flush', 'true');
-
-        fetch(window.location.href, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Network response was not ok');
-            return response.json();
-        })
-        .then(data => {
-            showModal(data.status, data.message, true);
-        })
-        .catch(error => {
-            showModal('error', `Error during flush: ${error.message}`, false);
-        });
-    }
 }
 
 function showModal(status, message, allowReload) {
@@ -1131,7 +1130,7 @@ def display_history_page(conn, hostname, protocol, neighbor):
         current_status = None
         if protocol == 'bgp':
             current_status = conn.execute(
-                "SELECT * FROM bgp_peer_status WHERE neighbor_ip = ? AND hostname = ?", 
+                "SELECT * FROM bgp_peer_status WHERE neighbor_address = ? AND hostname = ?", 
                 (neighbor, hostname)
             ).fetchone()
         elif protocol == 'ospf':
@@ -1160,7 +1159,7 @@ def display_history_page(conn, hostname, protocol, neighbor):
             html_history.append("<tr><th>Hostname</th><th>VPN Instance</th><th>State Change</th><th>Timestamp</th><th>LogFile</th></tr>")
             seen_history = set()
             for entry in history:
-                key = (entry['hostname'], entry['neighbor_ip'], entry['timestamp'])
+                key = (entry['hostname'], entry['neighbor_address'], entry['timestamp'])
                 if key not in seen_history:
                     seen_history.add(key)
                     log_file = entry['log_file']
@@ -1227,7 +1226,9 @@ async def flush_status(background_tasks: BackgroundTasks):
     """Replaces the CGI flush_status logic using background tasks."""
     def run_sync():
         script_path = os.path.join(mainconfig.BASE_DIR, "utils", "analysis_sqlite.py")
-        subprocess.run(["python", script_path], capture_output=True)
+        result = subprocess.run([sys.executable, script_path], capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.error(f"Flush script failed: {result.stderr}")
 
     background_tasks.add_task(run_sync)
     return {"status": "success", "message": "Database sync started in background."}

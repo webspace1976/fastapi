@@ -1342,7 +1342,7 @@ async function muteOutage(rawDetails) {
     
     const h_id = match[0];
     
-    if (confirm(`Do you want to ignore ${h_id}? This outage will be hidden until manually removed from restore list.`)) {
+    if (confirm(`Do you want to ignore ${h_id}? This outage will be hidden until manually removed from Ignore list.`)) {
         const response = await fetch(`/api/ringer/opsapi/ignore-id/${h_id}`, { method: 'POST' });
         if (response.ok) {
             location.reload(); // Refresh to hide the muted card

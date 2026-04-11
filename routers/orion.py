@@ -708,9 +708,12 @@ def generate_syslog(session):
         if any(word in message_syslog for word in ["to UP", "to FULL", "to ESTABLISHED"]):
             change_stauts = "UP"
             icon_gif = "/icons/Event-5.gif"
-        elif any(word in message_syslog for word in ["to DOWN", "to IDLE"]):
+        elif any(word in message_syslog for word in ["to DOWN", "to IDLE", "to INIT"]):
             change_stauts = "DOWN"
             icon_gif = "/icons/Event-10.gif"
+        else:
+            change_stauts = "Unknown"
+            icon_gif = "/icons/Event-Unknown.png"
 
         table_rows += (f"""
             <tr>
@@ -798,13 +801,21 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
         last_execution_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Generate dynamic tables
-        node_table = generate_node_table(session)
-        interface_table = generate_interface_table(session)
-        # event_table = generate_event_table(session)
-        alert_table = generate_alert_table(session)
-        netpath_table = generate_netpath_table(session)
-        apipoller_table = generate_apipoller_table(session)
-        syslog_table = generate_syslog(session)
+        # node_table = generate_node_table(session)
+        # interface_table = generate_interface_table(session)
+        # # event_table = generate_event_table(session)
+        # alert_table = generate_alert_table(session)
+        # netpath_table = generate_netpath_table(session)
+        # apipoller_table = generate_apipoller_table(session)
+        # syslog_table = generate_syslog(session)
+
+        # Wrap each call so one failure doesn't stop the others
+        node_table = safe_generate(generate_node_table, session)
+        interface_table = safe_generate(generate_interface_table, session)
+        alert_table = safe_generate(generate_alert_table, session)
+        netpath_table = safe_generate(generate_netpath_table, session)
+        apipoller_table = safe_generate(generate_apipoller_table, session)
+        syslog_table = safe_generate(generate_syslog, session)    
 
         rendered_html = templates.get_template("orion_dashboard.html").render({
             "request": request,
@@ -815,7 +826,7 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
             "stale": False,  # <--- Not stale
             "node_table": node_table[0],
             "interface_table": interface_table[0],
-            # "syslog_table": syslog_table[0],  
+            # "syslog_table": syslog_table[0],  #-- html load from db
             "alert_table": alert_table[0],
             "netpath_table": netpath_table[0],
             "apipoller_table": apipoller_table[0],
@@ -934,7 +945,15 @@ def parse_swis_date(date_str):
     except ValueError:
         # Fallback for very weird strings
         return datetime.strptime(date_str[:19], '%Y-%m-%dT%H:%M:%S')
-    
+
+# Helper to safely call submodules
+def safe_generate(func, session, default_val="<p class='text-danger'>Error loading data</p>"):
+    try:
+        return func(session)
+    except Exception as e:
+        logger.error(f"Module Error in {func.__name__}: {e}")
+        # Return an error message to display inside that specific section
+        return f"<div class='alert alert-danger'>Failed to load {func.__name__} data.</div>"    
 
 ############## main
 templates = Jinja2Templates(directory="templates")
