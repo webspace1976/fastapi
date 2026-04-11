@@ -202,12 +202,14 @@ def get_dynamic_duration(last_change_str):
                 fmt = "%b %d %H:%M:%S %Y"
             dt = datetime.strptime(clean_str, fmt)
             dt = tz.localize(dt)
-        # FORMAT C: '2026-03-23 09:16:22' (ISO/SQLite format)
+        # FORMAT C: '2026-03-23 09:16:22' or 2026-04-03T23:11:09' (ISO/SQLite format)
         elif '-' in parts[0]:
+            # 1. Normalize the 'T' to a space so one format can rule them all
+            clean_str = clean_str.replace('T', ' ')
             # If it already has the year at the front, just parse it
-            fmt = "%Y-%m-%d %H:%M:%S"
             # Remove fractional seconds if they exist for consistency
             clean_str = clean_str.split('.')[0] 
+            fmt = "%Y-%m-%d %H:%M:%S"
             dt = datetime.strptime(clean_str, fmt)
         # FORMAT B: 'Mar 12 18:40:38 PST' (BGP/Standard style)
         elif parts[-1] in ['PST', 'PDT']:
@@ -220,13 +222,17 @@ def get_dynamic_duration(last_change_str):
             dt = datetime.strptime(clean_str, fmt)
             dt = tz.localize(dt)
 
-        # --- NEW FORMAT C: '2026-04-03T23:11:09' (ISO Style) ---
-        elif 'T' in clean_str:
-            # Handle cases with or without microseconds
-            fmt = "%Y-%m-%dT%H:%M:%S.%f" if '.' in clean_str else "%Y-%m-%dT%H:%M:%S"
-            dt = datetime.strptime(clean_str, fmt)
+        # # --- NEW FORMAT C: '2026-04-03T23:11:09' (ISO Style) ---
+        # elif 'T' in clean_str:
+        #     # Handle cases with or without microseconds
+        #     fmt = "%Y-%m-%dT%H:%M:%S.%f" if '.' in clean_str else "%Y-%m-%dT%H:%M:%S"
+        #     dt = datetime.strptime(clean_str, fmt)
+        #     dt = tz.localize(dt)
+        if dt is None:
+            return "UNKNOWN", None
+            
+        if dt.tzinfo is None:
             dt = tz.localize(dt)
-
         # 3. Calculate Difference
         duration = now - dt
         
@@ -245,7 +251,7 @@ def get_dynamic_duration(last_change_str):
         return f"{hours:02}h {minutes:02}m", duration
 
     except Exception as e:
-        print(f"Parser Error: {e}")
+        print(f"Parser Error: {last_change_str} : {e}")
         return "UNKNOWN"
 
 def format_size(size_bytes):

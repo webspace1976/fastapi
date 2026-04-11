@@ -1,19 +1,21 @@
 import re,urllib3,urllib.parse,os,json,atexit, html, sqlite3, pickle, sys, traceback
+import asyncio
+import pandas as pd
+
 # from logging.handlers import RotatingFileHandler
 from time import perf_counter,time,ctime
 from datetime import datetime
-from orionsdk import SwisClient
+# from orionsdk import SwisClient
 from fastapi.responses import HTMLResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import APIRouter, Form, Request, Response
-from pydantic import ValidationError
+# from pydantic import ValidationError
 from typing import Any
-import pandas as pd
 
 # Local imports
 import utils.fastapi_mymodule as mymodule
 import mainconfig as mainconfig
-from mainpydantic import OrionCheckRequest, OrionResponse
+# from mainpydantic import OrionCheckRequest, OrionResponse
 from utils.session_manager import OrionSession, update_session_audit
 from utils.orion_db_manager import sync_orion_data
 from utils.orion_db_manager import OrionDatabaseManager
@@ -957,7 +959,6 @@ def safe_generate(func, session, default_val="<p class='text-danger'>Error loadi
 
 ############## main
 templates = Jinja2Templates(directory="templates")
-import asyncio
 
 @router.get("/check_form", response_class=HTMLResponse)
 async def get_device_output_form(request: Request):

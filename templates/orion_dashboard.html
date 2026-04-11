@@ -206,7 +206,7 @@
                                 <tr>
                                     <th style="width:12%;">Time</th>
                                     <!-- <th style="width:40px;">State</th> -->
-                                    <th>Message (syslog may missed some info, please login to switch for details)</th>
+                                    <th>SYSLOG too mass may missed some info, please login to switch for details</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -432,8 +432,10 @@ function regroupAndColspan() {
                 
                 if (msg.includes("to up") || msg.includes("to full") || msg.includes("to established")) {
                     iconGif = "/icons/Event-5.gif"; // Green icon
-                } else if (msg.includes("to down") || msg.includes("to idle")) {
+                } else if (msg.includes("to down") || msg.includes("to idle") || msg.includes("to init")) {
                     iconGif = "/icons/Event-10.gif"; // Red icon
+                } else {
+                    iconGif = "/icons/Event-Unknown.png"; 
                 }
 
                 // "2026-03-20T01:07:05.7800000Z"

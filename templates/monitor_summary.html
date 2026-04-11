@@ -22,7 +22,7 @@
         .section-container { margin-bottom: 30px; border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden; }
         .section-header { background-color: #e9ecef; display: flex; justify-content: space-between; align-items: center; }
         .section-title { margin: 0; flex-grow: 1; }
-        .table-container { font-size: 12px; max-height: 500px; overflow-y: auto; }
+        .table-container { font-size: 12px; max-height: 800px; overflow-y: auto; }
         .summary-tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #dee2e6; }
         .tab-btn { padding: 10px 20px; background: #e9ecef; border: none; cursor: pointer; border-radius: 5px 5px 0 0; margin-right: 5px; }
         .tab-btn.active { background: #6c757d; color: white; font-weight: bold; }
@@ -36,7 +36,7 @@
 </head>
 
 <div style='display:flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
-    <h2 style='margin:0'>ENG|KDC CORE BGP&OSPF Peer Tracker</h2>
+    <h2 style='margin:0'><a href='/api/monitor' target="_blank">ENG|KDC CORE BGP&OSPF Peer Tracker</a></h2>
     <div style='text-align: right; margin: 0;'>
         <button class='toggle-btn' onclick='flushStatus()'>Flush DataBase</button>
     </div>
@@ -74,5 +74,6 @@ function flushStatus() {
     })
     .catch(error => alert("Error: " + error.message));
 }
+
 </script>
 </html>

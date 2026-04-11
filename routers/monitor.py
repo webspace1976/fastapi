@@ -42,7 +42,7 @@ def get_problem_peers(conn):
     if conn is None:
         return set(), [], []
     problem_bgp = conn.execute(
-        "SELECT * FROM bgp_peer_status WHERE state != 'Established' AND UPPER(hostname) NOT LIKE '%LGH%'"
+        "SELECT * FROM bgp_peer_status WHERE UPPER(state) != 'ESTABLISHED' AND UPPER(hostname) NOT LIKE '%LGH%'"
     ).fetchall()
     
     # problem_ospf = conn.execute(
@@ -54,12 +54,12 @@ def get_problem_peers(conn):
     
     since_time = (datetime.now() - timedelta(hours=12)).strftime("%Y-%m-%d %H:%M:%S")
     recent_bgp = conn.execute(
-        "SELECT DISTINCT neighbor_address FROM bgp_state_changes WHERE timestamp >= ?",
+        "SELECT DISTINCT neighbor_address FROM bgp_state_changes WHERE last_updated_ts >= ?",
         (since_time,)
     ).fetchall()
     
     recent_ospf = conn.execute(
-        "SELECT DISTINCT neighbor_address FROM ospf_state_changes WHERE timestamp >= ?",
+        "SELECT DISTINCT neighbor_address FROM ospf_state_changes WHERE last_updated_ts >= ?",
         (since_time,)
     ).fetchall()
     
@@ -98,7 +98,7 @@ def get_peer_history(conn, hostname, protocol, ip):
     table = 'bgp_state_changes' if protocol == 'bgp' else 'ospf_state_changes'
     neighbor_column = 'neighbor_address' if protocol == 'bgp' else 'neighbor_address'
     try:
-        query = f"SELECT * FROM {table} WHERE {neighbor_column} = ? AND hostname = ? ORDER BY timestamp DESC"
+        query = f"SELECT * FROM {table} WHERE {neighbor_column} = ? AND hostname = ? ORDER BY last_updated_ts DESC"
     except sqlite3.OperationalError as e:
         logger.error(f"Error get_peer_history query: {e}")
         return []
@@ -162,16 +162,16 @@ def get_persistent_non_full_peers(conn):
     
     # Step 1: Get the very last event for each peer (regardless of state), remove duplicates by ROWID- 20251126
     cursor.execute("""
-        SELECT s1.hostname, s1.process, s1.neighbor_address, s1.interface, s1.to_state, s1.timestamp, s1.log_file
+        SELECT s1.hostname, s1.process, s1.neighbor_address, s1.interface, s1.to_state, s1.last_updated_ts, s1.log_file
         FROM ospf_state_changes s1
         JOIN (
-            SELECT hostname, process, neighbor_address, MAX(timestamp) AS max_ts, MAX(ROWID) AS max_rowid
+            SELECT hostname, process, neighbor_address, MAX(last_updated_ts) AS max_ts, MAX(ROWID) AS max_rowid
             FROM ospf_state_changes
             GROUP BY hostname, process, neighbor_address
         ) s2 ON s1.hostname = s2.hostname 
             AND s1.process = s2.process 
             AND s1.neighbor_address = s2.neighbor_address 
-            AND s1.timestamp = s2.max_ts
+            AND s1.last_updated_ts = s2.max_ts
             AND s1.ROWID = s2.max_rowid
         WHERE UPPER(s1.to_state) NOT LIKE 'FULL%' and UPPER(s1.hostname) NOT LIKE '%LGH%' 
     """)
@@ -209,8 +209,8 @@ def get_persistent_non_full_peers(conn):
                 'neighbor_address': event[2],
                 'interface': event[3],
                 'last_state': event[4],
-                'timestamp': event[5],
-                'source_log_file': event[6]
+                'last_updated_ts': event[5],
+                'log_file': event[6]
             })
     
     return persistent_non_full
@@ -222,7 +222,7 @@ def get_comprehensive_ospf_report(conn):
     # Step 1: Get all current OSPF peers from peer status table
     cursor.execute("""
         SELECT hostname, process, neighbor_routerid, neighbor_address, interface, state, 
-               verbose_uptime, last_updated_ts, source_log_file
+               verbose_uptime, last_updated_ts, log_file
         FROM ospf_peer_status
         WHERE UPPER(state) NOT LIKE 'FULL%'
     """)
@@ -237,26 +237,26 @@ def get_comprehensive_ospf_report(conn):
             'router_id': peer[2],
             'uptime': peer[6],
             'last_seen': peer[7],
-            'source_log_file': peer[8]
+            'log_file': peer[8]
         }
     
     # Step 2: Get all historical state change events
     cursor.execute("""
         SELECT hostname, process, neighbor_address, interface, 
-               from_state, to_state, timestamp, log_file
+               from_state, to_state, last_updated_ts, log_file
         FROM ospf_state_changes
     """)
     all_events = cursor.fetchall()
     
-    # Process events with timestamp parsing
+    # Process events with last_updated_ts parsing
     event_dict = {}
     for event in all_events:
         host, process, addr, intf, from_state, to_state, ts, log_file = event
         key = (host, process, addr, intf)
         
-        # Parse timestamp
+        # Parse last_updated_ts
         log_year = log_file[:4] if log_file and len(log_file) >= 4 else None
-        event_time = parse_any_timestamp(ts, log_year)
+        event_time = parse_any_last_updated_ts(ts, log_year)
         
         if not event_time:
             continue
@@ -266,7 +266,7 @@ def get_comprehensive_ospf_report(conn):
             event_dict[key] = {
                 'from_state': from_state,
                 'to_state': to_state,
-                'timestamp': ts,
+                'last_updated_ts': ts,
                 'log_file': log_file,
                 'datetime': event_time
             }
@@ -303,7 +303,7 @@ def get_comprehensive_ospf_report(conn):
                 else:
                     status = f"Current: {current_state}"
                 last_event = f"{event_info['from_state']} → {event_info['to_state']}"
-                timestamp = event_info['timestamp']
+                last_updated_ts = event_info['last_updated_ts']
                 log_source = event_info['log_file']
                 sort_time = event_info['datetime']
             
@@ -311,11 +311,11 @@ def get_comprehensive_ospf_report(conn):
             else:
                 status = "FULL (no events)" if current_state == 'FULL' else f"Current: {current_state}"
                 last_event = "No state change events"
-                timestamp = current_info['last_seen']  # Use last snapshot time
+                last_updated_ts = current_info['last_seen']  # Use last snapshot time
                 log_source = current_info['source_file']
                 
-                # Parse last seen timestamp for sorting
-                last_seen_dt = parse_any_timestamp(timestamp)
+                # Parse last seen last_updated_ts for sorting
+                last_seen_dt = parse_any_last_updated_ts(last_updated_ts)
                 if last_seen_dt:
                     sort_time = last_seen_dt
                 
@@ -331,7 +331,7 @@ def get_comprehensive_ospf_report(conn):
             if event_info:
                 status = "Disappeared"
                 last_event = f"{event_info['from_state']} → {event_info['to_state']}"
-                timestamp = event_info['timestamp']
+                last_updated_ts = event_info['last_updated_ts']
                 log_source = event_info['log_file']
                 sort_time = event_info['datetime']
                 
@@ -343,7 +343,7 @@ def get_comprehensive_ospf_report(conn):
             else:
                 status = "Historical peer (no current status)"
                 last_event = "No recorded events"
-                timestamp = "N/A"
+                last_updated_ts = "N/A"
                 log_source = "Command output"
         
         report.append({
@@ -354,8 +354,8 @@ def get_comprehensive_ospf_report(conn):
             'interface': intf,
             'last_state': status,
             'last_event': last_event,
-            'timestamp': timestamp,
-            'source_log_file': log_source,
+            'last_updated_ts': last_updated_ts,
+            'log_file': log_source,
             'sort_time': sort_time  # Add datetime object for sorting
         })
     
@@ -414,8 +414,8 @@ def get_peer_status(protocol: str, host_ip: str, instance_name: str, neighbor: s
     finally:
         conn.close()
 
-def parse_any_timestamp(ts_str, log_year=None):
-    """Robust timestamp parser with enhanced error handling"""
+def parse_any_last_updated_ts(ts_str, log_year=None):
+    """Robust last_updated_ts parser with enhanced error handling"""
     if not ts_str or not isinstance(ts_str, str):
         return None
         
@@ -455,7 +455,7 @@ def parse_any_timestamp(ts_str, log_year=None):
         except (ValueError, IndexError):
             continue
     
-    logger.warning(f"Timestamp parse failed: '{ts_str}'")
+    logger.warning(f"last_updated_ts parse failed: '{ts_str}'")
     return None
 
 def get_time_from_logfile(log_file):
@@ -524,7 +524,7 @@ def html_problem_peers(conn, problem_bgp, problem_ospf, recent_bgp_flaps, recent
                     row_classes.append("problem-peer")
                     display_instance = f"{peer['vpn_instance'] or 'N/A'}"
                     history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
-                    logfile_link = f"<a href='..\..\logs\{peer['source_log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
+                    logfile_link = f"<a href='..\..\logs\core_logs\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
 
                     up_time = peer['up_down_time'] or "N/A"
                     if up_time.startswith('****'):
@@ -566,7 +566,7 @@ def html_problem_peers(conn, problem_bgp, problem_ospf, recent_bgp_flaps, recent
                 if key not in seen_ospf:
                     seen_ospf.add(key)
                     history_link = f"<a href='history?protocol=ospf&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
-                    logfile_link = f"<a href='..\..\logs\{peer['source_log_file']}' target='_blank'>{peer['timestamp'] or 'N/A'}</a>"
+                    logfile_link = f"<a href='..\..\logs\core_logs\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
 
                     html_output.append(f"<tr class='{' '.join(row_classes)}'>")
                     html_output.append(f"<td>{peer['hostname'] or 'N/A'}</td>")
@@ -636,13 +636,13 @@ def html_state_event(conn, recent_bgp_flaps, recent_ospf_flaps):
             <tbody>                                   
             """)
             # Sort and limit BGP events to the last 200
-            recent_bgp_flaps_sorted = sorted(recent_bgp_flaps, key=lambda x: x['timestamp'], reverse=True)
+            recent_bgp_flaps_sorted = sorted(recent_bgp_flaps, key=lambda x: x['last_updated_ts'], reverse=True)
             recent_bgp_flaps_limited = recent_bgp_flaps_sorted[:200] if len(recent_bgp_flaps_sorted) > 200 else recent_bgp_flaps_sorted
 
             for peer in recent_bgp_flaps_limited:
                 display_instance = f"{peer['vpn_instance'] or 'N/A'}"
                 history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
-                logfile_link = f"<a href='..\..\logs\{peer['log_file']}' target='_blank'>{peer['log_file'] or 'N/A'}</a>"
+                logfile_link = f"<a href='..\..\logs\core_logs\{peer['log_file']}' target='_blank'>{peer['log_file'] or 'N/A'}</a>"
 
                 current_status = conn.execute(
                     "SELECT up_down_time, state FROM bgp_peer_status WHERE neighbor_address = ? AND hostname = ?", 
@@ -711,7 +711,7 @@ def html_state_event(conn, recent_bgp_flaps, recent_ospf_flaps):
                     ).fetchone()
 
                     history_link = f"<a href='history?protocol=ospf&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
-                    logfile_link = f"<a href='..\..\logs\{peer['log_file']}' target='_blank'>{peer['log_file'] or 'N/A'}</a>"
+                    logfile_link = f"<a href='..\..\logs\core_logs\{peer['log_file']}' target='_blank'>{peer['log_file'] or 'N/A'}</a>"
                     # print(f"<tr class='{' '.join(row_classes)}'>")
                     print(f"<tr>")
                     print(f"<td>{peer['hostname'] or 'N/A'}</td>")
@@ -778,7 +778,7 @@ def html_bgp_peers(conn, recent_bgp_flaps, problem_bgp):
                     
                 display_instance = f"{peer['vpn_instance'] or 'N/A'}"
                 history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
-                logfile_link = f"<a href='..\..\logs\{peer['source_log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
+                logfile_link = f"<a href='..\..\logs\core_logs\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
                 
                 up_time = peer['up_down_time'] or "N/A"
                 if up_time.startswith('****'):
@@ -854,11 +854,12 @@ def html_ospf_peers(conn, recent_ospf_flaps, problem_ospf):
         all_ospf_peers = sorted(
             ospf_peers, 
             key=lambda p: (
-                # 1. Try dynamic duration first (returns int)
-                parse_uptime(fastapi_mymodule.get_dynamic_duration(p['last_down_time'])[0]) 
-                if p['last_down_time'] != "N/A" 
-                # 2. Fallback to verbose uptime (passed through parse_uptime to get int)
-                else  parse_uptime(p['verbose_uptime'] or "****h")
+                parse_uptime(p['verbose_uptime'])
+                # # 1. Try dynamic duration first (returns int)
+                # parse_uptime(fastapi_mymodule.get_dynamic_duration(p['last_down_time'])[0]) 
+                # if p['last_down_time'] != "N/A" 
+                # # 2. Fallback to verbose uptime (passed through parse_uptime to get int)
+                # else  parse_uptime(p['verbose_uptime'] or "****h")
             ),
         )
         seen_ospf = set()
@@ -873,7 +874,7 @@ def html_ospf_peers(conn, recent_ospf_flaps, problem_ospf):
                     row_classes.append("problem-peer")
 
                 history_link = f"<a href='history?protocol=ospf&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
-                logfile_link = f"<a href='..\..\logs\{peer['source_log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
+                logfile_link = f"<a href='..\..\logs\core_logs\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
 
 
                 if peer['state'] not in ['FULL','Full']:
@@ -1156,10 +1157,10 @@ def display_history_page(conn, hostname, protocol, neighbor):
         html_history.append("<div class='table-container'>")
         html_history.append("<table>")
         if protocol == 'bgp':
-            html_history.append("<tr><th>Hostname</th><th>VPN Instance</th><th>State Change</th><th>Timestamp</th><th>LogFile</th></tr>")
+            html_history.append("<tr><th>Hostname</th><th>VPN Instance</th><th>State Change</th><th>last_updated_ts</th><th>LogFile</th></tr>")
             seen_history = set()
             for entry in history:
-                key = (entry['hostname'], entry['neighbor_address'], entry['timestamp'])
+                key = (entry['hostname'], entry['neighbor_address'], entry['last_updated_ts'])
                 if key not in seen_history:
                     seen_history.add(key)
                     log_file = entry['log_file']
@@ -1167,13 +1168,13 @@ def display_history_page(conn, hostname, protocol, neighbor):
                     html_history.append(f"<tr><td>{entry['hostname'] or 'N/A'}</td>")
                     html_history.append(f"<td>{entry['vpn_instance'] or 'N/A'}</td>")
                     html_history.append(f"<td>{entry['from_state'] or 'N/A'} → {entry['to_state'] or 'N/A'}</td>")
-                    html_history.append(f"<td>{entry['timestamp'] or 'N/A'}</td>")
+                    html_history.append(f"<td>{entry['last_updated_ts'] or 'N/A'}</td>")
                     html_history.append(f"<td>{log_link}</td></tr>")
         elif protocol == 'ospf':
-            html_history.append("<tr><th>Hostname</th><th>Process</th><th>Interface</th><th>State Change</th><th>Timestamp</th><th>Log File</th></tr>")
+            html_history.append("<tr><th>Hostname</th><th>Process</th><th>Interface</th><th>State Change</th><th>last_updated_ts</th><th>Log File</th></tr>")
             seen_history = set()
             for entry in history:
-                key = (entry['hostname'], entry['neighbor_address'], entry['timestamp'])
+                key = (entry['hostname'], entry['neighbor_address'], entry['last_updated_ts'])
                 if key not in seen_history:
                     seen_history.add(key)
                     log_file = entry['log_file']
@@ -1182,7 +1183,7 @@ def display_history_page(conn, hostname, protocol, neighbor):
                     html_history.append(f"<td>{entry['process'] or 'N/A'}</td>")
                     html_history.append(f"<td>{entry['interface'] or 'N/A'}</td>")
                     html_history.append(f"<td>{entry['from_state'] or 'N/A'} → {entry['to_state'] or 'N/A'}</td>")
-                    html_history.append(f"<td>{entry['timestamp'] or 'N/A'}</td>")
+                    html_history.append(f"<td>{entry['last_updated_ts'] or 'N/A'}</td>")
                     html_history.append(f"<td>{log_link}</td></tr>")
         html_history.append("</table>")
         html_history.append("</div>")
