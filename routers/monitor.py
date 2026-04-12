@@ -43,6 +43,7 @@ def get_problem_peers(conn):
         return set(), [], []
     problem_bgp = conn.execute(
         "SELECT * FROM bgp_peer_status WHERE UPPER(state) != 'ESTABLISHED' AND UPPER(hostname) NOT LIKE '%LGH%'"
+        # "SELECT * FROM bgp_peer_status WHERE UPPER(state) != 'ESTABLISHED'"
     ).fetchall()
     
     # problem_ospf = conn.execute(

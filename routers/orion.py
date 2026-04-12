@@ -843,6 +843,9 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
         db_manager.setup_tables()
 
         conn = sqlite3.connect(mainconfig.DB_ORION_PATH)
+        # CRITICAL FIX: This allows accessing columns by name like log['LogEntryID']
+        conn.row_factory = sqlite3.Row
+
         curr = conn.cursor()
 
         # 202603 syslog tracking: Get the "First ID" (Highest current ID in SQLite)
