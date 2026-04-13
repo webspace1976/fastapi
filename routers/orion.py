@@ -311,7 +311,7 @@ def generate_node_table(session):
     </div>
     """
 
-    return results_html, results_data, site_data, results_sitetopology_data
+    return table_rows, results_data, site_data, results_sitetopology_data
 
 def generate_interface_table(session):
     query = swis_interfacdown
@@ -345,42 +345,43 @@ def generate_interface_table(session):
 
         table_row = (            
                 "<tr class=\"{}\"><td style=\"text-align:right;padding-right:5px\">{}</td><td style=\"padding-left:5px;\" id=\"node_info\" value=\"{}\"><a href=\"{}\" target=\"_blank\">{}</a></td>"
-                "<td>{}</td></tr>\n"
+                "<td style=\"text-align:left;padding-left:3px\">{}</td></tr>\n"
             ).format(
                 class_tag,
                 duration_str,
                 row.get('IPAddress', ""),                
                 url_link if url_link is not None else "",
                 row.get('NodeName', ""),
-                row.get('SiteType', "")
+                row.get('StatusDescription', "")
             )
         rows_list.append(table_row)
-    table_rows_joined = "\n".join(rows_list)
+    results_html = "\n".join(rows_list)
 
     results_data = results.get("results", [])
-    results_html = f"""
-    <table id="interfacedownTable" style="font-size:11px;width:100%">
-        <thead>
-            <tr>
-                <th style="width:14%">Duration</th> 
-                <th>
-                    <div>
-                        <strong>Link-Toggle:</strong>
-                        <label style="margin-right: 10px;"><input type="radio" name="link_type_interfacedownTable" value="Orion" checked>OrionNode</label>
-                        <label style="margin-right: 10px;"><input type="radio" name="link_type_interfacedownTable" value="SNOW">SNOW</label>
-                        <label><input type="radio" name="link_type_interfacedownTable" value="webssh">WebSSH</label>
-                        <label><input type="radio" name="link_type_interfacedownTable" value="Ringer">RingerOPS</label>
+    # results_html = table_rows_joined
+    # results_html = f"""
+    # <table id="interfacedownTable" style="font-size:11px;width:100%">
+    #     <thead>
+    #         <tr>
+    #             <th style="width:14%">Duration</th> 
+    #             <th>
+    #                 <div>
+    #                     <strong>Link-Toggle:</strong>
+    #                     <label style="margin-right: 10px;"><input type="radio" name="link_type_interfacedownTable" value="Orion" checked>OrionNode</label>
+    #                     <label style="margin-right: 10px;"><input type="radio" name="link_type_interfacedownTable" value="SNOW">SNOW</label>
+    #                     <label><input type="radio" name="link_type_interfacedownTable" value="webssh">WebSSH</label>
+    #                     <label><input type="radio" name="link_type_interfacedownTable" value="Ringer">RingerOPS</label>
 
-                    </div>
-                </th> 
-                <th style="width:12%">Type</th>
-            </tr>
-        </thead>
-        <tbody>
-            {table_rows_joined}
-        </tbody>
-    </table>
-    """
+    #                 </div>
+    #             </th> 
+    #             <th style="width:12%">Status</th>
+    #         </tr>
+    #     </thead>
+    #     <tbody>
+    #         {table_rows_joined}
+    #     </tbody>
+    # </table>
+    # """
     return results_html, results_data
 
 def generate_event_table(session):

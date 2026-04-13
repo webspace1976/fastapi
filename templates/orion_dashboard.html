@@ -111,18 +111,42 @@
                             </tbody>
                         </table>
                     </div>
-                <div style="display: flex;justify-content: space-between;">
-                    <div style="width:5%;">
-                        <label for="toggleNodeBtn"><button type="button" id="toggleNodeBtn">☰</button></label>
-                    </div>                            
-                    <div>
-                        <label for="nodeChartButton"><button id="nodeChartButton">Chart Display</button></label>    
-                    </div>    
-                </div>
-                <div id="nodeChartDown" style="display:none">
-                    <!-- chart display function from my_javasctip : piePlot('nodedownTable',nodeChartDown') -->
-                </div >
-                    {{ node_table | safe }}
+                    <div style="display: flex;justify-content: space-between;">
+                        <div style="width:5%;">
+                            <label for="toggleNodeBtn"><button type="button" id="toggleNodeBtn">☰</button></label>
+                        </div>                            
+                        <div>
+                            <label for="nodeChartButton"><button id="nodeChartButton">Chart Display</button></label>    
+                        </div>    
+                    </div>
+                    <div id="nodeChartDown" style="display:none">
+                        <!-- chart display function from my_javasctip : piePlot('nodedownTable',nodeChartDown') -->
+                    </div >
+
+                    <div style="max-height: 50vh; overflow-y: auto;">
+                    <table id="nodedownTable" style="display:none'; width:100%">
+                        <thead>
+                            <tr>
+                                <th style="width:14%">Duration</th> 
+                                <th >
+                                    <div>Link:
+                                        <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="Orion" checked>OrionNode</label>
+                                        <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="SNOW">SNOW</label>
+                                        <label><input type="radio" name="link_type_nodedownTable" value="Orion_UDT">OrionUDT</label>
+                                        <label><input type="radio" name="link_type_nodedownTable" value="Ringer">RingerOPS</label>
+                                    </div>
+                                </th> 
+                                <th style="width:12%">Type</th>
+                                <th style="display:none">IPAddress</th>
+                            </tr>
+                        </thead>
+                        <tbody style="font-size:11px;">
+                            {{ node_table | safe }}
+                        </tbody>
+                    </table>
+                    </div>                        
+                            <!-- {{ node_table | safe }} -->
+
                 </div>
 
                 <br>
@@ -144,11 +168,33 @@
                         <div><label for="interfaceCoreButton"><button id="interfaceCoreButton">KDC, Core</button></label></div>
                         <div><label for="interfaceChartButton"><button id="interfaceChartButton">Chart Display</button></label></div>
                     </div>
+
                     <div id="interfaceChartDown" style="display:none; margin-top: 0;"  >
 						<!-- chart display from function piePlot() -->
                     </div>
 
+                    <table id="interfacedownTable" style="font-size:11px;width:100%">
+                    <thead>
+                        <tr>
+                            <th style="width:13%">Duration</th> 
+                            <th>
+                                <div>
+                                    <label style="margin-right: 10px;"><input type="radio" name="link_type_interfacedownTable" value="Orion" checked>OrionNode</label>
+                                    <label style="margin-right: 10px;"><input type="radio" name="link_type_interfacedownTable" value="SNOW">SNOW</label>
+                                    <label><input type="radio" name="link_type_interfacedownTable" value="webssh">WebSSH</label>
+                                    <label><input type="radio" name="link_type_interfacedownTable" value="Ringer">RingerOPS</label>
+
+                                </div>
+                            </th> 
+                            <th style="width:13%">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
                         {{ interface_table | safe }}
+
+                    </tbody>
+                    </table>
 
                 </div>
             </div>

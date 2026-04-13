@@ -171,7 +171,7 @@ SELECT N.NodeID,N.DetailsUrl,N.NodeName,N.Status,N.StatusDescription,N.IPAddress
 FROM orion.Nodes N  
 INNER JOIN orion.Events E ON E.NetworkNode = N.NodeID  
 INNER JOIN orion.NodesCustomProperties NCP ON NCP.NodeID = N.NodeID  
-where N.status = 2 -- NOT IN (1,9,11) -- 9 unmanager, 11 external
+where N.status NOT IN (1,9,11) -- 1 up , 9 unmanager, 11 external, 12 Unreachable.
 AND e.eventtype IN (1,5,9,14)  --1 Down, 5 Up, added, reboot
 GROUP BY N.NodeID, N.Status,N.StatusDescription, NCP.Site,NCP.Address, NCP.City, N.Caption,NCP.Site,NCP.SiteType,N.DetailsUrl,N.IPAddress
 ORDER BY Seconds 
@@ -295,9 +295,11 @@ swis_event="SELECT TOP 200 N.StatusLED AS NodeStatus, ONI.StatusLED AS Interface
 swis_apipoller='''SELECT ID, Name, DisplayName, TemplateId, LastPollTimestamp, RelatedEntityId, RelatedEntityType, DetailsUrl, Status, StatusDescription, StatusLED, Image, Description
 FROM Orion.APIPoller.ApiPoller '''
 swis_netpath='''SELECT ProbeID, EndpointServiceID, Enabled, LastStatus, Status, LastProbeTime FROM Orion.NetPath.EndpointServiceAssignments where EndpointServiceID='208' OR EndpointServiceID='216' '''
+
+# 20260412 : add nodes status was not in unmanage/external (interface showing down could be due to node down, so filter out unmanaged/external nodes), and event time filter to 1000 days to cover long duration down case. 
 swis_interfacdown='''
 SELECT
-    I.DetailsUrl, n.IPAddress,
+    I.DetailsUrl, n.IPAddress,i.Status,i.StatusDescription,
     n.NodeName + ' ' + i.InterfaceCaption AS NodeName,
     NCP.SiteType,
     ToString(DayDiff(0, GETUTCDATE() - MAX(e.EventTime))) + 'd ' +
@@ -314,12 +316,15 @@ INNER JOIN
 INNER JOIN
     Orion.NodesCustomProperties AS NCP ON NCP.NodeID = N.NodeID
 WHERE
-    i.Status = 2 -- NOT IN (1,9,11) -- 1 up, 9 unmanager, 11 external
+    i.Status NOT IN (1,9,11) -- 1 up, 9 unmanager, 11 external
+    AND N.status  NOT IN (9,11) -- 9 unmanager, 11 external
     AND e.EventTime > GETDATE() - 1000
 GROUP BY
     n.NodeName + ' ' + i.InterfaceCaption,
-    NCP.SiteType,
+    NCP.SiteType,N.status,
     n.IPAddress,
+    i.Status,
+    i.StatusDescription,
     I.DetailsUrl
 ORDER BY
     Seconds
