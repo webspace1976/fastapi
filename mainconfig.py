@@ -166,13 +166,16 @@ GROUP BY N.NodeID, N.Status,N.StatusDescription, NCP.Site,N.Caption,NCP.Site,NCP
 ORDER BY NCP.Site ASC, Seconds 
 '''
 
+# 20260412 update only show NOT suppressed/muted
 swis_nodeduration='''
 SELECT N.NodeID,N.DetailsUrl,N.NodeName,N.Status,N.StatusDescription,N.IPAddress,NCP.Site,NCP.Address, NCP.City, NCP.SiteType, tolocal(MAX(E.EventTime)) AS DownTime, ToString(DayDiff(0,GETUTCDATE() - MAX(E.EventTime))) + \'d \'  + ToString(Ceiling((HourDiff(0, GETUTCDATE() - MAX(E.EventTime)) / 24.0 - Floor(HourDiff(0,GETUTCDATE() - MAX(E.EventTime)) / 24.0)) * 24 )) + \'h \'+ ToString(Ceiling((MinuteDiff(0, GETUTCDATE() - MAX(E.EventTime)) / 60.0 - Floor(MinuteDiff(0,GETUTCDATE() - MAX(E.EventTime)) / 60.0) ) * 60 )) + \'m \' AS Duration, SecondDiff(0,GETUTCDATE() - MAX(E.EventTime)) as Seconds 
 FROM orion.Nodes N  
 INNER JOIN orion.Events E ON E.NetworkNode = N.NodeID  
 INNER JOIN orion.NodesCustomProperties NCP ON NCP.NodeID = N.NodeID  
+LEFT JOIN Orion.AlertSuppression AS asup ON n.Uri = asup.EntityUri
 where N.status NOT IN (1,9,11) -- 1 up , 9 unmanager, 11 external, 12 Unreachable.
-AND e.eventtype IN (1,5,9,14)  --1 Down, 5 Up, added, reboot
+    AND e.eventtype IN (1,5,9,14)  --1 Down, 5 Up, added, reboot
+    AND asup.EntityUri IS NULL -- EXCLUSION LOGIC: Only show if NOT suppressed/muted
 GROUP BY N.NodeID, N.Status,N.StatusDescription, NCP.Site,NCP.Address, NCP.City, N.Caption,NCP.Site,NCP.SiteType,N.DetailsUrl,N.IPAddress
 ORDER BY Seconds 
 '''
@@ -315,10 +318,14 @@ INNER JOIN
     Orion.Nodes AS n ON n.NodeID = i.NodeID
 INNER JOIN
     Orion.NodesCustomProperties AS NCP ON NCP.NodeID = N.NodeID
+LEFT JOIN 
+    Orion.AlertSuppression AS asup ON n.Uri = asup.EntityUri    
 WHERE
     i.Status NOT IN (1,9,11) -- 1 up, 9 unmanager, 11 external
     AND N.status  NOT IN (9,11) -- 9 unmanager, 11 external
     AND e.EventTime > GETDATE() - 1000
+    AND asup.EntityUri IS NULL -- EXCLUSION LOGIC: Only show if NOT suppressed/muted
+
 GROUP BY
     n.NodeName + ' ' + i.InterfaceCaption,
     NCP.SiteType,N.status,

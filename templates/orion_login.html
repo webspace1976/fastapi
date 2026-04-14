@@ -4,7 +4,7 @@
     <title>Orion Login</title>
 </head>
 <body>
-    <h2><b>Orion DashBoard:</b></h2>
+    <h1><b>Orion DashBoard:</b></h1>
     <form method="post" enctype="multipart/form-data" action="/api/orion/check_output" target="_blank">
 
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}"> <!-- Add CSRF token -->
@@ -35,13 +35,20 @@
                     </tr>
                 </table>
             </div>
+
             <div>
-                    Ref: <a href="https://orion.net.mgmt/Orion/F5/F5LTMPoolDetails.aspx?NetObject=F5P:14354" target="_blank">F5 ORION WEB Pool</a>
-                    <br>Service List (202512): <br>10.248.217.144  142.71.111.67  <b>142.71.111.72 - Recommend</b>
-                    <br><br>20250702 Ken: API Servers to use in order:
-                    <br>SPAPPORIKWEB4 10.248.217.101 API Server at KDC
-                    <br>SPAPPORIKME1 10.248.217.140 Primary Main Polling Engine at KDC
-                    <br>SPAPPORIJME2 142.71.111.74  Secondary Main Polling Engine at JPN3
+                <h2 style="margin: 0;"> Note and updated on 202604:</h2>
+                <li> Ref: <a href="https://orion.net.mgmt/Orion/F5/F5LTMPoolDetails.aspx?NetObject=F5P:14354" target="_blank">F5 ORION WEB Pool</a></li> 
+                <li> Service List (202512): <br>10.248.217.144  142.71.111.67  <b>142.71.111.72 - Recommend</b></li>
+                <li> Support Orion node and interface status: <b>NOT in UP, Unmangered, Muted status.</b></li>
+                <li> Support Orion <b>OCI(CST) Netpath, Crowdstrike; PowerOutage, Syslog,</b> data collection and analysis.</li>
+                <li> Integrated with <b>ServiceNow, WebSSH, RingOPS, and PowerOutage</b> as well.</li>
+                <li> If you have trouble to access Orion DashBoard, please contact tao.lin@phsa.ca<i class="cc cc-pd-alt"></i></li>
+                
+                <!-- <br>20250702 Ken: API Servers to use in order:
+                <br>SPAPPORIKWEB4 10.248.217.101 API Server at KDC
+                <br>SPAPPORIKME1 10.248.217.140 Primary Main Polling Engine at KDC
+                <br>SPAPPORIJME2 142.71.111.74  Secondary Main Polling Engine at JPN3 -->
             </div>
         </div>
         <input type="hidden" name="redirect_udt" id="redirect_udt" value="">
