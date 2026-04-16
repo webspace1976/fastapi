@@ -139,11 +139,14 @@
 {% endif %}
 
 
+<script src="/static/js/my_javascript.js"></script>
 
 <script>
-        console.log("Searching PowerOutage from {{ search_str }}")
+    console.log("Searching PowerOutage from {{ search_str }}")
 
+    setInterval(function() {
+        window.location.reload();
+    }, 60000); // Refresh every 60 seconds
 
 </script>
-<script src="/static/js/my_javascript.js"></script>
 

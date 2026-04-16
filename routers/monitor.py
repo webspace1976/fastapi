@@ -21,7 +21,7 @@ router = APIRouter()
 templates = Jinja2Templates(directory=mainconfig.TEMPLATES_DIR)
 logger = mainconfig.setup_module_logger(__name__)
 
-
+CORE_LOGS_DIR = mainconfig.CORE_LOGS_DIR
 
 def get_recently_changed_peers(conn):
     if conn is None:
@@ -470,6 +470,7 @@ def get_time_from_logfile(log_file):
     return None
 
 def html_problem_peers(conn, problem_bgp, problem_ospf, recent_bgp_flaps, recent_ospf_flaps):
+    CORE_LOGS_DIR = mainconfig.CORE_LOGS_DIR
 
     problem_count = len(problem_bgp) + len(problem_ospf)
 
@@ -525,7 +526,7 @@ def html_problem_peers(conn, problem_bgp, problem_ospf, recent_bgp_flaps, recent
                     row_classes.append("problem-peer")
                     display_instance = f"{peer['vpn_instance'] or 'N/A'}"
                     history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
-                    logfile_link = f"<a href='..\..\logs\core_logs\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
+                    logfile_link = f"<a href='{CORE_LOGS_DIR}\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
 
                     up_time = peer['up_down_time'] or "N/A"
                     if up_time.startswith('****'):
@@ -567,7 +568,7 @@ def html_problem_peers(conn, problem_bgp, problem_ospf, recent_bgp_flaps, recent
                 if key not in seen_ospf:
                     seen_ospf.add(key)
                     history_link = f"<a href='history?protocol=ospf&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
-                    logfile_link = f"<a href='..\..\logs\core_logs\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
+                    logfile_link = f"<a href='{CORE_LOGS_DIR}\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
 
                     html_output.append(f"<tr class='{' '.join(row_classes)}'>")
                     html_output.append(f"<td>{peer['hostname'] or 'N/A'}</td>")
@@ -586,6 +587,7 @@ def html_problem_peers(conn, problem_bgp, problem_ospf, recent_bgp_flaps, recent
     return "".join(html_output)
 
 def html_state_event(conn, recent_bgp_flaps, recent_ospf_flaps):
+    
 
     print("<div id='all-event' class='tab-content'>")
     if conn is None or len(recent_bgp_flaps) == 0:
@@ -643,7 +645,7 @@ def html_state_event(conn, recent_bgp_flaps, recent_ospf_flaps):
             for peer in recent_bgp_flaps_limited:
                 display_instance = f"{peer['vpn_instance'] or 'N/A'}"
                 history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
-                logfile_link = f"<a href='..\..\logs\core_logs\{peer['log_file']}' target='_blank'>{peer['log_file'] or 'N/A'}</a>"
+                logfile_link = f"<a href='{CORE_LOGS_DIR}\{peer['log_file']}' target='_blank'>{peer['log_file'] or 'N/A'}</a>"
 
                 current_status = conn.execute(
                     "SELECT up_down_time, state FROM bgp_peer_status WHERE neighbor_address = ? AND hostname = ?", 
@@ -712,7 +714,7 @@ def html_state_event(conn, recent_bgp_flaps, recent_ospf_flaps):
                     ).fetchone()
 
                     history_link = f"<a href='history?protocol=ospf&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
-                    logfile_link = f"<a href='..\..\logs\core_logs\{peer['log_file']}' target='_blank'>{peer['log_file'] or 'N/A'}</a>"
+                    logfile_link = f"<a href='{CORE_LOGS_DIR}\{peer['log_file']}' target='_blank'>{peer['log_file'] or 'N/A'}</a>"
                     # print(f"<tr class='{' '.join(row_classes)}'>")
                     print(f"<tr>")
                     print(f"<td>{peer['hostname'] or 'N/A'}</td>")
@@ -779,8 +781,8 @@ def html_bgp_peers(conn, recent_bgp_flaps, problem_bgp):
                     
                 display_instance = f"{peer['vpn_instance'] or 'N/A'}"
                 history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
-                logfile_link = f"<a href='..\..\logs\core_logs\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
-                
+                logfile_link = f"<a href='{CORE_LOGS_DIR}\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
+
                 up_time = peer['up_down_time'] or "N/A"
                 if up_time.startswith('****'):
                     up_time = "&gt;9999 Hours"
@@ -875,7 +877,7 @@ def html_ospf_peers(conn, recent_ospf_flaps, problem_ospf):
                     row_classes.append("problem-peer")
 
                 history_link = f"<a href='history?protocol=ospf&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
-                logfile_link = f"<a href='..\..\logs\core_logs\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
+                logfile_link = f"<a href='{CORE_LOGS_DIR}\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
 
 
                 if peer['state'] not in ['FULL','Full']:
@@ -929,159 +931,6 @@ def html_ospf_peers(conn, recent_ospf_flaps, problem_ospf):
 
     return "".join(html_output)
 
-# html_java_script = """
-# function toggleSection(sectionId) {
-#     const section = document.getElementById(sectionId);
-#     const icon = document.getElementById(sectionId + '-icon');
-#     if (section && icon) {
-#         section.classList.toggle('collapsed');
-#         icon.textContent = section.classList.contains('collapsed') ? '▶' : '▼';
-#         localStorage.setItem(sectionId + '-collapsed', section.classList.contains('collapsed'));
-#     }
-# }
-
-# function showTab(tabName) {
-#     const tab = document.getElementById(tabName);
-#     if (!tab) return;
-
-#     document.querySelectorAll('.tab-content').forEach(tab => {
-#         tab.style.display = 'none';
-#     });
-#     document.querySelectorAll('.summary-tabs .tab-btn').forEach(btn => {
-#         btn.classList.remove('active');
-#     });
-#     tab.style.display = 'block';
-#     document.querySelector(`.summary-tabs .tab-btn[data-tab="${tabName}"]`).classList.add('active');
-#     localStorage.setItem('activeTab', tabName);
-
-#     if (tabName === 'problem-peers') {
-#         showSubTab('problem-bgp');
-#     }
-# }
-
-# function showSubTab(subTabName) {
-#     const subtab = document.getElementById(subTabName);
-#     if (!subtab) return;
-
-#     document.querySelectorAll('.subtab-content').forEach(subtab => {
-#         subtab.style.display = 'none';
-#     });
-#     document.querySelectorAll('.problem-tabs .tab-btn').forEach(btn => {
-#         btn.classList.remove('active');
-#     });
-#     subtab.style.display = 'block';
-#     document.querySelector(`.problem-tabs .tab-btn[data-tab="${subTabName}"]`).classList.add('active');
-#     localStorage.setItem('activeSubTab', subTabName);
-# }
-
-# function showModal(status, message, allowReload) {
-#     let modal = document.createElement('div');
-#     modal.style.cssText = `
-#         position: fixed;
-#         top: 50%;
-#         left: 50%;
-#         transform: translate(-50%, -50%);
-#         background: white;
-#         padding: 20px;
-#         border: 1px solid #ccc;
-#         box-shadow: 0 0 10px rgba(0,0,0,0.5);
-#         z-index: 1000;
-#         text-align: center;
-#     `;
-#     let content = `
-#         <h3>Flush Status</h3>
-#         <p>Status: <strong>${status.toUpperCase()}</strong></p>
-#         <p>Message: ${message}</p>
-#         <button onclick="this.parentElement.remove()">Close</button>
-#     `;
-#     if (allowReload) {
-#         content += `<button onclick="this.parentElement.remove(); location.reload();">Refresh Page</button>`;
-#     }
-#     modal.innerHTML = content;
-#     document.body.appendChild(modal);
-# }
-
-# function filterTable(tableId) {
-#     const table = document.getElementById(tableId);
-#     if (!table) return;
-
-#     const inputElements = table.querySelectorAll('.filter-row input');
-#     const rows = table.getElementsByTagName("tr");
-#     const hasFilter = Array.from(inputElements).some(input => input.value.trim() !== '');
-    
-#     let visibleCount = 0;
-
-#     if (!hasFilter) {
-#         for (let i = 2; i < rows.length; i++) {
-#             rows[i].style.display = '';
-#             visibleCount++;
-#         }
-#     } else {
-#         for (let i = 2; i < rows.length; i++) {
-#             let shouldDisplay = true;
-#             const cells = rows[i].getElementsByTagName("td");
-#             for (let j = 0; j < inputElements.length; j++) {
-#                 const filterValue = inputElements[j].value.trim();
-#                 if (filterValue) {
-#                     const cellValue = cells[j].textContent.trim() || cells[j].innerText.trim();
-#                     // Check if both filter and cell value are numeric
-#                     const isNumericFilter = /^\d+$/.test(filterValue);
-#                     const isNumericCell = /^\d+$/.test(cellValue);
-#                     if (isNumericFilter && isNumericCell) {
-#                         const normalizedFilter = parseInt(filterValue, 10);
-#                         const normalizedCell = parseInt(cellValue, 10);
-#                         if (normalizedFilter !== normalizedCell) {
-#                             shouldDisplay = false;
-#                             break;
-#                         }
-#                     } else {
-#                         // Case-insensitive substring match for non-numeric values
-#                         if (cellValue.toLowerCase().indexOf(filterValue.toLowerCase()) === -1) {
-#                             shouldDisplay = false;
-#                             break;
-#                         }
-#                     }
-#                 }
-#             }
-#             rows[i].style.display = shouldDisplay ? '' : 'none';
-#             if (shouldDisplay) visibleCount++;
-#         }
-#     }
-
-#     const countElement = document.getElementById(tableId === 'bgp-table' ? 'bgp-count' : 'ospf-count');
-#     if (countElement) {
-#         countElement.querySelector('span').textContent = visibleCount;
-#     }
-# }
-
-# document.addEventListener('DOMContentLoaded', function() {
-#     const summaryTabs = document.querySelector('.summary-tabs');
-#     if (summaryTabs) {
-#         const activeTab = localStorage.getItem('activeTab') || 'problem-peers';
-#         showTab(activeTab);
-
-#         ['event-bgp-section','event-ospf-section','bgp-section', 'ospf-section'].forEach(id => {
-#             const isCollapsed = localStorage.getItem(id + '-collapsed') === 'true';
-#             const section = document.getElementById(id);
-#             const icon = document.getElementById(id + '-icon');
-#             if (section && icon) {
-#                 if (isCollapsed) {
-#                     section.classList.add('collapsed');
-#                     icon.textContent = '▶';
-#                 }
-#             }
-#         });
-
-#         if (activeTab === 'problem-peers') {
-#             const activeSubTab = localStorage.getItem('activeSubTab') || 'problem-bgp';
-#             showSubTab(activeSubTab);
-#         }
-#     } else {
-#         localStorage.removeItem('activeTab');
-#         localStorage.removeItem('activeSubTab');
-#     }
-# });
-# """
 
 def flush_status():
     analysis_script = os.path.join(os.path.dirname(__file__), 'analysis_sqlite.py')
@@ -1120,7 +969,8 @@ def flush_status():
     print(json.dumps({"status": status, "message": message}))
 
 def display_history_page(conn, hostname, protocol, neighbor):
-    LOG_BASE_URL = "../../logs/core_logs/"
+    # LOG_BASE_URL = "../../logs/core_logs/"
+
 
     html_history = []
     html_history.append(f"<h1>History for {protocol.upper()} Peer: {hostname} {neighbor}</h1>")
@@ -1165,7 +1015,7 @@ def display_history_page(conn, hostname, protocol, neighbor):
                 if key not in seen_history:
                     seen_history.add(key)
                     log_file = entry['log_file']
-                    log_link = f"<a href='{LOG_BASE_URL}{log_file}' target='_blank'>{log_file}</a>" if log_file else "N/A"
+                    log_link = f"<a href='{CORE_LOGS_DIR}/{log_file}' target='_blank'>{log_file}</a>" if log_file else "N/A"
                     html_history.append(f"<tr><td>{entry['hostname'] or 'N/A'}</td>")
                     html_history.append(f"<td>{entry['vpn_instance'] or 'N/A'}</td>")
                     html_history.append(f"<td>{entry['from_state'] or 'N/A'} → {entry['to_state'] or 'N/A'}</td>")
@@ -1179,7 +1029,7 @@ def display_history_page(conn, hostname, protocol, neighbor):
                 if key not in seen_history:
                     seen_history.add(key)
                     log_file = entry['log_file']
-                    log_link = f"<a href='{LOG_BASE_URL}{log_file}' target='_blank'>{log_file}</a>" if log_file else "N/A"
+                    log_link = f"<a href='{CORE_LOGS_DIR}/{log_file}' target='_blank'>{log_file}</a>" if log_file else "N/A"
                     html_history.append(f"<tr><td>{entry['hostname'] or 'N/A'}</td>")
                     html_history.append(f"<td>{entry['process'] or 'N/A'}</td>")
                     html_history.append(f"<td>{entry['interface'] or 'N/A'}</td>")

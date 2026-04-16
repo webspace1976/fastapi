@@ -11,7 +11,9 @@ BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 LOGS_DIR = BASE_DIR / "logs"
 CORE_MAIN_DIR = BASE_DIR / ".." / ".." / "logs" / "core"
-CORE_LOGS_DIR = BASE_DIR / "logs" / "core_logs"
+CORE_LOGS_DIR_LOCAL = BASE_DIR / "logs" / "core_logs"
+CORE_LOGS_DIR = "/logs/core_logs"  # relative path for log links
+
 STATIC_DIR = BASE_DIR / "static"
 ICONS_DIR = STATIC_DIR / "icons"
 TEMPLATES_DIR = BASE_DIR / "templates"

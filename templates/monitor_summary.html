@@ -44,7 +44,7 @@
 </div>
 
 <div class="container" style="max-height: 40vh; overflow-y: auto;">
-    <h2 style="margin: 0;">Recent SYSLOG Network Events (eNG|KDC Core only) (Last 48 Hours)</h2>
+    <h2 style="margin: 0;">Recent Orion Syslog Events (eNG|KDC Core only) (Last 48 Hours)</h2>
     <table id="syslogTable">
         <thead>
             <tr>
@@ -66,6 +66,8 @@
     <button class='tab-btn' data-tab='all-bgp' onclick='showTab("all-bgp")'>All BGP Peers {{ (bgp_peers|length) }}</button>
 
     <button class='tab-btn' data-tab='all-ospf' onclick='showTab("all-ospf")'>All OSPF Peers {{ (ospf_peers|length) }}</button>
+
+    <!-- <a style="text-align: right;" href="/logs/core_logs" target="_blank">physical log files</a> -->
 </div>
 
     {{ html_problem | safe }}

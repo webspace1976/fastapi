@@ -283,12 +283,12 @@ async def get_poweroutage(request: Request):
         else:
             display_cases = []
 
-    return templates.TemplateResponse("ops_poweroutage.html", {
-        "request": request, 
-        "cases": display_cases,
-        "is_offline": is_offline, # Pass this to HTML
-        "last_check": now.strftime("%Y-%m-%d %H:%M:%S")
-    })
+    # return templates.TemplateResponse("ops_poweroutage.html", {
+    #     "request": request, 
+    #     "cases": display_cases,
+    #     "is_offline": is_offline, # Pass this to HTML
+    #     "last_check": now.strftime("%Y-%m-%d %H:%M:%S")
+    # })
 
 # --- New Endpoint to add to ignore list ---
 @router.post("/opsapi/ignore-id/{h_id}")

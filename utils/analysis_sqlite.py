@@ -211,20 +211,6 @@ def cleanup_logs(input_file):
 
     return final_output
 
-# def parse_last_updated_ts(raw_ts_str, log_year):
-#     """Converts various log last_updated_ts formats to a standard ISO 8601 format."""
-#     try:
-#         # HPE format: "Jul 10 16:08:00:614"
-#         if raw_ts_str.count(':') == 3:
-#             raw_ts_str = raw_ts_str.replace(':', '.', 2)
-#             dt_obj = datetime.strptime(f"{raw_ts_str} {log_year}", "%b %d %H.%M.%S.%f %Y")
-#         # Cisco format: "Jul 2 09:10:07"
-#         else:
-#             dt_obj = datetime.strptime(f"{raw_ts_str} {log_year}", "%b %d %H:%M:%S %Y")
-#         return dt_obj.strftime("%Y-%m-%d %H:%M:%S")
-#     except (ValueError, IndexError):
-#         return f"{raw_ts_str} {log_year}"    
-
 def parse_last_updated_ts(raw_ts_str, log_year):
     """
     Standardizes all timestamps to the 'T' ISO format: 2026-04-11T02:15:16
@@ -336,7 +322,7 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
             from_state = match.group(4)
             to_state = match.group(5)
             last_updated_ts = parse_last_updated_ts(match.group(1), log_year)
-            filename = os.path.basename(log_file_path)
+            # filename = os.path.basename(log_file_path)
 
             # 1. Check the LATEST last_updated_ts in the bgp_peer_status for this specific peer
             cursor.execute('''
@@ -360,7 +346,7 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
                     last_updated_ts = excluded.last_updated_ts,
                     log_file = excluded.log_file
                 WHERE excluded.last_updated_ts >= bgp_state_changes.last_updated_ts
-            ''', (hostname, host_ip, vpn, neighbor, from_state, to_state, last_updated_ts, filename, message))
+            ''', (hostname, host_ip, vpn, neighbor, from_state, to_state, last_updated_ts, relative_log_path, message))
 
                 # 3. Update the main dashboard table ONLY if this log is the newest truth
             if not latest_ts_in_db or last_updated_ts >= latest_ts_in_db:
@@ -372,7 +358,7 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
                         last_updated_ts = excluded.last_updated_ts,
                         log_file = excluded.log_file
                     WHERE excluded.last_updated_ts >= bgp_peer_status.last_updated_ts
-                ''', (hostname, host_ip, vpn, neighbor, to_state, last_updated_ts, filename))
+                ''', (hostname, host_ip, vpn, neighbor, to_state, last_updated_ts, relative_log_path))
 
         # %Jul 10 00:39:55:758 2025 ENG22-KEL-Core OSPF/5/OSPF_NBR_CHG: OSPF 7 Neighbor 10.251.8.113(Vsi-interface877) changed from FULL to DOWN.
         # Updated OSPF regex to handle interface names like Twenty-FiveGigE1/0/2
@@ -390,7 +376,7 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
                 INSERT OR IGNORE INTO ospf_state_changes 
                 (hostname, host_ip, process, neighbor_address, interface, from_state, to_state, last_updated_ts, log_file, message) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (hostname, host_ip, g['proc'], g['nbr'], g['iface'], g['old'], g['new'], last_updated_ts, filename_only, message))
+            ''', (hostname, host_ip, g['proc'], g['nbr'], g['iface'], g['old'], g['new'], last_updated_ts, relative_log_path, message))
                         
 
         # 2. Parse LAST_NBR_DOWN (This is what updates the status table)
@@ -432,7 +418,7 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
                     
                     cursor.execute(
                         'INSERT INTO ospf_state_changes (hostname, process, neighbor_address, interface, from_state, to_state, last_updated_ts, log_file) VALUES (?,?,?,?,?,?,?,?)',
-                        (hostname, g['proc'], g['nbr'], g['iface'], g['old'], g['new'], last_updated_ts, filename_only)
+                        (hostname, g['proc'], g['nbr'], g['iface'], g['old'], g['new'], last_updated_ts, relative_log_path)
                     )
                 except Exception as e:
                     logger.error(f"Error inserting OSPF row from {filename_only}: {line[:50]}, {e}")
@@ -1013,12 +999,95 @@ def parse_uptime_to_seconds(uptime_str):
         logger.warning(f"Invalid uptime format '{uptime_str}', defaulting to 0 seconds")
         return 0
 
+def sync_syslog_to_routing_db(orion_db_path, core_db_path):
+    # 1. Connect to both databases
+    orion_conn = sqlite3.connect(orion_db_path)
+    core_conn = sqlite3.connect(core_db_path)
+    orion_conn.row_factory = sqlite3.Row
+    
+    orion_curr = orion_conn.cursor()
+    core_curr = core_conn.cursor()
+
+    # 2. Fetch recent Syslogs (e.g., last 200 or by a specific ID)
+    orion_curr.execute("SELECT * FROM [Orion.SyslogTracking] ORDER BY LogEntryID DESC LIMIT 500")
+    logs = orion_curr.fetchall()
+
+    # Patterns for HPE/Cisco Syslogs
+    RE_BGP = re.compile(r"BGP.+(?:Neighbor|peer)\s+([\d\.]+).+changed\s+from\s+(\w+)\s+to\s+(\w+)", re.I)
+    RE_OSPF = re.compile(r"OSPF\s+(\d+)\s+Neighbor\s+([\d\.]+)\((.+)\)\s+changed\s+from\s+(\w+)\s+to\s+(\w+)", re.I)
+
+
+    for log in logs:
+        msg = log['Message']
+        node_name = log['NodeName']
+        host_ip = log['IPAddress']
+        # Standardize DateTime to ISO "T" format: 2026-04-11T02:15:16
+        raw_dt = log['DateTime'].replace('Z', '').split('.')[0]
+        syslog_ts = raw_dt.replace(' ', 'T')
+
+        # --- PROCESS BGP ---
+        bgp_match = RE_BGP.search(msg)
+        if bgp_match:
+            neighbor, from_st, to_st = bgp_match.group(1), bgp_match.group(2), bgp_match.group(3)
+            
+            # Step A: Update Status Table (Latest Wins)
+            core_curr.execute('''
+                INSERT INTO bgp_peer_status (hostname, host_ip, neighbor_address, state, last_updated_ts, vpn_instance, log_file)
+                VALUES (?, ?, ?, ?, ?, 'Global', 'SyslogDB')
+                ON CONFLICT(host_ip, vpn_instance, neighbor_address) DO UPDATE SET
+                    state = excluded.state,
+                    last_updated_ts = excluded.last_updated_ts,
+                    log_file = 'SyslogDB'
+                WHERE excluded.last_updated_ts > bgp_peer_status.last_updated_ts
+            ''', (node_name, host_ip, neighbor, to_st, syslog_ts))
+
+            # Step B: Record in History
+            core_curr.execute('''
+                INSERT OR IGNORE INTO bgp_state_changes (hostname, host_ip, neighbor_address, from_state, to_state, last_updated_ts, message, log_file)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'SyslogDB')
+            ''', (node_name, host_ip, neighbor, from_st, to_st, syslog_ts, msg))            
+            # core_curr.execute('''
+            #     INSERT OR IGNORE INTO bgp_state_changes (hostname, host_ip, neighbor_address, from_state, to_state, last_updated_ts, message, log_file)
+            #     VALUES (?, ?, ?, ?, ?, ?, ?, 'SyslogDB')
+            #     ON CONFLICT(host_ip, neighbor_address, last_updated_ts) DO UPDATE SET
+            #         from_state = excluded.from_state,
+            #         to_state = excluded.to_state,
+            #         last_updated_ts = excluded.last_updated_ts,
+            #         log_file = excluded.log_file
+            #     WHERE excluded.last_updated_ts >= bgp_state_changes.last_updated_ts                              
+            # ''', (node_name, host_ip, neighbor, from_st, to_st, syslog_ts, msg))
+
+        # --- PROCESS OSPF ---
+        ospf_match = RE_OSPF.search(msg)
+        if ospf_match:
+            process, neighbor, interface, from_st, to_st = ospf_match.groups()
+            
+            # Step A: Update Status Table
+            core_curr.execute('''
+                INSERT INTO ospf_peer_status (hostname, host_ip, neighbor_address, state, last_updated_ts, process, interface, log_file)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'SyslogDB')
+                ON CONFLICT(host_ip, process, neighbor_address) DO UPDATE SET
+                    state = excluded.state,
+                    last_updated_ts = excluded.last_updated_ts
+                WHERE excluded.last_updated_ts > ospf_peer_status.last_updated_ts
+            ''', (node_name, host_ip, neighbor, to_st, syslog_ts, process, interface))
+
+            # Step B: Record in History
+            core_curr.execute('''
+                INSERT OR IGNORE INTO ospf_state_changes (hostname, host_ip, neighbor_address, process, interface, from_state, to_state, last_updated_ts, message, log_file)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'SyslogDB')
+            ''', (node_name, host_ip, neighbor, process, interface, from_st, to_st, syslog_ts, msg))
+
+    core_conn.commit()
+    orion_conn.close()
+    core_conn.close()
+
 def main(log_file_path=None):
     """Main entry point: Process all logs in directory (default) or a single file (if provided)."""
     # log_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'logs', 'core'))
     # database_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'network_analysis.db'))
 
-    log_directory = mainconfig.CORE_LOGS_DIR
+    log_directory = mainconfig.CORE_LOGS_DIR_LOCAL
     # log_directory = mainconfig.CORE_MAIN_DIR
     database_path = mainconfig.DB_PATH
 
@@ -1113,13 +1182,29 @@ def main(log_file_path=None):
         logger.info("Database processing complete.")
         return True
     
+    # sync_syslog_to_routing_db(mainconfig.DB_ORION_PATH, mainconfig.DB_PATH) 
 
 if __name__ == "__main__":
-    if sys.argv[1:]:  # If args provided, treat as single files
+    if sys.argv[1:]:  # If args provided (manual file processing)
         success = False
         for arg in sys.argv[1:]:
-            if main(arg):  # Process each as single file
+            if main(arg):
                 success = True
+        
+        # Optionally sync even for manual files, or just exit
         sys.exit(0 if success else 1)
-    else:
-        sys.exit(0 if main() else 1)  # Directory mode
+        
+    else:  # Directory mode (Automatic scan)
+        # 1. Run the main log folder scan
+        main_success = main()
+        
+        # 2. Run the Syslog DB sync
+        # We run this regardless, or you can wrap it in 'if main_success:'
+        try:
+            sync_syslog_to_routing_db(mainconfig.DB_ORION_PATH, mainconfig.DB_PATH)
+            logger.info("Syslog to Routing DB sync completed.")
+        except Exception as e:
+            logger.error(f"Syslog sync failed: {e}")
+
+        # 3. Exit based on the main process result
+        sys.exit(0 if main_success else 1)    
