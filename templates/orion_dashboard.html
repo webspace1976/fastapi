@@ -235,7 +235,7 @@
                 <div id="output-syslog">
                     <div style="display:flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <h3 style="margin:0;">CORE BGP|OSPF Status</h3>
+                            <h3 style="margin:0;"><a href="/api/monitor" target="_blank">Core Peer Status: Last 48 Hours</h3>
                         </div>
                         <div style="font-size: 11px; display: flex; align-items: center; gap: 10px;">
                             <label><input type="radio" name="link_type_syslogTable" value="Orion" checked> Orion</label>
@@ -269,15 +269,7 @@
                     <div><a href="https://orion.net.mgmt/orion/netperfmon/alerts.aspx" target="_blank">Orion Alerts:  </a><span id="rowCount" style="font-weight:bold; color:blue;"></span> alerts
                     </div>
                     <div>
-                    <!-- <label for="severityFilter">Severity:</label>
-                    <select id="severityFilter" onchange="applyFilters()">
-                        <option value="all">All</option>
-                        <option value="3">Serious</option>
-                        <option value="2">Critical</option>
-                        <option value="1">Warning</option>
-                        <option value="0">Informational</option>
-                        <option value="4">Unknown</option>
-                    </select> -->
+
 
                     <label for="messageFilter">Category:</label>
                     <select id="messageFilter" onchange="applyFilters()">
@@ -457,144 +449,6 @@ function regroupAndColspan() {
         setTimeout(regroupAndColspan);
     });
 
-// async function loadSyslogFromDB() {
-//         try {
-//             const response = await fetch('/api/orion/get_SyslogTracking');
-//             const result = await response.json();
-            
-//             if (!result.data) return;
-
-//             const tableBody = document.querySelector('#syslogTable tbody');
-//             tableBody.innerHTML = ''; // Clear existing content
-
-//             result.data.forEach(log => {
-//                 // regex /^ \d{4} / matches 4 digits at the START (^) followed by a space
-//                 const cleanMessage = log.Message.replace(/^\d{4}\s/, ' ');
-
-//                 // Determine Icon based on Message text (Up/Full = Green, Down = Red)
-//                 let iconGif = "/icons/Event_Unknown.gif"; // Default blue/info
-//                 const syslogDetailsUrl = `https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:${log.NodeID}&ViewID=2453`;
-//                 const msg = cleanMessage.toLowerCase();
-                
-//                 if (msg.includes("to up") || msg.includes("to full") || msg.includes("to established")) {
-//                     iconGif = "/icons/Event-5.gif"; // Green icon
-//                 } else if (msg.includes("to down") || msg.includes("to idle") || msg.includes("to init")) {
-//                     iconGif = "/icons/Event-10.gif"; // Red icon
-//                 } else {
-//                     iconGif = "/icons/Event-Unknown.png"; 
-//                 }
-
-//                 // "2026-03-20T01:07:05.7800000Z"
-//                 const utcDate = new Date(log.DateTime);
-
-//                 // 2. Convert to Vancouver Local Time
-//                 // Format: "2026-03-19 18:07:05" (Note: date changes because of timezone shift)
-//                 const localTime = utcDate.toLocaleString('en-CA', {
-//                     timeZone: 'America/Vancouver',
-//                     hour12: false,
-//                     year: 'numeric',
-//                     month: '2-digit',
-//                     day: '2-digit',
-//                     hour: '2-digit',
-//                     minute: '2-digit',
-//                     second: '2-digit'
-//                 }).replace(',', ''); // Remove comma from en-CA format
-
-//                 // Create the row
-//                 const row = `
-//                     <tr>
-//                         <td style="text-align:center; font-size:11px;">${localTime}</td>
-//                         <td style="text-align:left;"><img src="${iconGif}" alt="state"><a href="${syslogDetailsUrl}" class="device-link" data-hostname="${log.NodeName}" data-hostip="${log.IPAddress}" target="_blank">${cleanMessage}</a></td>
-//                     </tr>
-//                 `;
-//                 tableBody.insertAdjacentHTML('beforeend', row);
-//             });
-
-//             // Re-initialize your link radio logic so the new links respond to SNOW/Orion toggles
-//             if (typeof setupLinkRadioToggle === "function") {
-//                 setupLinkRadioToggle('syslogTable', 'toggleStateSyslog');
-//             }
-
-//         } catch (error) {
-//             console.error("Error loading syslog from SQLite:", error);
-//         }
-//     }
-
-async function loadSyslogFromDB() {
-    try {
-        const response = await fetch('/api/orion/get_SyslogTracking');
-        const result = await response.json();
-        
-        if (!result.data) return;
-
-        const tableBody = document.querySelector('#syslogTable tbody');
-        tableBody.innerHTML = ''; 
-
-        // 1. Define the 48-hour cutoff
-        const now = new Date();
-        const fortyEightHoursAgo = now.getTime() - (48 * 60 * 60 * 1000);
-
-        // 2. Filter the data
-        const recentLogs = result.data.filter(log => {
-            const logDate = new Date(log.DateTime).getTime();
-            return logDate >= fortyEightHoursAgo;
-        });
-
-        // 3. Check if we have logs or show "All Good"
-        if (recentLogs.length === 0) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="2" style="text-align:center; padding: 20px; color: green; font-weight: bold;">
-                        <img src="/icons/Event-5.gif" style="vertical-align: middle; margin-right: 8px;">
-                        All systems clear - No issues in the last 48 hours.
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        // 4. Process only the filtered logs
-        recentLogs.forEach(log => {
-            const cleanMessage = log.Message.replace(/^\d{4}\s/, ' ');
-            let iconGif = "/icons/Event-Unknown.png"; 
-            const syslogDetailsUrl = `https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:${log.NodeID}&ViewID=2453`;
-            const msg = cleanMessage.toLowerCase();
-            
-            if (msg.includes("to up") || msg.includes("to full") || msg.includes("to established")) {
-                iconGif = "/icons/Event-5.gif"; 
-            } else if (msg.includes("to down") || msg.includes("to idle") || msg.includes("to init")) {
-                iconGif = "/icons/Event-10.gif"; 
-            }
-
-            const utcDate = new Date(log.DateTime);
-            const localTime = utcDate.toLocaleString('en-CA', {
-                timeZone: 'America/Vancouver',
-                hour12: false,
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            }).replace(',', '');
-
-            const row = `
-                <tr>
-                    <td style="text-align:center; font-size:11px;">${localTime}</td>
-                    <td style="text-align:left;"><img src="${iconGif}" alt="state"><a href="${syslogDetailsUrl}" class="device-link" data-hostname="${log.NodeName}" data-hostip="${log.IPAddress}" target="_blank">${cleanMessage}</a></td>
-                </tr>
-            `;
-            tableBody.insertAdjacentHTML('beforeend', row);
-        });
-
-        if (typeof setupLinkRadioToggle === "function") {
-            setupLinkRadioToggle('syslogTable', 'toggleStateSyslog');
-        }
-
-    } catch (error) {
-        console.error("Error loading syslog from SQLite:", error);
-    }
-}
 
 async function updatePowerOutages() {
     const container = document.getElementById('power-outage-container');
@@ -624,7 +478,7 @@ async function updatePowerOutages() {
 // Auto-refresh every 5 minutes to keep SOC updated
 // setInterval(updatePowerOutages, 300000);
     // Auto-load when the page opens
-    document.addEventListener('DOMContentLoaded', loadSyslogFromDB);    
+    document.addEventListener('DOMContentLoaded', loadSyslogFromDB);    // load from my_javascript.js 
     document.addEventListener('DOMContentLoaded', updatePowerOutages);
         </script>
     </body>

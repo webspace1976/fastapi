@@ -1378,6 +1378,84 @@ async function saveIgnoreList() {
     }
 }
 
+async function loadSyslogFromDB() {
+    try {
+        const response = await fetch('/api/orion/get_SyslogTracking');
+        const result = await response.json();
+        
+        if (!result.data) return;
+
+        const tableBody = document.querySelector('#syslogTable tbody');
+        tableBody.innerHTML = ''; 
+
+        // 1. Define the 48-hour cutoff
+        const now = new Date();
+        const fortyEightHoursAgo = now.getTime() - (48 * 60 * 60 * 1000);
+
+        // 2. Filter the data
+        const recentLogs = result.data.filter(log => {
+            const logDate = new Date(log.DateTime).getTime();
+            return logDate >= fortyEightHoursAgo;
+        });
+
+        // 3. Check if we have logs or show "All Good"
+        if (recentLogs.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="2" style="text-align:center; padding: 20px; color: green; font-weight: bold;">
+                        <img src="/icons/Event-5.gif" style="vertical-align: middle; margin-right: 8px;">
+                        All systems clear - No issues in the last 48 hours.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // 4. Process only the filtered logs
+        recentLogs.forEach(log => {
+            const cleanMessage = log.Message.replace(/^\d{4}\s/, ' ');
+            let iconGif = "/icons/Event-Unknown.png"; 
+            const syslogDetailsUrl = `https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:${log.NodeID}&ViewID=2453`;
+            const msg = cleanMessage.toLowerCase();
+            
+            if (msg.includes("to up") || msg.includes("to full") || msg.includes("to established")) {
+                iconGif = "/icons/Event-5.gif"; 
+            } else if (msg.includes("to down") || msg.includes("to idle") || msg.includes("to init")) {
+                iconGif = "/icons/Event-10.gif"; 
+            } else {
+                iconGif = "/icons/Event-Unknown.png"; 
+            }
+            const utcDate = new Date(log.DateTime);
+            const localTime = utcDate.toLocaleString('en-CA', {
+                timeZone: 'America/Vancouver',
+                hour12: false,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }).replace(',', '');
+
+            const row = `
+                <tr>
+                    <td style="text-align:center; font-size:11px;">${localTime}</td>
+                    <td style="text-align:left;"><img src="${iconGif}" alt="state"><a href="${syslogDetailsUrl}" class="device-link" data-hostname="${log.NodeName}" data-hostip="${log.IPAddress}" target="_blank">${cleanMessage}</a></td>
+                </tr>
+            `;
+            tableBody.insertAdjacentHTML('beforeend', row);
+        });
+
+        if (typeof setupLinkRadioToggle === "function") {
+            setupLinkRadioToggle('syslogTable', 'toggleStateSyslog');
+        }
+
+    } catch (error) {
+        console.error("Error loading syslog from SQLite:", error);
+    }
+}
+
+
 // Attach the function to radio buttons
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll('input[name="interface_info"], input[name="node_info"]').forEach(radio => {
