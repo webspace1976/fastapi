@@ -929,159 +929,159 @@ def html_ospf_peers(conn, recent_ospf_flaps, problem_ospf):
 
     return "".join(html_output)
 
-html_java_script = """
-function toggleSection(sectionId) {
-    const section = document.getElementById(sectionId);
-    const icon = document.getElementById(sectionId + '-icon');
-    if (section && icon) {
-        section.classList.toggle('collapsed');
-        icon.textContent = section.classList.contains('collapsed') ? '▶' : '▼';
-        localStorage.setItem(sectionId + '-collapsed', section.classList.contains('collapsed'));
-    }
-}
+# html_java_script = """
+# function toggleSection(sectionId) {
+#     const section = document.getElementById(sectionId);
+#     const icon = document.getElementById(sectionId + '-icon');
+#     if (section && icon) {
+#         section.classList.toggle('collapsed');
+#         icon.textContent = section.classList.contains('collapsed') ? '▶' : '▼';
+#         localStorage.setItem(sectionId + '-collapsed', section.classList.contains('collapsed'));
+#     }
+# }
 
-function showTab(tabName) {
-    const tab = document.getElementById(tabName);
-    if (!tab) return;
+# function showTab(tabName) {
+#     const tab = document.getElementById(tabName);
+#     if (!tab) return;
 
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.style.display = 'none';
-    });
-    document.querySelectorAll('.summary-tabs .tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    tab.style.display = 'block';
-    document.querySelector(`.summary-tabs .tab-btn[data-tab="${tabName}"]`).classList.add('active');
-    localStorage.setItem('activeTab', tabName);
+#     document.querySelectorAll('.tab-content').forEach(tab => {
+#         tab.style.display = 'none';
+#     });
+#     document.querySelectorAll('.summary-tabs .tab-btn').forEach(btn => {
+#         btn.classList.remove('active');
+#     });
+#     tab.style.display = 'block';
+#     document.querySelector(`.summary-tabs .tab-btn[data-tab="${tabName}"]`).classList.add('active');
+#     localStorage.setItem('activeTab', tabName);
 
-    if (tabName === 'problem-peers') {
-        showSubTab('problem-bgp');
-    }
-}
+#     if (tabName === 'problem-peers') {
+#         showSubTab('problem-bgp');
+#     }
+# }
 
-function showSubTab(subTabName) {
-    const subtab = document.getElementById(subTabName);
-    if (!subtab) return;
+# function showSubTab(subTabName) {
+#     const subtab = document.getElementById(subTabName);
+#     if (!subtab) return;
 
-    document.querySelectorAll('.subtab-content').forEach(subtab => {
-        subtab.style.display = 'none';
-    });
-    document.querySelectorAll('.problem-tabs .tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    subtab.style.display = 'block';
-    document.querySelector(`.problem-tabs .tab-btn[data-tab="${subTabName}"]`).classList.add('active');
-    localStorage.setItem('activeSubTab', subTabName);
-}
+#     document.querySelectorAll('.subtab-content').forEach(subtab => {
+#         subtab.style.display = 'none';
+#     });
+#     document.querySelectorAll('.problem-tabs .tab-btn').forEach(btn => {
+#         btn.classList.remove('active');
+#     });
+#     subtab.style.display = 'block';
+#     document.querySelector(`.problem-tabs .tab-btn[data-tab="${subTabName}"]`).classList.add('active');
+#     localStorage.setItem('activeSubTab', subTabName);
+# }
 
-function showModal(status, message, allowReload) {
-    let modal = document.createElement('div');
-    modal.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: white;
-        padding: 20px;
-        border: 1px solid #ccc;
-        box-shadow: 0 0 10px rgba(0,0,0,0.5);
-        z-index: 1000;
-        text-align: center;
-    `;
-    let content = `
-        <h3>Flush Status</h3>
-        <p>Status: <strong>${status.toUpperCase()}</strong></p>
-        <p>Message: ${message}</p>
-        <button onclick="this.parentElement.remove()">Close</button>
-    `;
-    if (allowReload) {
-        content += `<button onclick="this.parentElement.remove(); location.reload();">Refresh Page</button>`;
-    }
-    modal.innerHTML = content;
-    document.body.appendChild(modal);
-}
+# function showModal(status, message, allowReload) {
+#     let modal = document.createElement('div');
+#     modal.style.cssText = `
+#         position: fixed;
+#         top: 50%;
+#         left: 50%;
+#         transform: translate(-50%, -50%);
+#         background: white;
+#         padding: 20px;
+#         border: 1px solid #ccc;
+#         box-shadow: 0 0 10px rgba(0,0,0,0.5);
+#         z-index: 1000;
+#         text-align: center;
+#     `;
+#     let content = `
+#         <h3>Flush Status</h3>
+#         <p>Status: <strong>${status.toUpperCase()}</strong></p>
+#         <p>Message: ${message}</p>
+#         <button onclick="this.parentElement.remove()">Close</button>
+#     `;
+#     if (allowReload) {
+#         content += `<button onclick="this.parentElement.remove(); location.reload();">Refresh Page</button>`;
+#     }
+#     modal.innerHTML = content;
+#     document.body.appendChild(modal);
+# }
 
-function filterTable(tableId) {
-    const table = document.getElementById(tableId);
-    if (!table) return;
+# function filterTable(tableId) {
+#     const table = document.getElementById(tableId);
+#     if (!table) return;
 
-    const inputElements = table.querySelectorAll('.filter-row input');
-    const rows = table.getElementsByTagName("tr");
-    const hasFilter = Array.from(inputElements).some(input => input.value.trim() !== '');
+#     const inputElements = table.querySelectorAll('.filter-row input');
+#     const rows = table.getElementsByTagName("tr");
+#     const hasFilter = Array.from(inputElements).some(input => input.value.trim() !== '');
     
-    let visibleCount = 0;
+#     let visibleCount = 0;
 
-    if (!hasFilter) {
-        for (let i = 2; i < rows.length; i++) {
-            rows[i].style.display = '';
-            visibleCount++;
-        }
-    } else {
-        for (let i = 2; i < rows.length; i++) {
-            let shouldDisplay = true;
-            const cells = rows[i].getElementsByTagName("td");
-            for (let j = 0; j < inputElements.length; j++) {
-                const filterValue = inputElements[j].value.trim();
-                if (filterValue) {
-                    const cellValue = cells[j].textContent.trim() || cells[j].innerText.trim();
-                    // Check if both filter and cell value are numeric
-                    const isNumericFilter = /^\d+$/.test(filterValue);
-                    const isNumericCell = /^\d+$/.test(cellValue);
-                    if (isNumericFilter && isNumericCell) {
-                        const normalizedFilter = parseInt(filterValue, 10);
-                        const normalizedCell = parseInt(cellValue, 10);
-                        if (normalizedFilter !== normalizedCell) {
-                            shouldDisplay = false;
-                            break;
-                        }
-                    } else {
-                        // Case-insensitive substring match for non-numeric values
-                        if (cellValue.toLowerCase().indexOf(filterValue.toLowerCase()) === -1) {
-                            shouldDisplay = false;
-                            break;
-                        }
-                    }
-                }
-            }
-            rows[i].style.display = shouldDisplay ? '' : 'none';
-            if (shouldDisplay) visibleCount++;
-        }
-    }
+#     if (!hasFilter) {
+#         for (let i = 2; i < rows.length; i++) {
+#             rows[i].style.display = '';
+#             visibleCount++;
+#         }
+#     } else {
+#         for (let i = 2; i < rows.length; i++) {
+#             let shouldDisplay = true;
+#             const cells = rows[i].getElementsByTagName("td");
+#             for (let j = 0; j < inputElements.length; j++) {
+#                 const filterValue = inputElements[j].value.trim();
+#                 if (filterValue) {
+#                     const cellValue = cells[j].textContent.trim() || cells[j].innerText.trim();
+#                     // Check if both filter and cell value are numeric
+#                     const isNumericFilter = /^\d+$/.test(filterValue);
+#                     const isNumericCell = /^\d+$/.test(cellValue);
+#                     if (isNumericFilter && isNumericCell) {
+#                         const normalizedFilter = parseInt(filterValue, 10);
+#                         const normalizedCell = parseInt(cellValue, 10);
+#                         if (normalizedFilter !== normalizedCell) {
+#                             shouldDisplay = false;
+#                             break;
+#                         }
+#                     } else {
+#                         // Case-insensitive substring match for non-numeric values
+#                         if (cellValue.toLowerCase().indexOf(filterValue.toLowerCase()) === -1) {
+#                             shouldDisplay = false;
+#                             break;
+#                         }
+#                     }
+#                 }
+#             }
+#             rows[i].style.display = shouldDisplay ? '' : 'none';
+#             if (shouldDisplay) visibleCount++;
+#         }
+#     }
 
-    const countElement = document.getElementById(tableId === 'bgp-table' ? 'bgp-count' : 'ospf-count');
-    if (countElement) {
-        countElement.querySelector('span').textContent = visibleCount;
-    }
-}
+#     const countElement = document.getElementById(tableId === 'bgp-table' ? 'bgp-count' : 'ospf-count');
+#     if (countElement) {
+#         countElement.querySelector('span').textContent = visibleCount;
+#     }
+# }
 
-document.addEventListener('DOMContentLoaded', function() {
-    const summaryTabs = document.querySelector('.summary-tabs');
-    if (summaryTabs) {
-        const activeTab = localStorage.getItem('activeTab') || 'problem-peers';
-        showTab(activeTab);
+# document.addEventListener('DOMContentLoaded', function() {
+#     const summaryTabs = document.querySelector('.summary-tabs');
+#     if (summaryTabs) {
+#         const activeTab = localStorage.getItem('activeTab') || 'problem-peers';
+#         showTab(activeTab);
 
-        ['event-bgp-section','event-ospf-section','bgp-section', 'ospf-section'].forEach(id => {
-            const isCollapsed = localStorage.getItem(id + '-collapsed') === 'true';
-            const section = document.getElementById(id);
-            const icon = document.getElementById(id + '-icon');
-            if (section && icon) {
-                if (isCollapsed) {
-                    section.classList.add('collapsed');
-                    icon.textContent = '▶';
-                }
-            }
-        });
+#         ['event-bgp-section','event-ospf-section','bgp-section', 'ospf-section'].forEach(id => {
+#             const isCollapsed = localStorage.getItem(id + '-collapsed') === 'true';
+#             const section = document.getElementById(id);
+#             const icon = document.getElementById(id + '-icon');
+#             if (section && icon) {
+#                 if (isCollapsed) {
+#                     section.classList.add('collapsed');
+#                     icon.textContent = '▶';
+#                 }
+#             }
+#         });
 
-        if (activeTab === 'problem-peers') {
-            const activeSubTab = localStorage.getItem('activeSubTab') || 'problem-bgp';
-            showSubTab(activeSubTab);
-        }
-    } else {
-        localStorage.removeItem('activeTab');
-        localStorage.removeItem('activeSubTab');
-    }
-});
-"""
+#         if (activeTab === 'problem-peers') {
+#             const activeSubTab = localStorage.getItem('activeSubTab') || 'problem-bgp';
+#             showSubTab(activeSubTab);
+#         }
+#     } else {
+#         localStorage.removeItem('activeTab');
+#         localStorage.removeItem('activeSubTab');
+#     }
+# });
+# """
 
 def flush_status():
     analysis_script = os.path.join(os.path.dirname(__file__), 'analysis_sqlite.py')
@@ -1212,7 +1212,7 @@ async def monitor_dashboard(request: Request):
     return templates.TemplateResponse("monitor_summary.html", {
         "request": request,
         "bgp_peers": bgp_peers,
-        "html_java_script": html_java_script,
+        # "html_java_script": html_java_script,
         "problem_peers":problem_peers,
         "problem_bgp": problem_bgp,
         "problem_ospf":problem_ospf,

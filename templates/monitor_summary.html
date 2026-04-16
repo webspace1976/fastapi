@@ -32,8 +32,24 @@
         .filter-row { background-color: #f1f1f1; position: sticky; margin: 0; }
         .filter-row input { width: 100%; padding: 0px; margin: 0; box-sizing: border-box; border: 1px solid #dee2e6; border-radius: 4px; }   
     </style>    
-<script>{{ html_java_script | safe }} </script>
+<!-- <script>{{ html_java_script | safe }} </script> -->
 </head>
+
+
+<div class="container" style="max-height: 50vh; overflow-y: auto;">
+    <h2>Recent Network Events (Last 48 Hours)</h2>
+    <table id="syslogTable">
+        <thead>
+            <tr>
+                <th style="width: 200px; text-align: center;">Local Time (Vancouver)</th>
+                <th>Event Message</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="2" style="text-align:center;">Loading logs...</td></tr>
+        </tbody>
+    </table>
+</div>
 
 <div style='display:flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
     <h2 style='margin:0'><a href='/api/monitor' target="_blank">ENG|KDC CORE BGP&OSPF Peer Tracker</a></h2>
@@ -74,6 +90,229 @@ function flushStatus() {
     })
     .catch(error => alert("Error: " + error.message));
 }
+
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    const icon = document.getElementById(sectionId + '-icon');
+    if (section && icon) {
+        section.classList.toggle('collapsed');
+        icon.textContent = section.classList.contains('collapsed') ? '▶' : '▼';
+        localStorage.setItem(sectionId + '-collapsed', section.classList.contains('collapsed'));
+    }
+}
+
+function showTab(tabName) {
+    const tab = document.getElementById(tabName);
+    if (!tab) return;
+
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.style.display = 'none';
+    });
+    document.querySelectorAll('.summary-tabs .tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    tab.style.display = 'block';
+    document.querySelector(`.summary-tabs .tab-btn[data-tab="${tabName}"]`).classList.add('active');
+    localStorage.setItem('activeTab', tabName);
+
+    if (tabName === 'problem-peers') {
+        showSubTab('problem-bgp');
+    }
+}
+
+function showSubTab(subTabName) {
+    const subtab = document.getElementById(subTabName);
+    if (!subtab) return;
+
+    document.querySelectorAll('.subtab-content').forEach(subtab => {
+        subtab.style.display = 'none';
+    });
+    document.querySelectorAll('.problem-tabs .tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    subtab.style.display = 'block';
+    document.querySelector(`.problem-tabs .tab-btn[data-tab="${subTabName}"]`).classList.add('active');
+    localStorage.setItem('activeSubTab', subTabName);
+}
+
+function showModal(status, message, allowReload) {
+    let modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border: 1px solid #ccc;
+        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        z-index: 1000;
+        text-align: center;
+    `;
+    let content = `
+        <h3>Flush Status</h3>
+        <p>Status: <strong>${status.toUpperCase()}</strong></p>
+        <p>Message: ${message}</p>
+        <button onclick="this.parentElement.remove()">Close</button>
+    `;
+    if (allowReload) {
+        content += `<button onclick="this.parentElement.remove(); location.reload();">Refresh Page</button>`;
+    }
+    modal.innerHTML = content;
+    document.body.appendChild(modal);
+}
+
+function filterTable(tableId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    const inputElements = table.querySelectorAll('.filter-row input');
+    const rows = table.getElementsByTagName("tr");
+    const hasFilter = Array.from(inputElements).some(input => input.value.trim() !== '');
+    
+    let visibleCount = 0;
+
+    if (!hasFilter) {
+        for (let i = 2; i < rows.length; i++) {
+            rows[i].style.display = '';
+            visibleCount++;
+        }
+    } else {
+        for (let i = 2; i < rows.length; i++) {
+            let shouldDisplay = true;
+            const cells = rows[i].getElementsByTagName("td");
+            for (let j = 0; j < inputElements.length; j++) {
+                const filterValue = inputElements[j].value.trim();
+                if (filterValue) {
+                    const cellValue = cells[j].textContent.trim() || cells[j].innerText.trim();
+                    // Check if both filter and cell value are numeric
+                    const isNumericFilter = /^\d+$/.test(filterValue);
+                    const isNumericCell = /^\d+$/.test(cellValue);
+                    if (isNumericFilter && isNumericCell) {
+                        const normalizedFilter = parseInt(filterValue, 10);
+                        const normalizedCell = parseInt(cellValue, 10);
+                        if (normalizedFilter !== normalizedCell) {
+                            shouldDisplay = false;
+                            break;
+                        }
+                    } else {
+                        // Case-insensitive substring match for non-numeric values
+                        if (cellValue.toLowerCase().indexOf(filterValue.toLowerCase()) === -1) {
+                            shouldDisplay = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            rows[i].style.display = shouldDisplay ? '' : 'none';
+            if (shouldDisplay) visibleCount++;
+        }
+    }
+
+    const countElement = document.getElementById(tableId === 'bgp-table' ? 'bgp-count' : 'ospf-count');
+    if (countElement) {
+        countElement.querySelector('span').textContent = visibleCount;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const summaryTabs = document.querySelector('.summary-tabs');
+    if (summaryTabs) {
+        const activeTab = localStorage.getItem('activeTab') || 'problem-peers';
+        showTab(activeTab);
+
+        ['event-bgp-section','event-ospf-section','bgp-section', 'ospf-section'].forEach(id => {
+            const isCollapsed = localStorage.getItem(id + '-collapsed') === 'true';
+            const section = document.getElementById(id);
+            const icon = document.getElementById(id + '-icon');
+            if (section && icon) {
+                if (isCollapsed) {
+                    section.classList.add('collapsed');
+                    icon.textContent = '▶';
+                }
+            }
+        });
+
+        if (activeTab === 'problem-peers') {
+            const activeSubTab = localStorage.getItem('activeSubTab') || 'problem-bgp';
+            showSubTab(activeSubTab);
+        }
+    } else {
+        localStorage.removeItem('activeTab');
+        localStorage.removeItem('activeSubTab');
+    }
+});
+
+
+    async function loadSyslogFromDB() {
+        try {
+            // Adjust this URL to your actual API endpoint
+            const response = await fetch('/api/orion/get_SyslogTracking');
+            const result = await response.json();
+            
+            if (!result.data) return;
+
+            const tableBody = document.querySelector('#syslogTable tbody');
+            tableBody.innerHTML = ''; 
+
+            // 1. Filter for last 48 hours
+            const now = new Date();
+            const cutoff = now.getTime() - (48 * 60 * 60 * 1000);
+
+            const recentLogs = result.data.filter(log => new Date(log.DateTime).getTime() >= cutoff);
+
+            // 2. Show "All Good" if no logs found
+            if (recentLogs.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="2" style="text-align:center; padding: 40px; color: #28a745; font-size: 16px;">
+                            <img src="/icons/Event-5.gif" class="status-icon"> 
+                            <strong>All Clear:</strong> No critical events in the last 48 hours.
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            // 3. Render rows
+            recentLogs.forEach(log => {
+                const cleanMessage = log.Message.replace(/^\d{4}\s/, ' ');
+                const msg = cleanMessage.toLowerCase();
+                
+                // Icon Logic
+                let icon = "/icons/Event-Unknown.png"; 
+                if (msg.includes("up") || msg.includes("full") || msg.includes("established")) {
+                    icon = "/icons/Event-5.gif"; 
+                } else if (msg.includes("down") || msg.includes("idle") || msg.includes("init")) {
+                    icon = "/icons/Event-10.gif"; 
+                }
+
+                // Time Conversion (Vancouver)
+                const localTime = new Date(log.DateTime).toLocaleString('en-CA', {
+                    timeZone: 'America/Vancouver',
+                    hour12: false,
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
+                }).replace(',', '');
+
+                const row = `
+                    <tr>
+                        <td class="timestamp">${localTime}</td>
+                        <td>
+                            <img src="${icon}" class="status-icon">
+                            <a href="#" class="device-link">${cleanMessage}</a>
+                        </td>
+                    </tr>`;
+                tableBody.insertAdjacentHTML('beforeend', row);
+            });
+
+        } catch (error) {
+            console.error("Error:", error);
+            document.querySelector('#syslogTable tbody').innerHTML = '<tr><td colspan="2" style="color:red;">Failed to load data.</td></tr>';
+        }
+    }
+
+    // Initialize on load
+    loadSyslogFromDB();
 
 </script>
 </html>
