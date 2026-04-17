@@ -470,7 +470,7 @@ def get_time_from_logfile(log_file):
     return None
 
 def html_problem_peers(conn, problem_bgp, problem_ospf, recent_bgp_flaps, recent_ospf_flaps):
-    CORE_LOGS_DIR = mainconfig.CORE_LOGS_DIR
+    # CORE_LOGS_DIR = mainconfig.CORE_LOGS_DIR
 
     problem_count = len(problem_bgp) + len(problem_ospf)
 

@@ -1380,7 +1380,7 @@ async function saveIgnoreList() {
 
 async function loadSyslogFromDB() {
     try {
-        const response = await fetch('/api/orion/get_SyslogTracking');
+        const response = await fetch('/api/orion/get_PeerTracking');
         const result = await response.json();
         
         if (!result.data) return;
@@ -1404,7 +1404,7 @@ async function loadSyslogFromDB() {
                 <tr>
                     <td colspan="2" style="text-align:center; padding: 20px; color: green; font-weight: bold;">
                         <img src="/icons/Event-5.gif" style="vertical-align: middle; margin-right: 8px;">
-                        All systems clear - No issues in the last 48 hours.
+                        All clear, No BGP/OSPF alert observed from OrionSyslog and Manually Check Log file.
                     </td>
                 </tr>
             `;
@@ -1445,6 +1445,144 @@ async function loadSyslogFromDB() {
             `;
             tableBody.insertAdjacentHTML('beforeend', row);
         });
+
+        if (typeof setupLinkRadioToggle === "function") {
+            setupLinkRadioToggle('syslogTable', 'toggleStateSyslog');
+        }
+
+    } catch (error) {
+        console.error("Error loading syslog from SQLite:", error);
+    }
+}
+
+async function loadPeerFromDB() {
+    try {
+        const response = await fetch('/api/orion/get_PeerTracking');
+        const result = await response.json();
+        
+        if (!result.data) return;
+
+        const tableBody = document.querySelector('#syslogTable tbody');
+        tableBody.innerHTML = ''; 
+
+        // 1. Define the 48-hour cutoff
+        const now = new Date();
+        const fortyEightHoursAgo = now.getTime() - (48 * 60 * 60 * 1000);
+
+        // 2. Filter the data
+        const recentLogs = result.data.filter(log => {
+            // Your DB uses ISO format "2026-04-15T02:26:27" which JS Date handles well
+            const logDate = new Date(log.last_updated_ts).getTime();
+            return logDate >= fortyEightHoursAgo;
+        });
+
+
+        // 3. Check if we have logs or show "All Good"
+        if (recentLogs.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="3">    
+                    <div style="text-align: center; background: #e9f7ef; border: 2px solid #28a745; border-radius: 8px; color: #155724;">
+                        <h2 style="margin: 0;">✅All clear</h2>
+                        <p style="margin-top: 10px; font-size: 1.1em;">No BGP/OSPF event observed from OrionSyslog or Manually Check Logfile.</p>
+                    </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // 4. Process only the filtered logs
+        recentLogs.forEach(log => {
+            // Standardize display: [BGP] or [OSPF] prefix
+            const protocolLabel = `<strong>[${log.protocol}]</strong>`;
+            const cleanMessage = log.message ? log.message.replace(/^\d{4}\s/, ' ') : `${log.hostname} ${log.neighbor_address} changed to ${log.to_state}`;
+            
+            let iconGif = "/icons/Event-Unknown.png"; 
+            let source = "Unknown";
+            let detailsUrl = "Unknown";
+
+            if (log.log_file === "SyslogDB") {
+                // 2. Use '=' for assignment
+                source = "SyslogDB";
+                detailsUrl = `https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:${log.NodeID || ''}&ViewID=2453`;
+            } else {
+                source = "LogFile";
+                // 3. Use '${ }' for variables and double backslashes for Windows paths
+                detailsUrl = `\\logs\\core_logs\\${log.log_file}`;
+            }
+            const msgLower = cleanMessage.toLowerCase();
+            const stateLower = log.to_state ? log.to_state.toLowerCase() : "";
+
+            console.log(source, detailsUrl )
+
+            //  Calculate Counts
+            const counts = recentLogs.reduce((acc, log) => {
+                if (log.log_file === "SyslogDB") {
+                    acc.syslog++;
+                } else {
+                    acc.logfile++;
+                }
+                return acc;
+            }, { syslog: 0, logfile: 0 });
+
+            // Update UI Elements with counts (Make sure these IDs exist in your HTML)
+            const syslogBadge = document.getElementById('syslogCount');
+            const logFileBadge = document.getElementById('logFileCount');
+            if (syslogBadge) syslogBadge.textContent = counts.syslog;
+            if (logFileBadge) logFileBadge.textContent = counts.logfile;
+
+
+
+            // logic for icon selection based on the 'to_state' or message content
+            if (stateLower === "full" || stateLower === "established" || msgLower.includes("to up")) {
+                iconGif = "/icons/Event-5.gif"; // Green/Success
+            } else if (stateLower === "down" || stateLower === "idle" || stateLower === "init" || msgLower.includes("to down")) {
+                iconGif = "/icons/Event-10.gif"; // Red/Down
+            }
+
+            // Convert UTC DB timestamp to Vancouver Local Time
+            const utcDate = new Date(log.last_updated_ts);
+            const localTime = utcDate.toLocaleString('en-CA', {
+                timeZone: 'America/Vancouver',
+                hour12: false,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }).replace(',', '');
+
+            const row = `
+                <tr class="event-row" data-protocol="${log.protocol}">
+                    <td style="text-align:center; font-size:11px;;">${localTime}</td>
+                    <td style="text-align:left;">
+                        <img src="${iconGif}" style="width:14px; margin-right:5px;" alt="state">
+                        ${protocolLabel} 
+                        <a href="${detailsUrl}" class="device-link" 
+                           data-hostname="${log.hostname}" 
+                           data-hostip="${log.host_ip}" 
+                           target="_blank">${cleanMessage}</a>
+                    </td>
+                    <td>${source}</td>
+                </tr>
+            `;
+            tableBody.insertAdjacentHTML('beforeend', row);
+        });
+
+        // Helper to show the All Clear row
+        function showAllClear() {
+            const tableBody = document.querySelector('#syslogTable tbody');
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="2" style="text-align:center; padding: 20px; color: green; font-weight: bold;">
+                        <img src="/icons/Event-5.gif" style="vertical-align: middle; margin-right: 8px;">
+                        All clear. No BGP/OSPF alerts observed in the last 48 hours.
+                    </td>
+                </tr>
+            `;
+        }
 
         if (typeof setupLinkRadioToggle === "function") {
             setupLinkRadioToggle('syslogTable', 'toggleStateSyslog');

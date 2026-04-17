@@ -1128,28 +1128,58 @@ async def get_topology_data(site: str = None):
     return {"data": df.to_dict(orient="records")}
 
 
-@router.get("/get_SyslogTracking")
+@router.get("/get_PeerTracking")
 async def get_syslog_tracking():
     """Fetches the latest 200 syslog entries from the SQLite backup."""
     try:
-        conn = sqlite3.connect(mainconfig.DB_ORION_PATH)
-        # Using a dictionary factory makes it easy to convert to JSON for the frontend
+        conn = sqlite3.connect(mainconfig.DB_PATH)    # load from network_core.db
         conn.row_factory = sqlite3.Row 
-        curr = conn.cursor()
+
+        # Attach Orion DB        
+        orion_db_path = str(mainconfig.DB_ORION_PATH)
+        conn.execute(f"ATTACH DATABASE '{orion_db_path}' AS orion_db")        # Using a dictionary factory makes it easy to convert to JSON for the frontend
         
+# OSPF	ENG22-KAM-Core	10.102.102.79	10.244.255.225	FULL	INIT	2026-04-15T02:26:05	2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 10 Neighbor 10.244.255.225(Vlan-interface408) changed from FULL to INIT.	SyslogDB
+# BGP	ENG22-CW-Core	10.8.8.16	10.251.9.153	ESTABLISHED	IDLE	2026-04-13T20:41:09	%Apr 13 20:41:09:883 2026 ENG22-CW-Core BGP/5/BGP_STATE_CHANGED: BGP.extranet: 10.251.9.153  state has changed from ESTABLISHED to IDLE	20260413_204100_10.8.8.16_jl1700_sa.txt
+
         query = """
-            SELECT LogEntryID, NodeID, NodeName, IPAddress, DateTime, Message 
-            FROM [Orion.SyslogTracking] 
-            ORDER BY LogEntryID DESC 
-            LIMIT 200
+            SELECT 
+                logs.*, 
+                n.NodeID 
+            FROM (
+                SELECT 
+                    'BGP' as protocol, hostname, host_ip, neighbor_address, 
+                    from_state, to_state, last_updated_ts, message, log_file
+                FROM bgp_state_changes
+                
+                UNION ALL -- Much faster than UNION
+                
+                SELECT 
+                    'OSPF' as protocol, hostname, host_ip, neighbor_address, 
+                    from_state, to_state, last_updated_ts, message, log_file
+                FROM ospf_state_changes
+            ) AS logs
+            -- Perform the Join ONCE on the combined list
+            -- Use a COALESCE to try IP first, then Hostname if needed
+            LEFT JOIN orion_db.[Orion.NodesCustomProperties] n ON logs.hostname = n.NodeName
+            ORDER BY logs.last_updated_ts DESC
+            LIMIT 500
         """
-        
+
+        # query = """
+        #     SELECT LogEntryID, NodeID, NodeName, IPAddress, DateTime, Message 
+        #     FROM [Orion.SyslogTracking] 
+        #     ORDER BY LogEntryID DESC 
+        #     LIMIT 200
+        # """
+        curr = conn.cursor()
         curr.execute(query)
         rows = curr.fetchall()
         conn.close()
         
         # Convert sqlite3.Row objects to standard dictionaries
         data = [dict(row) for row in rows]
+        # print(data)
         
         return {"data": data}
     except Exception as e:

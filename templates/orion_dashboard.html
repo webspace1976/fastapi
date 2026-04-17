@@ -235,7 +235,7 @@
                 <div id="output-syslog">
                     <div style="display:flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <h3 style="margin:0;"><a href="/api/monitor" target="_blank">Core Peer: Last 48 Hours</h3>
+                            <h3 style="margin:0;"><a href="/api/monitor" target="_blank">Core Event: Last 48 Hours</h3>
                         </div>
                         <div style="font-size: 11px; display: flex; align-items: center; gap: 10px;">
                             <label><input type="radio" name="link_type_syslogTable" value="Orion" checked> Orion</label>
@@ -246,13 +246,23 @@
                         </div>
                     </div>
 
-                    <div style="max-height: 35vh; overflow-y: auto;">
-                        <table id="syslogTable" class="table-custom" style="width:100%;font-size: 10px;">
-                            <thead>
+                    <div style="margin-bottom: 0; font-size: 12px; display: flex; gap: 15px; align-items: center;">
+                    </div>
+
+                    <div style="max-height: 40vh; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px;">
+                        <table id="syslogTable" class="table-custom" style="width:100%; font-size: 11px; border-collapse: collapse;">
+                            <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 10;">
                                 <tr>
-                                    <th style="width:12%;">Time</th>
-                                    <!-- <th style="width:40px;">State</th> -->
-                                    <th>SYSLOG too mass may missed some info, please login to switch for details</th>
+                                    <th style="width: 60px; padding: 0px; text-align: center;">Time</th>
+                                    <th style="padding: 8px;"> Message  
+                                    <span style="background: #e9ecef; padding: 2px 8px; border-radius: 12px; border: 1px solid #dee2e6;">
+                                        <strong>Syslog:</strong> <span id="syslogCount" style="color: #007bff;">0</span>
+                                    </span>
+                                    <span style="background: #e9ecef; padding: 0; border-radius: 12px; border: 1px solid #dee2e6;">
+                                        <strong>Log Files:</strong> <span id="logFileCount" style="color: #28a745;">0</span>
+                                    </span>
+                                    </th>
+                                    <th style="width: 60px; padding: 0px; text-align: center;">Source</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -478,7 +488,7 @@ async function updatePowerOutages() {
 // Auto-refresh every 5 minutes to keep SOC updated
 // setInterval(updatePowerOutages, 300000);
     // Auto-load when the page opens
-    document.addEventListener('DOMContentLoaded', loadSyslogFromDB);    // load from my_javascript.js 
+    document.addEventListener('DOMContentLoaded', loadPeerFromDB);    // load from my_javascript.js 
     document.addEventListener('DOMContentLoaded', updatePowerOutages);
         </script>
     </body>

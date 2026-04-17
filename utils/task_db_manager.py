@@ -9,7 +9,7 @@ import mainconfig # Assumed to contain BASE_DIR
 
 # Define the database file path
 DB_FILE = mainconfig.DATA_DIR / "task_status.db"
-LOG_DIR = mainconfig.CORE_LOGS_DIR
+LOG_DIR = mainconfig.CORE_LOGS_DIR_LOCAL
 
 class TaskDBManager:
 # Define all non-PK columns for easy merging/saving

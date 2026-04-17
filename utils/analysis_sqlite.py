@@ -294,7 +294,7 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
 
     # Call parse_routing_info directly and get the routing_info dictionary
     try:
-        routing_info = parse_routing_info(log_file_path, lines, vendor,None)  # Pass None for json_file to avoid writing
+        routing_info = parse_routing_info(log_file_path, lines, vendor, "test.json")  # Pass None for json_file to avoid writing
     except Exception as e:
         error_details = traceback.format_exc()
         logger.error(f"Error parse_routing from '{log_file_path}':\n{error_details}")

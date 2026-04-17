@@ -17,7 +17,7 @@ import mainconfig as mainconfig
 from utils.fastapi_mymodule import get_dynamic_duration
 
 logger = mainconfig.setup_module_logger(__name__)
-log_dir = mainconfig.CORE_LOGS_DIR    
+log_dir = mainconfig.CORE_LOGS_DIR_LOCAL    
 curr_dir= os.path.dirname(__file__)
 # log_dir = os.path.abspath(os.path.join(curr_dir, '..', 'logs'))
 
@@ -33,7 +33,7 @@ def generate_analysis_data(raw_results):
     for item in raw_results:
         ip = item.get('ip')
         nodeid = item.get('nodeid')
-        log_path = os.path.join(mainconfig.CORE_LOGS_DIR, item.get('output_file'))
+        log_path = os.path.join(mainconfig.CORE_LOGS_DIR_LOCAL, item.get('output_file'))
 
         
         # 2. If it's missing, "N/A", or None, look it up in mainconfig via the IP
@@ -54,7 +54,7 @@ def generate_analysis_data(raw_results):
             #     content = f.read()
                 
             try:
-                analysis_html = core_check(mainconfig.CORE_LOGS_DIR, item.get('output_file'), ip, nodeid) 
+                analysis_html = core_check(mainconfig.CORE_LOGS_DIR_LOCAL, item.get('output_file'), ip, nodeid) 
                 
                 # Update status only if analysis succeeds
                 analysis.update({
@@ -79,7 +79,7 @@ def core_check(log_dir, fname, ip, nodeid, logger=None):
     icon_red="/icons/Event-10.gif"
     icon_plus="/icons/Event-16.gif"
 
-    log_dir = mainconfig.CORE_LOGS_DIR
+    log_dir = mainconfig.CORE_LOGS_DIR_LOCAL
     log_file_path = os.path.join(log_dir, fname)
     ip_pattern = "(?:[0-9]{1,3}\.){3}[0-9]{1,3}"
     ip_match = re.search(ip_pattern, fname)
