@@ -1457,6 +1457,11 @@ async function loadSyslogFromDB() {
 
 async function loadPeerFromDB() {
     try {
+
+        // --- NEW: Get hours from dropdown (default to 48 if not found) ---
+        const timeFilter = document.getElementById('timeFilter');
+        const hoursToCheck = timeFilter ? parseInt(timeFilter.value) : 48;
+
         const response = await fetch('/api/orion/get_PeerTracking');
         const result = await response.json();
         
@@ -1465,26 +1470,27 @@ async function loadPeerFromDB() {
         const tableBody = document.querySelector('#syslogTable tbody');
         tableBody.innerHTML = ''; 
 
-        // 1. Define the 48-hour cutoff
+        // --- UPDATED: Use dynamic hours for cutoff ---
         const now = new Date();
-        const fortyEightHoursAgo = now.getTime() - (48 * 60 * 60 * 1000);
+        const cutoffTime = now.getTime() - (hoursToCheck * 60 * 60 * 1000);
 
         // 2. Filter the data
         const recentLogs = result.data.filter(log => {
             // Your DB uses ISO format "2026-04-15T02:26:27" which JS Date handles well
             const logDate = new Date(log.last_updated_ts).getTime();
-            return logDate >= fortyEightHoursAgo;
+            return logDate >= cutoffTime;
         });
-
 
         // 3. Check if we have logs or show "All Good"
         if (recentLogs.length === 0) {
             tableBody.innerHTML = `
                 <tr>
                     <td colspan="3">    
-                    <div style="text-align: center; background: #e9f7ef; border: 2px solid #28a745; border-radius: 8px; color: #155724;">
-                        <h2 style="margin: 0;">✅All clear</h2>
-                        <p style="margin-top: 10px; font-size: 1.1em;">No BGP/OSPF event observed from OrionSyslog or Manually Check Logfile.</p>
+                    <div style="text-align: center; background: #e9f7ef; border: 2px solid #28a745; border-radius: 8px; color: #155724; padding: 15px;">
+                        <h2 style="margin: 0;">✅ All clear</h2>
+                        <p style="margin-top: 10px; font-size: 1.1em;">
+                            No BGP/OSPF events observed in the last <strong>${hoursToCheck}</strong> hours.
+                        </p>
                     </div>
                     </td>
                 </tr>
@@ -1535,10 +1541,12 @@ async function loadPeerFromDB() {
 
 
             // logic for icon selection based on the 'to_state' or message content
-            if (stateLower === "full" || stateLower === "established" || msgLower.includes("to up")) {
+            if (stateLower === "full" || msgLower.includes("to established" ) || msgLower.includes("to up")) {
                 iconGif = "/icons/Event-5.gif"; // Green/Success
-            } else if (stateLower === "down" || stateLower === "idle" || stateLower === "init" || msgLower.includes("to down")) {
+            } else if (stateLower === "down" || msgLower.includes("to down") || msgLower.includes("to idle")|| msgLower.includes("to init")) {
                 iconGif = "/icons/Event-10.gif"; // Red/Down
+            } else {
+                iconGif = "/icons/Event-Unknown.png"; // Grey/Unknown
             }
 
             // Convert UTC DB timestamp to Vancouver Local Time

@@ -221,22 +221,16 @@
                 </div>
 
                 <br>
-                <div id="power-outage-container" style="max-height: 30vh; overflow-y: auto; border: 1px solid #ddd; padding: 5px;">
+                <div id="power-outage-container" style="max-height: 30vh; overflow-y: auto; border: 1px solid #ddd; padding: 0;">
                     <div id="power-content">
                         <p style="text-align: center; color: #666;">Checking BC Hydro & FortisBC status from RingerOPS</p>
-                    </div>                    
-                    <!-- <iframe id="powerFrame" name="powerFrame"
-                        src="/api/ringer/opsapi/poweroutage" 
-                        style="width:100%; border:none;" 
-                        onload="this.style.height=this.contentWindow.document.body.scrollHeight+'px';">
-                    </iframe> -->
+                    </div>          
                 </div><br>
 
                 <div id="output-syslog">
                     <div style="display:flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <h3 style="margin:0;"><a href="/api/monitor" target="_blank">Core Event: Last 48 Hours</h3>
-                        </div>
+                        <div><h3 style="margin:0;"><a href="/api/monitor" target="_blank">Peer Event:</h3></div>
+
                         <div style="font-size: 11px; display: flex; align-items: center; gap: 10px;">
                             <label><input type="radio" name="link_type_syslogTable" value="Orion" checked> Orion</label>
                             <label><input type="radio" name="link_type_syslogTable" value="SNOW">SNOW</label>

@@ -6,7 +6,7 @@
 #################################################################################################
 
 import time, sys, os,re, json, copyreg, requests, warnings, pytz
-from datetime import datetime
+from datetime import datetime, timedelta
 from orionsdk import SwisClient
 from netmiko import ConnectHandler, SSHDetect
 from paramiko.ssh_exception import SSHException 
@@ -65,26 +65,40 @@ def read_file(file_path):
         print(f"An error occurred while reading the file: {e}")
         return None
 
-def utc_convert(timestamp) :
-    date=re.split("T",timestamp)[0]
-    time_utc=re.search("[0-9][0-9]\:[0-9][0-9]\:[0-9][0-9]",timestamp)[0]
-    t=re.split(":",time_utc)
-    utc_offset=datetime.utcnow().hour-datetime.now().hour
-    if utc_offset < 0 :
-        utc_offset=24 + datetime.utcnow().hour-datetime.now().hour
-    t[0]=int(t[0])-utc_offset
-    i=0 # for time debug
-    if t[0] < 0 :
-        t[0]=str(t[0] + 24)
-        i=1
-    elif t[0] < 10 :
-        t[0]="0"+str(t[0])
-        i=2
-    else:
-        i=3
-        t[0]=str(t[0])
-    time_cur=t[0]+":"+t[1]+":"+t[2]    
-    return time_cur
+# def utc_convert(timestamp) :
+#     date=re.split("T",timestamp)[0]
+#     time_utc=re.search("[0-9][0-9]\:[0-9][0-9]\:[0-9][0-9]",timestamp)[0]
+#     t=re.split(":",time_utc)
+#     utc_offset=datetime.utcnow().hour-datetime.now().hour
+#     if utc_offset < 0 :
+#         utc_offset=24 + datetime.utcnow().hour-datetime.now().hour
+#     t[0]=int(t[0])-utc_offset
+#     i=0 # for time debug
+#     if t[0] < 0 :
+#         t[0]=str(t[0] + 24)
+#         i=1
+#     elif t[0] < 10 :
+#         t[0]="0"+str(t[0])
+#         i=2
+#     else:
+#         i=3
+#         t[0]=str(t[0])
+#     time_cur=t[0]+":"+t[1]+":"+t[2]    
+#     return time_cur
+
+def utc_convert(timestamp):
+    # 1. Clean input: "2026-04-19T10:32:19.9130000Z" -> "2026-04-19 10:32:19"
+    clean_ts = timestamp.replace('T', ' ').replace('Z', '').split('.')[0]
+    
+    # 2. Parse string to object
+    dt_obj = datetime.strptime(clean_ts, "%Y-%m-%d %H:%M:%S")
+    
+    # 3. Offset for Vancouver (PDT is -7)
+    # Note: Use -8 if it's Winter (PST)
+    local_dt = dt_obj - timedelta(hours=7)
+    
+    # 4. Return in the exact ISO format you want: 2026-04-19T10:32:19
+    return local_dt.strftime("%Y-%m-%dT%H:%M:%S")
 
 def format_time(timestamp):
     """Format the timestamp with UTC offset handling."""

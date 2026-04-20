@@ -19,6 +19,7 @@ import mainconfig as mainconfig
 from utils.session_manager import OrionSession, update_session_audit
 from utils.orion_db_manager import sync_orion_data
 from utils.orion_db_manager import OrionDatabaseManager
+from utils.analysis_sqlite import sync_syslog_to_routing_db
 
 # --- Setup ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -691,6 +692,8 @@ def generate_syslog(session):
         # if message_id > temp_max_id:
         #     temp_max_id = message_id
         message_syslog=row['Message']
+        row['DateTime']=mymodule.utc_convert(row['DateTime'])
+
         message_syslog_time=mymodule.utc_convert(row['DateTime'])
         message_syslog_link = f"{orion_prefix}/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:{row['NodeID']}&ViewID=2453"
 
@@ -858,8 +861,14 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
         # 2. Filter the syslog data
         # Assuming syslog_table[1] contains the raw 'results' list from the SWIS query
         all_syslogs = syslog_table[1]
-        new_syslogs = [log for log in all_syslogs if int(log['LogEntryID']) > last_saved_id]
+        # new_syslogs = [log for log in all_syslogs if int(log['LogEntryID']) > last_saved_id]
 
+        new_syslogs = []
+        for log in all_syslogs:
+            # Ensure 'log' is actually a dictionary before accessing keys
+            if isinstance(log, dict) and 'LogEntryID' in log:
+                if int(log['LogEntryID']) > last_saved_id:
+                    new_syslogs.append(log)
 
         # Check if we have data
         db_manager.setup_tables()
@@ -1132,6 +1141,9 @@ async def get_topology_data(site: str = None):
 async def get_syslog_tracking():
     """Fetches the latest 200 syslog entries from the SQLite backup."""
     try:
+        # Ensure the latest syslogs are in the routing DB
+        sync_syslog_to_routing_db(mainconfig.DB_ORION_PATH, mainconfig.DB_PATH)  
+        
         conn = sqlite3.connect(mainconfig.DB_PATH)    # load from network_core.db
         conn.row_factory = sqlite3.Row 
 
@@ -1163,7 +1175,6 @@ async def get_syslog_tracking():
             -- Use a COALESCE to try IP first, then Hostname if needed
             LEFT JOIN orion_db.[Orion.NodesCustomProperties] n ON logs.hostname = n.NodeName
             ORDER BY logs.last_updated_ts DESC
-            LIMIT 500
         """
 
         # query = """

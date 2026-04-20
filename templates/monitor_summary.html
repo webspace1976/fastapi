@@ -44,7 +44,18 @@
 </div>
 
 <div class="container" style="max-height: 40vh; overflow-y: auto;">
-    <h2 style="margin: 0;">Recent eNG|KDC Core Events (Last 48 Hours)</h2>
+    <h2 style="margin: 0;">Recent eNG|KDC Core Events</h2>
+
+    <div class="filter-controls" style="margin-bottom: 10px;">
+    <label for="timeFilter">Time Range:</label>
+    <select id="timeFilter" onchange="loadPeerFromDB()">
+        <option value="24" >Last 24 Hours</option>
+        <option value="48" selected>Last 48 Hours</option>
+        <option value="168">Last 7 Days</option>
+        <option value="720">Last 30 Days</option>
+        <option value="99999">all</option>
+    </select>
+    </div>
 
     <table id="syslogTable">
         <thead>
