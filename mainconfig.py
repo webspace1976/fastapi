@@ -65,6 +65,28 @@ HPE_OSPF_LOG_REGEX = r"%(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}:\d{3}).*?OSPF\/5\/O
 HPE_OSPF_LAST_DOWN_REGEX = r"%(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}:\d{3}).*?OSPF/6/OSPF_LAST_NBR_DOWN: OSPF (\d+) Last neighbor down event: Router ID: ([\d\.]+) Local address: ([\d\.]+) Remote address: ([\d\.]+) Reason: ([^\.]+)"
 CISCO_OSPF_LOG_REGEX = r"(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}).*?Ospf.*?: Instance (\d+):.*?NGB ([\d\.]+), interface ([\d\.]+) adjacency (dropped|established).*?(?:state was: (\w+))?"
 
+hpe_bgp_log_regex = re.compile(r"%(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}:\d{3}).*?BGP/5/BGP_STATE_CHANGED:(?: BGP\.([^:]*?):)?\s+([\d\.]+) \s+state has changed from ([\w\/]+) to ([\w\/]+)")
+
+hpe_ospf_log_regex = re.compile(
+    r"%(\w{3}\s+\d+\s+[\d:]+:\d{3}).*?OSPF/5/OSPF_NBR_CHG:.*?OSPF\s+(?P<proc>\d+).*?Neighbor\s+(?P<nbr>[\d\.]+)\((?P<iface>[\w\-\/]+)\)\s+changed from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)"
+)
+
+   #  New pattern for Arista/Cisco Adjacency Logs
+# Apr 19 20:43:07 VH-VGH-JPNB9-7508R-Core2 Ospf-vrf-vrf-vch-guest[10200]: Instance 300: %OSPF-4-OSPF_ADJACENCY_TEARDOWN: NGB 10.26.107.24, interface 10.26.63.233 adjacency dropped: interface went down, state was: FULL
+# Apr 19 20:43:07 VH-VGH-JPNB9-7508R-Core2 Ospf: Instance 200: %OSPF-4-OSPF_ADJACENCY_TEARDOWN: NGB 10.26.101.26, interface 10.26.249.33 adjacency dropped: interface went down, state was: FULL
+OSPF_ADJ_SPECIAL_RE = re.compile(
+    r'(?P<timestamp>\w{3}\s+\d+\s+[\d:]+)\s+'           # Date and Time
+    r'(?P<hostname>\S+)\s+'                             # Device Name
+    r'Ospf(?:-vrf-(?P<vrf>[\w-]+))?(?:\[\d+\])?:\s+'    # Flexible Ospf/VRF/PID
+    r'Instance\s+(?P<process>\d+):\s+'                  # Instance/Process ID
+    r'%OSPF-4-OSPF_ADJACENCY_(?P<state>\w+):\s+'        # Event Type: TEARDOWN or ESTABLISHED
+    r'NGB\s+(?P<neighbor>[\d.]+),\s+'                   # Neighbor IP
+    r'interface\s+(?P<iface>[\d.]+)\s+'                 # Interface IP/Name
+    r'adjacency\s+(?P<action>\w+)'                      # dropped or established
+    r'(?::\s+.*state\s+was:\s+(?P<old_state>\w+))?',    # Optional: previous state
+    re.IGNORECASE
+)
+
 HPE_OSPF_REASON_REGEX = re.compile(
     r"""
     (?P<timestamp>%\w+\s+\d+\s+[\d:.]+) \s+ (?P<year>\d{4}) .*?

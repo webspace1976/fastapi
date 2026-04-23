@@ -635,13 +635,14 @@ def log_summary(log, hostname, ip):
     # New pattern for Arista/Cisco Adjacency Logs
     # Mar 8 04:35:25 VH-VGH-3730-7508R-Core1 Ospf-vrf-vrf-smpc-in28[11270]: Instance 621: %OSPF-4-OSPF_ADJACENCY_TEARDOWN: NGB 10.28.107.224, interface 10.28.107.13 adjacency dropped: DD packet mismatch, state was: FULL
     # Mar 8 04:35:27 VH-VGH-3730-7508R-Core1 Ospf-vrf-vrf-smpc-in28[11270]: Instance 621: %OSPF-4-OSPF_ADJACENCY_ESTABLISHED: NGB 10.28.107.224, interface 10.28.107.13 adjacency established
-    ospf_adj_special_re = re.compile(
-        r'(?P<timestamp>\w{3}\s+\d+\s[\d:.]+)\s+(?P<hostname>\S+)\s+'
-        r'Ospf-vrf-(?P<vrf>\S+)\[\d+\]:\s+Instance\s+(?P<process>\d+):\s+'
-        r'%(?P<event>OSPF-4-OSPF_ADJACENCY_\w+):\s+NGB\s+(?P<neighbor>[\d.]+),\s+'
-        r'interface\s+(?P<iface>[\d.]+)\s+(?P<action>adjacency\s+\w+)',
-        re.IGNORECASE
-    )
+    # ospf_adj_special_re = re.compile(
+    #     r'(?P<timestamp>\w{3}\s+\d+\s[\d:.]+)\s+(?P<hostname>\S+)\s+'
+    #     r'Ospf-vrf-(?P<vrf>\S+)\[\d+\]:\s+Instance\s+(?P<process>\d+):\s+'
+    #     r'%(?P<event>OSPF-4-OSPF_ADJACENCY_\w+):\s+NGB\s+(?P<neighbor>[\d.]+),\s+'
+    #     r'interface\s+(?P<iface>[\d.]+)\s+(?P<action>adjacency\s+\w+)',
+    #     re.IGNORECASE
+    # )
+    ospf_adj_special_re = mainconfig.OSPF_ADJ_SPECIAL_RE
 
     # Preprocess: Join lines that are part of the same log entry
     lines = []
@@ -742,10 +743,21 @@ def log_summary(log, hostname, ip):
         if adj_special_match:
             g = adj_special_match.groupdict()
             ts = g['timestamp']
-            # Determine the state based on the event name
-            new_state = "FULL" if "ESTABLISHED" in g['event'] else "DOWN"
+            vrf_name = g['vrf'] if g['vrf'] else "Global"
+            
+            # event = g['event'].upper()
+            
+            # # 2. Map Arista events to standard OSPF states
+            # if "ESTABLISHED" in event:
+            #     old_state = "DOWN"
+            #     new_state = "FULL"
+            # else: # TEARDOWN / dropped
+            #     old_state = g['old_state'] if g['old_state'] else "FULL"
+            #     new_state = "DOWN"            
+            # # Determine the state based on the event name
+            # new_state = "FULL" if "ESTABLISHED" in g['event'] else "DOWN"
             # Store in ospf_states
-            ospf_states[g['process']][g['neighbor']].append((ts, g['iface'], new_state, g['vrf']))
+            ospf_states[g['process']][g['neighbor']].append((ts, g['iface'], g['state'], vrf_name))
             continue
 
     # === BGP Summary ===
