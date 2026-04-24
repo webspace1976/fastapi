@@ -15,6 +15,7 @@ if ROOT_DIR not in sys.path:
 import routers.monitor as monitor
 import mainconfig as mainconfig
 from utils.fastapi_mymodule import get_dynamic_duration
+from database.db_manager import DatabaseManager
 
 logger = mainconfig.setup_module_logger(__name__)
 log_dir = mainconfig.CORE_LOGS_DIR_LOCAL    
@@ -566,6 +567,7 @@ def log_summary(log, hostname, ip):
     log_analysis = []
     os_type = "unknown"
     vpn_instance = "Global" 
+    db = DatabaseManager(mainconfig.DB_PATH)
 
     # Structures:
     # BGP: {instance: {neighbor: [(timestamp, interface, state)]}}
@@ -786,7 +788,7 @@ def log_summary(log, hostname, ip):
                 # bgp_live_status = monitor.get_peer_status('bgp', neighbor, log)
                 logger.debug(f"Debug: Getting BGP status for Host: {ip}, Instance: {instance}, Neighbor: {neighbor}")  # Debug print
                 # bgp_live_status = monitor.get_peer_status('bgp', hostname,instance, neighbor)
-                bgp_live_status = monitor.get_peer_status('bgp', ip ,instance, neighbor)
+                bgp_live_status = monitor.get_peer_status(db, 'bgp', ip ,instance, neighbor)
                 # bgp_live_status = bgp_states.get('instance')
                 if isinstance(bgp_live_status, list):
                     # Expect a single element list; take the first one
@@ -848,7 +850,7 @@ def log_summary(log, hostname, ip):
                         break # Found it, stop searching
 
                 #20251031 get current state from monitor.peer_uptime function
-                ospf_live_status = monitor.get_peer_status('ospf', ip, vpn, neighbor)
+                ospf_live_status = monitor.get_peer_status(db, 'ospf', ip, vpn, neighbor)
                 ospf_peer_state = ospf_live_status.get('state', 'UNKNOWN').upper() if ospf_live_status else 'UNKNOWN'
                 ospf_peer_duration_val = ospf_live_status.get('verbose_uptime', 'UNKNOWN') if ospf_live_status else 'UNKNOWN'   
 

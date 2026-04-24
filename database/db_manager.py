@@ -1,49 +1,95 @@
 
 import sqlite3, os
-from sqlalchemy import create_engine
+from typing import List, Dict   # "Python version" quirk. The syntax list[dict] is only valid in Python 3.9+. 
+from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
+from sqlalchemy.orm import sessionmaker, scoped_session
 import mainconfig
 
 logger = mainconfig.setup_module_logger(__name__)
 
 # Configuration for the pool
-_engines = {}
 
-def get_db_engine(db_path: str):
-    """
-    Creates/Retrieves a pooled engine for the given path and returns 
-    a connection with sqlite3.Row factory enabled.
-    """
-    global _engines
-    
-    # 1. Initialize the engine if it doesn't exist for this path
-    if db_path not in _engines:
-        if not os.path.exists(db_path):
-            logger.warning(f"Database file not found at {db_path}. It will be created on first write.")
-            
-        logger.info(f"Creating new SQLAlchemy QueuePool for: {db_path}")
+class DatabaseManager:
+    def __init__(self, db_path: str):
+        self.db_path = db_path
         
-        # We apply your pool settings here
-        _engines[db_path] = create_engine(
-            f"sqlite:///{db_path}",
+        if not os.path.exists(self.db_path):
+            logger.warning(f"Database not found at {self.db_path}. Creating on first write.")
+
+        # 1. Create the Engine
+        self.engine = create_engine(
+            f"sqlite:///{self.db_path}",
             poolclass=QueuePool,
-            pool_size=10,          # Connections kept open in the pool
-            max_overflow=20,       # Max additional connections if pool is full
-            pool_timeout=30,       # Seconds to wait for a free connection
-            # connect_args are passed directly to the sqlite3 driver
+            pool_size=10,
+            max_overflow=20,
+            pool_timeout=30,
+            # echo=True,  # Enable SQL logging for debugging (remove in production)
             connect_args={
-                "check_same_thread": False, 
-                "timeout": 30      # SQLite internal busy timeout (prevents 'database is locked')
+                "check_same_thread": False,
+                "timeout": 30
             }
         )
 
-    # 2. Get a raw connection from the pool
-    conn = _engines[db_path].raw_connection()
-    
-    # 3. Apply the Row factory so you can use row['column_name']
-    conn.row_factory = sqlite3.Row 
-    
-    return conn
+        # 2. Create a Session Factory
+        self.session_factory = sessionmaker(
+            bind=self.engine, 
+            autocommit=False, 
+            autoflush=False
+        )
+
+    def get_session(self):
+        """Returns a new session instance from the pool."""
+        return self.session_factory()
+
+    def execute_query(self, sql: str, params: dict = None, debug: bool = False) -> List[Dict]:
+        """
+        Best practice for 'Row' style access: 
+        Uses .mappings() to allow row['column_name'] access.
+        """
+        if params is None:
+            params = {}
+
+        if debug:
+            # This prints the statement and params to your console/logs
+            print(f"--- DEBUG SQL ---\nQuery: {sql}\nParams: {params}\n-----------------")
+
+        with self.get_session() as session:
+            try:
+                result = session.execute(text(sql), params)
+                # If it's a SELECT, return the dictionary-like rows
+                if sql.strip().upper().startswith("SELECT"):
+                    return result.mappings().all()
+                
+                session.commit()
+                return None
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Database error: {e}")
+                raise
+
+    def execute_write(self, sql: str, params: dict = None, debug: bool = False):
+        """For INSERT, UPDATE, DELETE (Single or list of params)."""
+        with self.get_session() as session:
+            try:
+                # If params is a list, it performs an 'executemany' automatically
+                session.execute(text(sql), params or {})
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Write failed: {e}")
+                raise
+
+    def execute_many(self, sql: str, params_list: List[Dict], debug: bool = False):
+        """Efficiently insert/update multiple rows at once."""
+        with self.get_session() as session:
+            try:
+                session.execute(text(sql), params_list)
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Bulk write failed: {e}")
+                raise
 
 def get_db_conn(DB_PATH: str):
     try:

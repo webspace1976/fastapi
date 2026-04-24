@@ -14,7 +14,7 @@ from fastapi import APIRouter, Request, Query, BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from database.db_manager import get_db_conn, get_db_engine
+from database.db_manager import get_db_conn, DatabaseManager
 DB_PATH = mainconfig.DB_PATH
 
 router = APIRouter()
@@ -93,17 +93,23 @@ def get_bgp_current_status(conn):
         return []
     return conn.execute(query).fetchall()
 
-def get_peer_history(conn, hostname, protocol, ip):
-    if conn is None:
+def get_peer_history(db, hostname, protocol, ip):
+    if db is None:
         return []
     table = 'bgp_state_changes' if protocol == 'bgp' else 'ospf_state_changes'
     neighbor_column = 'neighbor_address' if protocol == 'bgp' else 'neighbor_address'
     try:
-        query = f"SELECT * FROM {table} WHERE {neighbor_column} = ? AND hostname = ? ORDER BY last_updated_ts DESC"
+        # query = f"SELECT * FROM {table} WHERE {neighbor_column} = ? AND hostname = ? ORDER BY last_updated_ts DESC"
+        stmt = f"""
+            SELECT * FROM {table}
+            WHERE {neighbor_column} = :ip AND hostname = :hostname
+            ORDER BY last_updated_ts DESC
+            """
+        params = {"ip": ip, "hostname": hostname}
     except sqlite3.OperationalError as e:
         logger.error(f"Error get_peer_history query: {e}")
         return []
-    return conn.execute(query, (ip, hostname)).fetchall()
+    return db.execute_query(stmt, params)
 
 def parse_uptime(up_str):
     """
@@ -365,55 +371,109 @@ def get_comprehensive_ospf_report(conn):
     
     return report
 
-#20251031
-def get_peer_status(protocol: str, host_ip: str, instance_name: str, neighbor: str) -> Optional[Dict]:
+# #20251031
+# def get_peer_status(protocol: str, host_ip: str, instance_name: str, neighbor: str) -> Optional[Dict]:
+#     """
+#     Return current peer status from the latest snapshot.
+#     """
+#     conn = get_db_conn(DB_PATH)
+#     if conn is None:
+#         return None
+
+#     try:
+#         if protocol.lower() == 'bgp':
+#             row = conn.execute(
+#                 """
+#                 SELECT * FROM bgp_peer_status
+#                 WHERE host_ip = ? AND vpn_instance = ? AND neighbor_address = ?
+#                 ORDER BY last_snapshot_id DESC
+#                 LIMIT 1
+#                 """,
+#                 (host_ip, instance_name, neighbor)
+#             ).fetchone()
+
+#         elif protocol.lower() == 'ospf':
+#             row = conn.execute(
+#                 """
+#                 SELECT * FROM ospf_peer_status
+#                 WHERE host_ip = ? AND neighbor_address = ?
+#                 ORDER BY last_snapshot_id DESC
+#                 LIMIT 1
+#                 """,
+#                 (host_ip, neighbor)
+#             ).fetchone()
+#         else:
+#             row = None
+
+#         if row is None:
+#             logger.info(f"No current status found for {protocol} peer: hostIP={host_ip}, neighbor={neighbor}")
+#         else:
+#             if protocol.lower() == 'bgp':
+#                 logger.info(f"{host_ip} Found current status for {protocol} peer {neighbor}: state={row['state']}, verbose_uptime={row['up_down_time']}")
+#             elif protocol.lower() == 'ospf':
+#                 logger.info(f"{host_ip} Found current status for {protocol} peer {neighbor}: state={row['state']}, verbose_uptime={row['verbose_uptime']}")
+
+#         return dict(row) if row else None
+
+#     except sqlite3.Error as e:
+#         logger.error(f"get_peer_status error: {e}")
+#         return None
+#     finally:
+#         conn.close()
+
+#20251126 Refactored to use DatabaseManager and added enhanced logging and error handling
+def get_peer_status(db, protocol: str, host_ip: str, instance_name: str, neighbor: str) -> Optional[Dict]:
     """
-    Return current peer status from the latest snapshot.
+    Return current peer status from the latest snapshot using DatabaseManager.
     """
-    conn = get_db_conn(DB_PATH)
-    if conn is None:
+    p_lower = protocol.lower()
+    
+    # 1. Define queries and parameters based on protocol
+    if p_lower == 'bgp':
+        sql = """
+            SELECT * FROM bgp_peer_status
+            WHERE host_ip = :host_ip AND vpn_instance = :instance AND neighbor_address = :neighbor
+            ORDER BY last_snapshot_id DESC
+            LIMIT 1
+        """
+        params = {"host_ip": host_ip, "instance": instance_name, "neighbor": neighbor}
+    elif p_lower == 'ospf':
+        sql = """
+            SELECT * FROM ospf_peer_status
+            WHERE host_ip = :host_ip AND neighbor_address = :neighbor
+            ORDER BY last_snapshot_id DESC
+            LIMIT 1
+        """
+        params = {"host_ip": host_ip, "neighbor": neighbor}
+    else:
+        logger.warning(f"Unsupported protocol: {protocol}")
         return None
 
     try:
-        if protocol.lower() == 'bgp':
-            row = conn.execute(
-                """
-                SELECT * FROM bgp_peer_status
-                WHERE host_ip = ? AND vpn_instance = ? AND neighbor_address = ?
-                ORDER BY last_snapshot_id DESC
-                LIMIT 1
-                """,
-                (host_ip, instance_name, neighbor)
-            ).fetchone()
-
-        elif protocol.lower() == 'ospf':
-            row = conn.execute(
-                """
-                SELECT * FROM ospf_peer_status
-                WHERE host_ip = ? AND neighbor_address = ?
-                ORDER BY last_snapshot_id DESC
-                LIMIT 1
-                """,
-                (host_ip, neighbor)
-            ).fetchone()
-        else:
-            row = None
-
-        if row is None:
+        # 2. Use the manager to execute the query
+        # execute_query returns a list of mappings (rows)
+        results = db.execute_query(sql, params)
+        
+        if not results:
             logger.info(f"No current status found for {protocol} peer: hostIP={host_ip}, neighbor={neighbor}")
-        else:
-            if protocol.lower() == 'bgp':
-                logger.info(f"{host_ip} Found current status for {protocol} peer {neighbor}: state={row['state']}, verbose_uptime={row['up_down_time']}")
-            elif protocol.lower() == 'ospf':
-                logger.info(f"{host_ip} Found current status for {protocol} peer {neighbor}: state={row['state']}, verbose_uptime={row['verbose_uptime']}")
+            return None
 
-        return dict(row) if row else None
+        # 3. Handle the single row result
+        row = results[0]
+        
+        # Logging logic
+        uptime_key = 'up_down_time' if p_lower == 'bgp' else 'verbose_uptime'
+        logger.info(
+            f"{host_ip} Found current status for {protocol} peer {neighbor}: "
+            f"state={row['state']}, uptime={row[uptime_key]}"
+        )
 
-    except sqlite3.Error as e:
-        logger.error(f"get_peer_status error: {e}")
+        return dict(row)
+
+    except Exception as e:
+        # DatabaseManager already logs general errors, but we can add context here
+        logger.error(f"Error retrieving {protocol} peer status: {e}")
         return None
-    finally:
-        conn.close()
 
 def parse_any_last_updated_ts(ts_str, log_year=None):
     """Robust last_updated_ts parser with enhanced error handling"""
@@ -968,28 +1028,29 @@ def flush_status():
     print("Content-type: application/json; charset=utf-8\n")
     print(json.dumps({"status": status, "message": message}))
 
-def display_history_page(conn, hostname, protocol, neighbor):
+def display_history_page(db, hostname, protocol, neighbor):
     # LOG_BASE_URL = "../../logs/core_logs/"
 
 
     html_history = []
     html_history.append(f"<h1>History for {protocol.upper()} Peer: {hostname} {neighbor}</h1>")
     
-    history = get_peer_history(conn, hostname, protocol, neighbor)
-    if conn is None or not history:
+    history = get_peer_history(db, hostname, protocol, neighbor)
+    if db is None or not history:
         html_history.append(f"<p>No historical state change events found for {neighbor}. Use 'Flush Status' to initialize data.</p>")
     else:
         current_status = None
         if protocol == 'bgp':
-            current_status = conn.execute(
-                "SELECT * FROM bgp_peer_status WHERE neighbor_address = ? AND hostname = ?", 
-                (neighbor, hostname)
-            ).fetchone()
+            stmt = "SELECT * FROM bgp_peer_status WHERE neighbor_address = :ip AND hostname = :hostname"
+            current_status = db.execute_query(stmt, {"ip": neighbor, "hostname": hostname}).fetchone()
         elif protocol == 'ospf':
-            current_status = conn.execute(
-                "SELECT * FROM ospf_peer_status WHERE neighbor_address = ? AND hostname = ?", 
-                (neighbor, hostname)
-            ).fetchone()
+            stmt = "SELECT * FROM ospf_peer_status WHERE neighbor_address = :ip AND hostname = :hostname"
+            # current_status = db.execute_query(
+            #     "SELECT * FROM ospf_peer_status WHERE neighbor_address = :ip AND hostname = :hostname", 
+            #     {"ip": neighbor, "hostname": hostname}
+            # ).fetchone()
+        params = {"ip": neighbor, "hostname": hostname}
+        current_status = db.execute_query(stmt, params)[0]  # Handle the single row result
         
         if current_status:
             html_history.append("<div style='background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px;'>")
@@ -1040,25 +1101,530 @@ def display_history_page(conn, hostname, protocol, neighbor):
         html_history.append("</div>")
     return html_history
 
-                   
+def display_history_page(db, hostname, protocol, neighbor):
+
+    html_history = []
+    html_history.append(f"<h1>History for {protocol.upper()} Peer: {hostname} {neighbor}</h1>")
+    
+    history = get_peer_history(db, hostname, protocol, neighbor)
+    if db is None or not history:
+        html_history.append(f"<p>No historical state change events found for {neighbor}. Use 'Flush Status' to initialize data.</p>")
+    else:
+        current_status = None
+        if protocol == 'bgp':
+            stmt = "SELECT * FROM bgp_peer_status WHERE neighbor_address = :ip AND hostname = :hostname ORDER BY last_updated_ts DESC"
+        elif protocol == 'ospf':
+            stmt = "SELECT * FROM ospf_peer_status WHERE neighbor_address = :ip AND hostname = :hostname ORDER BY last_updated_ts DESC"
+            # current_status = db.execute_query(
+        params = {"ip": neighbor, "hostname": hostname}
+        current_status = db.execute_query(stmt, params, debug=False)[0]  # Handle the single row result
+        
+        if current_status:
+            html_history.append("<div style='background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px;'>")
+            html_history.append("<h3>Current Status</h3>")
+            if protocol == 'bgp':
+                html_history.append(f"<p>State: <strong>{current_status['state'] or 'N/A'}</strong> | ")
+                html_history.append(f"Uptime: <strong>{current_status['up_down_time'] or 'N/A'}</strong> | ")
+                html_history.append(f"Last Check: {current_status['last_updated_ts'] or 'N/A'}</p>")
+            else:  # OSPF
+                html_history.append(f"<p>State: <strong>{current_status['state'] or 'N/A'}</strong> | ")
+                html_history.append(f"Interface: <strong>{current_status['interface'] or 'N/A'}</strong> | ")
+                html_history.append(f"Last Check: {current_status['last_updated_ts'] or 'N/A'}</p>")
+            html_history.append("</div>")
+        
+        html_history.append("<h3>State Change History</h3>")
+        html_history.append("<div class='table-container'>")
+        html_history.append("<table>")
+        if protocol == 'bgp':
+            html_history.append("<tr><th>Hostname</th><th>VPN Instance</th><th>State Change</th><th>last_updated_ts</th><th>LogFile</th></tr>")
+            seen_history = set()
+            for entry in history:
+                key = (entry['hostname'], entry['neighbor_address'], entry['last_updated_ts'])
+                if key not in seen_history:
+                    seen_history.add(key)
+                    log_file = entry['log_file']
+                    log_link = f"<a href='{CORE_LOGS_DIR}/{log_file}' target='_blank'>{log_file}</a>" if log_file else "N/A"
+                    html_history.append(f"<tr><td>{entry['hostname'] or 'N/A'}</td>")
+                    html_history.append(f"<td>{entry['vpn_instance'] or 'N/A'}</td>")
+                    html_history.append(f"<td>{entry['from_state'] or 'N/A'} → {entry['to_state'] or 'N/A'}</td>")
+                    html_history.append(f"<td>{entry['last_updated_ts'] or 'N/A'}</td>")
+                    html_history.append(f"<td>{log_link}</td></tr>")
+        elif protocol == 'ospf':
+            html_history.append("<tr><th>Hostname</th><th>Process</th><th>Interface</th><th>State Change</th><th>last_updated_ts</th><th>Log File</th></tr>")
+            seen_history = set()
+            for entry in history:
+                key = (entry['hostname'], entry['neighbor_address'], entry['last_updated_ts'])
+                if key not in seen_history:
+                    seen_history.add(key)
+                    log_file = entry['log_file']
+                    log_link = f"<a href='{CORE_LOGS_DIR}/{log_file}' target='_blank'>{log_file}</a>" if log_file else "N/A"
+                    html_history.append(f"<tr><td>{entry['hostname'] or 'N/A'}</td>")
+                    html_history.append(f"<td>{entry['process'] or 'N/A'}</td>")
+                    html_history.append(f"<td>{entry['interface'] or 'N/A'}</td>")
+                    html_history.append(f"<td>{entry['from_state'] or 'N/A'} → {entry['to_state'] or 'N/A'}</td>")
+                    html_history.append(f"<td>{entry['last_updated_ts'] or 'N/A'}</td>")
+                    html_history.append(f"<td>{log_link}</td></tr>")
+        html_history.append("</table>")
+        html_history.append("</div>")
+    return html_history
+
+def get_recently_changed_peers(db):
+    if db is None:
+        return [], []
+    # bgp_peers = set(row['neighbor_address'] for row in db.execute(
+        # "SELECT DISTINCT neighbor_address FROM bgp_state_changes"
+    bgp_peers = db.execute_query(        
+        "SELECT * FROM bgp_state_changes"
+    )
+    # ospf_peers = set(row['neighbor_address'] for row in conn.execute(
+    #     "SELECT DISTINCT neighbor_address FROM ospf_state_changes"
+    ospf_peers = db.execute_query(
+        "SELECT * FROM ospf_state_changes"
+    )
+    return bgp_peers, ospf_peers
+
+def get_problem_peers(db):
+    if db is None:
+        return set(), [], []
+    problem_bgp = db.execute_query(
+        "SELECT * FROM bgp_peer_status WHERE UPPER(state) != 'ESTABLISHED' AND UPPER(hostname) NOT LIKE '%LGH%'"
+    )
+
+    problem_ospf = get_persistent_non_full_peers(db)
+    # problem_ospf = get_comprehensive_ospf_report(db)
+    
+    since_time = (datetime.now() - timedelta(hours=12)).strftime("%Y-%m-%d %H:%M:%S")
+    recent_bgp = db.execute_query(
+        "SELECT DISTINCT neighbor_address FROM bgp_state_changes WHERE last_updated_ts >= :start_time",
+        {"start_time": since_time}
+    )
+    
+    recent_ospf = db.execute_query(
+        "SELECT DISTINCT neighbor_address FROM ospf_state_changes WHERE last_updated_ts >= :start_time",
+        {"start_time": since_time}
+    )
+    
+    problem_ips = set()
+    for row in problem_bgp + recent_bgp:
+        problem_ips.add(row['neighbor_address'])
+    for row in problem_ospf + recent_ospf:
+        problem_ips.add(row['neighbor_address'])
+    
+    return problem_ips, problem_bgp, problem_ospf
+
+def get_persistent_non_full_peers(db):
+    """Get peers that are persistently not FULL (never recovered)"""
+    # cursor = conn.cursor()
+    
+    # Step 1: Get the very last event for each peer (regardless of state), remove duplicates by ROWID- 20251126
+    last_events_non_full_stmt = """
+        SELECT s1.hostname, s1.process, s1.neighbor_address, s1.interface, s1.to_state, s1.last_updated_ts, s1.log_file
+        FROM ospf_state_changes s1
+        JOIN (
+            SELECT hostname, process, neighbor_address, MAX(last_updated_ts) AS max_ts, MAX(ROWID) AS max_rowid
+            FROM ospf_state_changes
+            GROUP BY hostname, process, neighbor_address
+        ) s2 ON s1.hostname = s2.hostname 
+            AND s1.process = s2.process 
+            AND s1.neighbor_address = s2.neighbor_address 
+            AND s1.last_updated_ts = s2.max_ts
+            AND s1.ROWID = s2.max_rowid
+        WHERE UPPER(s1.to_state) NOT LIKE 'FULL%' and UPPER(s1.hostname) NOT LIKE '%LGH%' 
+    """
+    
+    last_events_non_full = db.execute_query(last_events_non_full_stmt)
+    
+    # Exit early if no matching events
+    if not last_events_non_full:
+        return []
+    
+    # Step 2: Get current FULL peers with composite keys (excluding interface)
+    current_full_peers = db.execute_query("""
+        SELECT hostname, process, neighbor_address
+        FROM ospf_peer_status
+        WHERE UPPER(state) LIKE 'FULL%'
+    """)
+    
+    # Create set of composite keys for current FULL peers
+    full_peer_keys = set()
+    for peer in current_full_peers:
+        key = (peer['hostname'], peer['process'], peer['neighbor_address'])  # hostname, process, address
+        full_peer_keys.add(key)
+    
+    # Step 3: Filter peers that are still not FULL
+    persistent_non_full = []
+    for event in last_events_non_full:
+        # Create matching composite key for event
+        event_key = (event['hostname'], event['process'], event['neighbor_address'])
+        
+        # Only include if not in current FULL peers
+        if event_key not in full_peer_keys:
+            persistent_non_full.append({
+                'hostname': event['hostname'],
+                'process': event['process'],
+                'neighbor_address': event['neighbor_address'],
+                'interface': event['interface'],
+                'last_state': event['to_state'],
+                'last_updated_ts': event['last_updated_ts'],
+                'log_file': event['log_file']
+            })
+    
+    return persistent_non_full
+
+def get_ospf_current_status(db):
+    if db is None:
+        return []
+    try:
+        stmt = "SELECT * FROM ospf_peer_status ORDER BY hostname, process, neighbor_address, verbose_uptime DESC"
+    except sqlite3.OperationalError as e:
+        logger.error(f"Error get_ospf_current_status query: {e}")
+        return []
+    return db.execute_query(stmt)
+
+def get_bgp_current_status(db):
+    if db is None:
+        return []
+    try:
+        # query = "SELECT * FROM bgp_peer_status ORDER BY hostname, vpn_instance, neighbor_address"
+        stmt = "SELECT * FROM bgp_peer_status where UPPER(hostname) NOT LIKE '%LGH%' "
+    except sqlite3.OperationalError as e:
+        logger.error(f"Error get_bgp_current_status query: {e}")
+        return []
+    return db.execute_query(stmt)
+
+def html_problem_peers(db, problem_bgp, problem_ospf, recent_bgp_flaps, recent_ospf_flaps):
+
+    problem_count = len(problem_bgp) + len(problem_ospf)
+
+    html_output = ["<div id='problem-peers' class='tab-content'>"]
+
+    if db is None or problem_count == 0:
+        html_output.append("<div class='no-problems'><h3>No Problem Peers Found</h3>")
+        if db is None:
+            html_output.append("<p>Database not available. Use 'Flush Status' to initialize.</p>")
+        else:
+            html_output.append("<p>All peers are in stable state with no recent issues.</p>")
+        html_output.append("</div>")
+    else:
+        html_output.append(f"""
+            <div class='problem-tabs' style='margin-bottom: 20px;'>
+                <button class='tab-btn active' data-tab='problem-bgp' onclick='showSubTab("problem-bgp")'>
+                    BGP Issues <span class='problem-count'>{len(problem_bgp)}</span>
+                </button>
+                <button class='tab-btn' data-tab='problem-ospf' onclick='showSubTab("problem-ospf")'>
+                    OSPF Issues <span class='problem-count'>{len(problem_ospf)}</span>
+                </button>
+            </div>
+        """)
+
+        html_output.append(f"""<div id='problem-bgp' class='subtab-content'>
+                           <h4 style='margin:0'>BGP Peers Last state NOT in \"Established\": {len(problem_bgp)} </h4>""")
+        if problem_bgp:
+            html_output.append("""
+            <table id='problem-bgp-table' style='font-size: 12px;'>
+            <thead>
+                <tr><th>Device</th><th>Instance</th><th>Neighbor</th><th>Duration</th><th>Last State</th><th>Last Check</th></tr>
+                <tr class='filter-row'>
+                    <td><input type='text' onkeyup="filterTable('problem-bgp-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('problem-bgp-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('problem-bgp-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('problem-bgp-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('problem-bgp-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('problem-bgp-table')"></td>
+                </tr>
+            </thead>
+            """)
+            all_problem_bgp_peers = sorted(problem_bgp, key=lambda p: parse_uptime(p['up_down_time'] or "0:00"))
+            seen_bgp = set()
+            for peer in all_problem_bgp_peers:
+                key = (peer['hostname'], peer['neighbor_address'])
+                if key not in seen_bgp:
+                    seen_bgp.add(key)
+                    row_classes = []
+                    if peer['state'] != 'Established':
+                        row_classes.append("status-down")
+                    if peer['neighbor_address'] in recent_bgp_flaps:
+                        row_classes.append("recent-flap")
+                    row_classes.append("problem-peer")
+                    display_instance = f"{peer['vpn_instance'] or 'N/A'}"
+                    history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
+                    logfile_link = f"<a href='{CORE_LOGS_DIR}\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
+
+                    up_time = peer['up_down_time'] or "N/A"
+                    if up_time.startswith('****'):
+                        up_time = "&gt;9999 Hours"
+                    elif parse_uptime(up_time) < 12*60 and up_time != "N/A":
+                        up_time = f"<span class='uptime-warning'>{up_time}</span>"
+                
+                    html_output.append(f"""
+                    <tr class='{' '.join(row_classes)}'>
+                    <td>{peer['hostname'] or 'N/A'}</td>
+                    <td>{display_instance}</td>
+                    <td>{history_link}</td>
+                    <td>{up_time}</td>
+                    <td>{peer['state'] or 'N/A'}</td>
+                    <td>{logfile_link}</td></tr>
+                    """)
+            html_output.append("</table>")
+        html_output.append("</div>")
+
+        # html_output.append("<div id='problem-ospf' class='subtab-content' style='display:none;'>")
+        html_output.append(f"""<div id='problem-ospf' class='subtab-content' style='display:none;'>
+        <h4 style='margin:0'>OSPF peer Last state NOT in "Full": {len(problem_ospf)} </h4>""")
+
+        if problem_ospf:
+            html_output.append("<table id='problem-ospf-table' style='font-size: 12px;'>")
+            html_output.append("""<thead><tr><th>Device</th><th>Process</th><th>Neighbor</th><th>Interface</th><th>Last State</th><th stytle="width:15px">Last Check</th></tr>
+                <tr class='filter-row'>
+                    <td><input type='text' onkeyup="filterTable('problem-ospf-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('problem-ospf-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('problem-ospf-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('problem-ospf-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('problem-ospf-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('problem-ospf-table')"></td>
+                </tr>
+            </thead>""")
+            seen_ospf = set()
+            for peer in problem_ospf :
+                key = (peer['hostname'], peer['neighbor_address'])
+                if key not in seen_ospf:
+                    seen_ospf.add(key)
+                    history_link = f"<a href='history?protocol=ospf&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
+                    logfile_link = f"<a href='{CORE_LOGS_DIR}\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
+
+                    html_output.append(f"<tr class='{' '.join(row_classes)}'>")
+                    html_output.append(f"<td>{peer['hostname'] or 'N/A'}</td>")
+                    html_output.append(f"<td>{peer['process'] or 'N/A'}</td>")
+                    html_output.append(f"<td>{history_link}</td>")
+                    html_output.append(f"<td>{peer['interface'] or 'N/A'}</td>")
+                    html_output.append(f"<td>{peer['last_state'] or 'N/A'}</td>")
+                    html_output.append(f"<td>{logfile_link}</td></tr>")
+            html_output.append("</table>")
+        else:
+            print("<p>No OSPF problem peers found.</p>")          
+        html_output.append("</div>") # Close the problem-ospf sub-tab
+
+    html_output.append("</div>") # Close the main problem-peers tab
+
+    return "".join(html_output)
+
+def html_bgp_peers(db, recent_bgp_flaps, problem_bgp):
+    html_output = []
+
+    html_output.append("""
+        <div id='all-bgp' class='tab-content' style='display:none;'>
+        <div class='section-container' id='bgp-section'>
+        <div class='section-header'>
+        <h2 class='section-title'>All BGP Peers </h2>
+        <p id='bgp-count' style='align-right:20%'>Visible BGP Peers: <span>0</span></p>
+        <button class='toggle-btn' onclick="toggleSection('bgp-section')">
+        <span id='bgp-section-icon'>▼</span> Toggle</button>
+        </div>
+    """)
+    
+    html_output.append("<div class='table-content'>")
+    bgp_peers = get_bgp_current_status(db)
+    if db is None or not bgp_peers: 
+        html_output.append("<p style='padding: 20px;'>No BGP peer status data found. Use 'Flush Status' to initialize.</p>")
+    else:
+        html_output.append("""
+        <div class='table-container'>
+        <table id='bgp-table'>
+            <thead>
+                <tr><th>Device</th><th>Instance</th><th>RemoteAS</th><th>Neighbor</th><th>Duration</th><th>Last State</th><th>Last Check</th></tr>
+                <tr class='filter-row'>
+                    <td><input type='text' onkeyup="filterTable('bgp-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('bgp-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('bgp-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('bgp-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('bgp-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('bgp-table')"></td>
+                    <td><input type='text' onkeyup="filterTable('bgp-table')"></td>
+                </tr>
+            </thead>
+        <tbody>
+        """)
+
+        all_bgp_peers = sorted(bgp_peers, key=lambda p: parse_uptime(p['up_down_time'] or "0:00"))
+        seen_bgp = set()
+        for peer in all_bgp_peers:
+            key = (peer['hostname'], peer['vpn_instance'], peer['neighbor_address'])
+            if key not in seen_bgp:
+                seen_bgp.add(key)
+                row_classes = [f"status-{str(peer['state']).lower()}"]
+                if peer['neighbor_address'] in recent_bgp_flaps: 
+                    row_classes.append("recent-flap")
+                if peer['neighbor_address'] in problem_bgp:
+                    row_classes.append("problem-peer")
+                    
+                display_instance = f"{peer['vpn_instance'] or 'N/A'}"
+                history_link = f"<a href='history?protocol=bgp&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
+                logfile_link = f"<a href='{CORE_LOGS_DIR}\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
+
+                up_time = peer['up_down_time'] or "N/A"
+                if up_time.startswith('****'):
+                    up_time = "&gt;9999 Hours"
+                elif parse_uptime(up_time) < 12*60 and up_time != "N/A":
+                    up_time = f"<span class='uptime-warning'>{up_time}</span>"
+                
+                html_output.append(f"<tr class='{' '.join(row_classes)}'>")
+                html_output.append(f"<td>{peer['hostname'] or 'N/A'}</td>")
+                html_output.append(f"<td>{display_instance}</td>")
+                html_output.append(f"<td>{peer['remote_as']}</td>")
+                html_output.append(f"<td>{history_link}</td>")
+                html_output.append(f"<td>{up_time}</td>")
+                html_output.append(f"<td>{peer['state'] or 'N/A'}</td>")
+                html_output.append(f"<td>{logfile_link}</td></tr>")
+        html_output.append("</tbody></table>")
+        html_output.append("</div>")
+    html_output.append("</div></div></div>")    
+
+    return "".join(html_output)
+
+def html_ospf_peers(db, recent_ospf_flaps, problem_ospf):
+    html_output = []
+    html_output.append("""
+        <div id='all-ospf' class='tab-content' style='display:none;'>
+        <div class='section-container' id='ospf-section'>
+        <div class='section-header'>
+        <h2 class='section-title'>All OSPF Peers</h2>
+        <p id='ospf-count'>Visible OSPF Peers: <span>0</span></p>
+        <button class='toggle-btn' onclick="toggleSection('ospf-section')">
+        <span id='ospf-section-icon'>▼</span> Toggle</button>
+        </div>
+    """)
+    
+    html_output.append("<div class='table-content'>")
+    ospf_peers = get_ospf_current_status(db)
+    if db is None or not ospf_peers: 
+        html_output.append("<p style='padding: 20px;'>No OSPF data found. Use 'Flush Status' to initialize.</p>")
+    else:        
+        html_output.append("""
+<div class='table-container'>
+<table id='ospf-table'>
+    <thead>
+        <tr>
+            <th>Device</th>
+            <th>Process</th>
+            <th>VRF</th>
+            <th>Neighbor</th>
+            <th>State</th>
+            <th>Duration</th>
+            <th>Last Event</th>
+            <th>Last Check</th>
+        </tr>
+        <tr class='filter-row'>
+            <td><input type='text' onkeyup="filterTable('ospf-table')"></td>
+            <td><input type='text' onkeyup="filterTable('ospf-table')"></td>             
+            <td><input type='text' onkeyup="filterTable('ospf-table')"></td>
+            <td><input type='text' onkeyup="filterTable('ospf-table')"></td>
+            <td><input type='text' onkeyup="filterTable('ospf-table')"></td>
+            <td><input type='text' onkeyup="filterTable('ospf-table')"></td>
+            <td><input type='text' onkeyup="filterTable('ospf-table')"></td>
+            <td><input type='text' onkeyup="filterTable('ospf-table')"></td>
+        </tr>
+    </thead>
+    <tbody>
+        """)
+
+        # all_ospf_peers = sorted(ospf_peers, key=lambda p: parse_uptime(p['verbose_uptime'] or "0:00"))
+        # time = peer['last_down_time'] or "N/A"
+
+        # up_time = fastapi_mymodule.get_dynamic_duration(time)[0] if time != "N/A" else "N/A"
+
+        all_ospf_peers = sorted(
+            ospf_peers, 
+            key=lambda p: (
+                parse_uptime(p['verbose_uptime'])
+                # # 1. Try dynamic duration first (returns int)
+                # parse_uptime(fastapi_mymodule.get_dynamic_duration(p['last_down_time'])[0]) 
+                # if p['last_down_time'] != "N/A" 
+                # # 2. Fallback to verbose uptime (passed through parse_uptime to get int)
+                # else  parse_uptime(p['verbose_uptime'] or "****h")
+            ),
+        )
+        seen_ospf = set()
+        for peer in all_ospf_peers:
+            key = (peer['hostname'], peer['neighbor_address'])
+            if key not in seen_ospf:
+                seen_ospf.add(key)
+                row_classes = [f"status-{str(peer['state']).lower().replace('/', '')}"]
+                if peer['neighbor_address'] in recent_ospf_flaps: 
+                    row_classes.append("recent-flap")
+                if peer['neighbor_address'] in problem_ospf:
+                    row_classes.append("problem-peer")
+
+                history_link = f"<a href='history?protocol=ospf&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
+                logfile_link = f"<a href='{CORE_LOGS_DIR}\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
+
+
+                if peer['state'] not in ['FULL','Full']:
+                    time = peer['last_down_time'] or "N/A"
+                    up_time = fastapi_mymodule.get_dynamic_duration(time)[0] if time != "N/A" else "N/A"
+                else:
+                    up_time = peer['verbose_uptime'] or "N/A"
+                    if up_time.startswith('****'):
+                        up_time = "&gt;9999 Hours"
+                    elif ':' in up_time:
+                        parts = [int(x) for x in up_time.split(':')]
+                        
+                        if len(parts) == 3:
+                            h, m, s = parts
+                            # Calculate total days and the remaining hours
+                            days = h // 24
+                            rem_hours = h % 24
+                            
+                            if days > 0:
+                                up_time = f"{days}d {rem_hours}h"
+                            else:
+                                up_time = f"{h}h {m}m"
+                                
+                        elif len(parts) == 2:
+                            m, s = parts
+                            # Standardize minutes if seconds are present
+                            up_time = f"{m}m"                  
+                        
+                    elif parse_uptime(up_time) < 12*60 and up_time != "N/A":
+                        up_time = f"<span class='uptime-warning'>{up_time}</span>"
+
+                html_output.append(f"<tr class='{' '.join(row_classes)}'>")
+                html_output.append(f"<td>{peer['hostname'] or 'N/A'}</td>")
+                html_output.append(f"<td>{peer['process'] or 'N/A'}</td>")
+                html_output.append(f"<td>{peer['vrf'] or 'N/A'}</td>")
+                html_output.append(f"<td>{history_link}</td>")
+                html_output.append(f"<td>{peer['state'] or 'N/A'}</td>")
+                html_output.append(f"<td>{up_time}</td>") 
+                # html_output.append(f"<td>{peer['state'] or 'N/A'} : {peer['mode'] or 'N/A'}</td>")
+                html_output.append(f"<td>{peer['last_down_time'] or 'N/A'}</td>")
+                html_output.append(f"<td>{logfile_link}</td></tr>")
+        html_output.append("</tbody></table>")
+        html_output.append("</div>")
+    html_output.append("</div></div></div>")    
+
+    return "".join(html_output)
+
 @router.get("/", response_class=HTMLResponse)
 async def monitor_dashboard(request: Request):
-    conn = get_db_conn(DB_PATH)
+    # conn = get_db_conn(DB_PATH)
+    # recent_bgp_flaps, recent_ospf_flaps = get_recently_changed_peers(conn)
+    # problem_peers, problem_bgp, problem_ospf = get_problem_peers(conn)
+    # bgp_peers = get_bgp_current_status(conn)
+    # ospf_peers = get_ospf_current_status(conn)
+    # html_problem = html_problem_peers(conn, problem_bgp, problem_ospf, recent_bgp_flaps, recent_ospf_flaps)
+    # html_bgp = html_bgp_peers(conn, recent_bgp_flaps, problem_bgp)
+    # html_ospf = html_ospf_peers(conn, recent_ospf_flaps, problem_ospf)
+    # conn.close()
 
-    recent_bgp_flaps, recent_ospf_flaps = get_recently_changed_peers(conn)
-    problem_peers, problem_bgp, problem_ospf = get_problem_peers(conn)
+    # 202604 - Refactored to use DatabaseManager instead of raw connection for better resource management and error handling.
+    db = DatabaseManager(mainconfig.DB_PATH)
+    recent_bgp_flaps, recent_ospf_flaps = get_recently_changed_peers(db)
+    problem_peers, problem_bgp, problem_ospf = get_problem_peers(db)
+    bgp_peers = get_bgp_current_status(db)
+    ospf_peers = get_ospf_current_status(db)
+    html_problem = html_problem_peers(db, problem_bgp, problem_ospf, recent_bgp_flaps, recent_ospf_flaps)
+    html_bgp = html_bgp_peers(db, recent_bgp_flaps, problem_bgp)
+    html_ospf = html_ospf_peers(db, recent_ospf_flaps, problem_ospf)
 
-    bgp_peers = get_bgp_current_status(conn)
-    ospf_peers = get_ospf_current_status(conn)
-
-    html_problem = html_problem_peers(conn, problem_bgp, problem_ospf, recent_bgp_flaps, recent_ospf_flaps)
-
-    html_bgp = html_bgp_peers(conn, recent_bgp_flaps, problem_bgp)
-    
-    html_ospf = html_ospf_peers(conn, recent_ospf_flaps, problem_ospf)
-
-    conn.close()
-    
     return templates.TemplateResponse("monitor_summary.html", {
         "request": request,
         "bgp_peers": bgp_peers,
@@ -1092,10 +1658,13 @@ async def peer_history(
     neighbor: str, 
     protocol: str = "BGP"
 ):
-    conn = get_db_conn(mainconfig.DB_PATH)
-    html_content = display_history_page(conn, hostname, protocol, neighbor)
+    # conn = get_db_conn(mainconfig.DB_PATH)
+    # html_content = display_history_page(conn, hostname, protocol, neighbor)
+    # conn.close()
+    db = DatabaseManager(mainconfig.DB_PATH)
+    html_content = display_history_page(db, hostname, protocol, neighbor)
+
     full_html_string = "".join(html_content)
-    conn.close()
 
     return templates.TemplateResponse("monitor_history.html", {
         "request": request,

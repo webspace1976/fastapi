@@ -21,12 +21,16 @@ Atomic Sync: Batch update the database and backup the JSON.
 ========================================
 SQLite command
 
-update time from utc time to local Vancouver time iso format
+# update time from utc time to local Vancouver time iso format
 2026-03-20T01:07:03.0430000Z to 2026-03-19T18:07:03
 
 UPDATE [Orion.SyslogTracking]
 SET DateTime = strftime('%Y-%m-%dT%H:%M:%S', DateTime, '-7 hours')
 WHERE DateTime LIKE '%Z';
+
+# del 
+DELETE FROM bgp_state_changes WHERE log_file = 'SyslogDB'
+
 
 ========================================
 202601

@@ -1174,6 +1174,7 @@ async def get_syslog_tracking():
             -- Perform the Join ONCE on the combined list
             -- Use a COALESCE to try IP first, then Hostname if needed
             LEFT JOIN orion_db.[Orion.NodesCustomProperties] n ON logs.hostname = n.NodeName
+            WHERE logs.hostname NOT like "%VGH%"
             ORDER BY logs.last_updated_ts DESC
         """
 

@@ -375,28 +375,52 @@ def process_log_file(conn, log_file_path, file_id, log_dir_base):
         
     # 1. IMPROVED REGEX: Matches the %OSPF-5-ADJCHG format in your files
         # Example: Jan 25 09:15:48 PST: %OSPF-5-ADJCHG: Process 351, Nbr 10.41.191.123 on Vlan4079 from LOADING to FULL
-        cisco_ospf_log_regex = re.compile(
-            r"(?P<ts>\w{3}\s+\d+\s+[\d:]+)\s+\w+:\s+%OSPF-\d+-ADJCHG:\s+"
-            r"Process\s+(?P<proc>\d+),\s+Nbr\s+(?P<nbr>[\d.]+)\s+on\s+(?P<iface>\S+)\s+"
-            r"from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)",
-            re.IGNORECASE
-        )
-
+        # cisco_ospf_log_regex = re.compile(
+        #     r"(?P<ts>\w{3}\s+\d+\s+[\d:]+)\s+\w+:\s+%OSPF-\d+-ADJCHG:\s+"
+        #     r"Process\s+(?P<proc>\d+),\s+Nbr\s+(?P<nbr>[\d.]+)\s+on\s+(?P<iface>\S+)\s+"
+        #     r"from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)",
+        #     re.IGNORECASE
+        # )
+        # cisco_ospf_log_regex = re.compile(
+        #     r"(?P<ts>\w{3}\s+\d+\s+[\d:]+)(?:\s+\w+)?:\s+%OSPF-5-ADJCHG:\s+Process\s+(?P<proc>\d+),\s+Nbr\s+(?P<nbr>[\d.]+)\s+on\s+(?P<iface>\S+)\s+from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)(?P<reason>.*)",
+        #     re.IGNORECASE
+        # )
+        # arista_ospf_log_regex = re.compile(
+        #     r"(?P<ts>\w{3}\s+\d+\s+[\d:]+)\s+"                 # Timestamp
+        #     r"(?P<host>\S+)\s+"                               # Hostname
+        #     r"Ospf\S*:\s+Instance\s+(?P<proc>\d+):\s+"        # Ospf service and Instance ID
+        #     r"%OSPF-4-OSPF_ADJACENCY_(?P<event>\w+):\s+"      # Event type (TEARDOWN or ESTABLISHED)
+        #     r"NGB\s+(?P<nbr>[\d.]+),\s+interface\s+(?P<iface>[\d./]+)\s+" # Neighbor and Interface
+        #     r"adjacency\s+(?P<action>\w+)"                    # dropped or established
+        #     r"(?::\s+.*state\s+was:\s+(?P<old>\w+))?",         # Optional: old state (for teardowns)
+        #     re.IGNORECASE
+        # )
+        arista_ospf_log_regex = mainconfig.OSPF_ADJ_SPECIAL_RE
         for line in content.splitlines():
-            match = cisco_ospf_log_regex.search(line)
+            # match = cisco_ospf_log_regex.search(line) or arista_ospf_log_regex.search(line)
+            match = arista_ospf_log_regex.search(line)
             
             # 2. SAFETY CHECK: Only proceed if match is NOT None
             if match:
                 try:
                     g = match.groupdict()
-                    last_updated_ts = parse_last_updated_ts(g['ts'], log_year)
-                    
+                    last_updated_ts = parse_last_updated_ts(g['timestamp'], log_year)
+
+                    # arista Standardize the states for your dashboard
+                    if "established" in match.group('action').upper():
+                        g['new_state'] = "established"
+                    elif "dropped" in match.group('action').upper():
+                        g['new_state'] = "DOWN"
+                    else:
+                        g['old_state'] = g.get('old_state', 'UNKNOWN')
+                        g['new_state'] = "UNKNOWN"
+
                     cursor.execute(
                         'INSERT INTO ospf_state_changes (hostname, process, neighbor_address, interface, from_state, to_state, last_updated_ts, log_file) VALUES (?,?,?,?,?,?,?,?)',
-                        (hostname, g['proc'], g['nbr'], g['iface'], g['old'], g['new'], last_updated_ts, filename_only)
+                        (hostname, g['process'], g['neighbor'], g['iface'], g['old_state'], g['new_state'], last_updated_ts, filename_only)
                     )
                 except Exception as e:
-                    logger.error(f"Error inserting OSPF row from {filename_only}: {line[:50]}, {e}")
+                    logger.error(f"Error inserting OSPF row from {filename_only}: {line}, {e}")
             else:
                 # OPTIONAL: Log lines that didn't match if you need to debug further
                 # logger.debug(f"Skipping non-matching line: {line[:50]}...")
