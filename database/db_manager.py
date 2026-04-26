@@ -70,6 +70,10 @@ class DatabaseManager:
 
     def execute_write(self, sql: str, params: dict = None, debug: bool = False):
         """For INSERT, UPDATE, DELETE (Single or list of params)."""
+        if debug:
+            # This prints the statement and params to your console/logs
+            print(f"--- DEBUG SQL ---\nQuery: {sql}\nParams: {params}\n-----------------")
+                    
         with self.get_session() as session:
             try:
                 # If params is a list, it performs an 'executemany' automatically
@@ -82,6 +86,9 @@ class DatabaseManager:
 
     def execute_many(self, sql: str, params_list: List[Dict], debug: bool = False):
         """Efficiently insert/update multiple rows at once."""
+        if debug:
+            print(f"--- DEBUG SQL ---\nQuery: {sql}\nParams: {params_list}\n-----------------")
+
         with self.get_session() as session:
             try:
                 session.execute(text(sql), params_list)
@@ -91,14 +98,82 @@ class DatabaseManager:
                 logger.error(f"Bulk write failed: {e}")
                 raise
 
-def get_db_conn(DB_PATH: str):
-    try:
-        if not os.path.exists(DB_PATH):
-            logger.warning(f"Database file not found at {DB_PATH}. Initialization may be required.")
-            return None
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        return conn
-    except sqlite3.Error as e:
-        logger.error(f"Database connection error: {e}")
-        return None
+    def setup_core_tables(self, debug: bool = False):
+        """Initializes the database schema if tables do not exist."""
+        queries = [
+            # BGP Peer Status
+            """CREATE TABLE IF NOT EXISTS bgp_peer_status (
+                hostname TEXT, host_ip TEXT, vpn_instance TEXT, local_router_id TEXT, 
+                local_as_number TEXT, neighbor_address TEXT, remote_router_id TEXT, 
+                remote_as TEXT, up_down_time TEXT, state TEXT, last_updated_ts TEXT, 
+                last_snapshot_id TEXT, log_file TEXT,
+                PRIMARY KEY (host_ip, vpn_instance, neighbor_address)
+            )""",
+
+            # BGP State Changes
+            """CREATE TABLE IF NOT EXISTS bgp_state_changes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                hostname TEXT, host_ip TEXT, vpn_instance TEXT, 
+                neighbor_address TEXT, from_state TEXT, to_state TEXT, 
+                last_updated_ts TEXT, log_file TEXT, message TEXT,
+                UNIQUE(host_ip, vpn_instance, neighbor_address, last_updated_ts),
+                FOREIGN KEY (host_ip, neighbor_address) REFERENCES bgp_peer_status (host_ip, neighbor_address)
+            )""",
+
+            # OSPF Peer Status
+            """CREATE TABLE IF NOT EXISTS ospf_peer_status (
+                hostname TEXT, host_ip TEXT, process TEXT, process_routerid TEXT, 
+                vrf TEXT, area TEXT, interface TEXT, neighbor_routerid TEXT, 
+                neighbor_address TEXT, state TEXT, mode TEXT, verbose_uptime TEXT, 
+                state_count TEXT, last_down_time TEXT, last_routerid TEXT, 
+                last_local TEXT, last_remote TEXT, last_reason TEXT, 
+                last_updated_ts TEXT, last_snapshot_id TEXT, log_file TEXT,
+                PRIMARY KEY (host_ip, process, neighbor_address)
+            )""",
+
+            # OSPF State Changes
+            """CREATE TABLE IF NOT EXISTS ospf_state_changes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                hostname TEXT, host_ip TEXT, process TEXT, 
+                neighbor_address TEXT, interface TEXT, from_state TEXT, 
+                to_state TEXT, last_updated_ts TEXT, log_file TEXT, message TEXT,
+                UNIQUE(host_ip, neighbor_address, last_updated_ts),
+                FOREIGN KEY (host_ip, neighbor_address) REFERENCES ospf_peer_status (host_ip, neighbor_address)
+            )""",
+
+            # Indexes for performance (especially for the dashboard)
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_ospf_unique_event ON ospf_state_changes (host_ip, process, neighbor_address, last_updated_ts)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_bgp_unique_event ON bgp_state_changes (host_ip, vpn_instance, neighbor_address, last_updated_ts)",
+            "CREATE TABLE IF NOT EXISTS processed_files (filename TEXT PRIMARY KEY)",
+            
+            # Pro-tip: Enable WAL mode for better concurrency 
+            "PRAGMA journal_mode=WAL"
+        ]
+        
+        # if debug:
+        #     # This prints the statement and params to your console/logs
+        #     print(f"--- DEBUG SQL ---\nQuery: {sql}\nParams: {params}\n-----------------")
+
+        with self.get_session() as session:
+            try:
+                for query in queries:
+                    session.execute(text(query))
+                session.commit()
+                logger.info("Database schema validated/created successfully.")
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Failed to setup database: {e}")
+                raise
+
+# Legacy function - not used in the new SQLAlchemy-based implementation, but kept here for reference or potential future use.
+# def get_db_conn(DB_PATH: str):
+#     try:
+#         if not os.path.exists(DB_PATH):
+#             logger.warning(f"Database file not found at {DB_PATH}. Initialization may be required.")
+#             return None
+#         conn = sqlite3.connect(DB_PATH)
+#         conn.row_factory = sqlite3.Row
+#         return conn
+#     except sqlite3.Error as e:
+#         logger.error(f"Database connection error: {e}")
+#         return None

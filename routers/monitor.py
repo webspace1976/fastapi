@@ -14,7 +14,7 @@ from fastapi import APIRouter, Request, Query, BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from database.db_manager import get_db_conn, DatabaseManager
+from database.db_manager import DatabaseManager
 DB_PATH = mainconfig.DB_PATH
 
 router = APIRouter()
@@ -1319,6 +1319,8 @@ def html_problem_peers(db, problem_bgp, problem_ospf, recent_bgp_flaps, recent_o
 
         html_output.append(f"""<div id='problem-bgp' class='subtab-content'>
                            <h4 style='margin:0'>BGP Peers Last state NOT in \"Established\": {len(problem_bgp)} </h4>""")
+        row_classes = []
+
         if problem_bgp:
             html_output.append("""
             <table id='problem-bgp-table' style='font-size: 12px;'>
@@ -1340,7 +1342,6 @@ def html_problem_peers(db, problem_bgp, problem_ospf, recent_bgp_flaps, recent_o
                 key = (peer['hostname'], peer['neighbor_address'])
                 if key not in seen_bgp:
                     seen_bgp.add(key)
-                    row_classes = []
                     if peer['state'] != 'Established':
                         row_classes.append("status-down")
                     if peer['neighbor_address'] in recent_bgp_flaps:
@@ -1389,6 +1390,12 @@ def html_problem_peers(db, problem_bgp, problem_ospf, recent_bgp_flaps, recent_o
                 key = (peer['hostname'], peer['neighbor_address'])
                 if key not in seen_ospf:
                     seen_ospf.add(key)
+                    if peer['last_state'] != 'Full':
+                        row_classes.append("status-down")
+                    if peer['neighbor_address'] in recent_ospf_flaps:
+                        row_classes.append("recent-flap")
+                    row_classes.append("problem-peer")        
+
                     history_link = f"<a href='history?protocol=ospf&hostname={peer['hostname']}&neighbor={peer['neighbor_address']}'>{peer['neighbor_address']}</a>"
                     logfile_link = f"<a href='{CORE_LOGS_DIR}\{peer['log_file']}' target='_blank'>{peer['last_updated_ts'] or 'N/A'}</a>"
 
