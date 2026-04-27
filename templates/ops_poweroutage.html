@@ -58,6 +58,7 @@
     <a href="/api/ringer/opsapi/poweroutage" target="_blank"> Outage - last 48 hours: </a>
     <span id="case-count"> {{ cases|length }} </span> Area(s) - <span id="site-count"> {{ total_sites }} </span> Site(s) 
 
+    <!-- load from myjavascript.js toggleIgnoreModal-->
     <button class="btn btn-sm btn-dark" onclick="toggleIgnoreModal(true)">
         <i class="bi bi-pencil-square"></i> Ignore List
     </button>
@@ -78,6 +79,8 @@
             </div>
         </div>
     </div>
+    <!-- load from myjavascript.js toggleIgnoreModal-->
+
 </h3>
 
     {% if cases and cases|length > 0 %}

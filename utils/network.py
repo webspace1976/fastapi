@@ -14,6 +14,7 @@ import utils.analysis_sqlite as analysis_sqlite
 from utils.fastapi_mymodule import send_command 
 from utils.analysis_log import core_check
 from utils.task_db_manager import task_db_manager
+from database.db_manager import DatabaseManager
 # from utils.analysis_sqlite import setup_database, process_log_file
 
 # --- Global Status Store ---
@@ -219,15 +220,28 @@ class NetworkDeviceManager:
         )
         self.executor.shutdown(wait=False)
 
-    # 20251220 """Trigger SQLite update after log is written."""
+    # # 20251220 """Trigger SQLite update after log is written."""
+    # def _analysis_sqlite(self, log_file_path):
+    #         try:
+    #             conn = analysis_sqlite.setup_database(mainconfig.DB_PATH) #
+    #             # process_log_file expects (connection, path, file_id, base_dir)
+    #             success = analysis_sqlite.process_log_file(conn, log_file_path, None, mainconfig.LOGS_DIR)
+    #             if success:
+    #                 logger.info(f"Log {log_file_path} synced to SQLite database.")
+    #             conn.close()
+    #         except Exception as e:
+    #             logger.error(f"Failed to _analysis_sqlite to database: {e}")
+    #             logger.error(traceback.format_exc())
+
+
     def _analysis_sqlite(self, log_file_path):
             try:
-                conn = analysis_sqlite.setup_database(mainconfig.DB_PATH) #
+                db = DatabaseManager(mainconfig.DB_PATH) #
                 # process_log_file expects (connection, path, file_id, base_dir)
-                success = analysis_sqlite.process_log_file(conn, log_file_path, None, mainconfig.LOGS_DIR)
+                success = analysis_sqlite.process_log_file(db, log_file_path, None, mainconfig.LOGS_DIR)
                 if success:
                     logger.info(f"Log {log_file_path} synced to SQLite database.")
-                conn.close()
+
             except Exception as e:
                 logger.error(f"Failed to _analysis_sqlite to database: {e}")
                 logger.error(traceback.format_exc())

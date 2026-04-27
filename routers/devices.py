@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from typing import List
 from uuid import uuid4
-import json, logging
+import json, os
 from pathlib import Path
 
 # Import the refactored utilities
@@ -166,6 +166,44 @@ async def get_check_results(request: Request, task_id: str):
 # ----------------------------------------------------------------------
 # Utility Endpoint (File Listing)
 # ----------------------------------------------------------------------
+
+# --- New Endpoint to add to ignore list ---
+CONFIG_PATH = os.path.join(mainconfig.DATA_DIR, "html_log_config.json")
+
+def load_ignore_list():
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, "r") as f:
+            return json.load(f).get("ignore_list", [])
+    return [""] # Fallback
+
+@router.post("/opsapi/ignore-id/{h_id}")
+async def ignore_hydroid(h_id: str):
+    config = {"ignore_list": load_ignore_list()}
+    if h_id not in config["ignore_list"]:
+        config["ignore_list"].append(h_id)
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(config, f)
+    return {"status": "success", "ignored": h_id}
+
+# --- Get the raw list for the notepad ---
+@router.get("/opsapi/ignore-list/raw")
+async def get_raw_ignore_list():
+    current_list = load_ignore_list()
+    return {"raw_text": "\n".join(current_list)}
+
+# --- Save the raw list from the notepad ---
+@router.post("/opsapi/ignore-list/save")
+async def save_raw_ignore_list(request: Request):
+    data = await request.json()
+    raw_text = data.get("raw_text", "")
+    
+    # Split by lines, strip whitespace, and remove empty entries
+    new_list = [line.strip() for line in raw_text.split("\n") if line.strip()]
+    
+    with open(CONFIG_PATH, "w") as f:
+        json.dump({"ignore_list": new_list}, f)
+        
+    return {"status": "success"}
 
 @router.get("/files/reports", response_class=HTMLResponse)
 async def get_available_reports(request: Request):
