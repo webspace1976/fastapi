@@ -1679,3 +1679,38 @@ async def peer_history(
         "neighbor": neighbor,
         "protocol": protocol
     })
+
+@router.get("/topology", response_class=HTMLResponse)
+def get_topology(request: Request):
+    db = DatabaseManager(mainconfig.DB_PATH)
+    
+    # 1. Fetch BGP Peer Status
+    bgp_rows = db.execute_query("""
+        SELECT hostname, host_ip, local_router_id, neighbor_address, 
+               vpn_instance as service, state, last_updated_ts, 'BGP' as protocol 
+        FROM bgp_peer_status
+    """)
+    
+    # 2. Fetch OSPF Peer Status 
+    # (Mapping 'process' or 'vrf' to 'service' for unified filtering)
+    ospf_rows = db.execute_query("""
+        SELECT hostname, host_ip, process, process_routerid as local_router_id, neighbor_address, 
+               COALESCE(vrf, '') as service, state, last_updated_ts, 'OSPF' as protocol 
+        FROM ospf_peer_status
+    """)
+    
+# This turns SQLite objects into standard JSON-serializable lists
+    raw_data_list = [dict(row) for row in (bgp_rows + ospf_rows)]
+    
+    # 4. Get unique services for the dropdown
+    services = sorted(list(set(row['service'] for row in raw_data_list if row['service'])))
+    
+    return templates.TemplateResponse("peer_topology.html", {
+        "request": request,
+        "raw_data": raw_data_list, # Now safe to use | tojson
+        "services": services,
+        "total_sessions": len(raw_data_list)
+    })
+
+
+

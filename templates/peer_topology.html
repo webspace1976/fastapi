@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Core Backbone Topology</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.21.1/cytoscape.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <style>
+        #cy { width: 100%; height: 600px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; }
+        .peer-row { cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="d-flex bg-white border-bottom p-3 justify-content-between align-items-center">
+    <div>
+        <span class="h5">Backbone Topology</span>
+        <span id="sessionBadge" class="badge bg-primary ms-3" title="Links on Map">0</span>
+        <small class="text-muted">Map Links</small>
+    </div>
+    <div class="d-flex gap-2">
+        <select id="protocolFilter" class="form-select form-select-sm" style="width: 120px;">
+            <option value="all">All Protocols</option>
+            <option value="BGP">BGP Only</option>
+            <option value="OSPF">OSPF Only</option>
+        </select>
+        <select id="serviceFilter" class="form-select form-select-sm" style="width: 250px;">
+            <option value="all">VPN Instance / VRF </option>
+            {% for srv in services %}
+            <option value="{{ srv }}">{{ srv }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<div id="cy"></div>
+
+<div class="container-fluid p-4">
+    <div class="d-flex align-items-center mb-3">
+        <h5>Reference Table</h5>
+        <span id="sessionCount" class="badge bg-info ms-2" style="font-size: 1.1rem;">0</span>
+        <small class="text-muted ms-2">Matching DB Rows</small>
+    </div>
+    <table class="table table-sm table-hover" id="peerTable">
+        <thead class="table-dark">
+            <tr>
+                <th>Protocol</th>
+                <th>HostName</th>
+                <th>Local ID</th>
+                <th>Neighbor IP</th>
+                <th>VPN Instance</th>
+                <th>Status</th>
+                <th>Updated</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in raw_data %}
+            <tr class="peer-row" 
+                data-protocol="{{ row.protocol }}" 
+                data-service="{{ row.service }}">
+                <td>{{ row.protocol }}</td>
+                <td>{{ row.hostname }}</td>
+                <td>{{ row.local_router_id }}</td>
+                <td>{{ row.neighbor_address }}</td>
+                <td>{{ row.service }}</td>
+                <td style="font-weight:bold; color: {{ '#2ECC40' if 'EST' in row.state.upper() or 'FULL' in row.state.upper() else '#FF4136' }}">
+                    {{ row.state }}
+                </td>
+                <td>{{ row.last_updated_ts }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const rawData = {{ raw_data | tojson | safe }};
+    const protoSelect = document.getElementById('protocolFilter');
+    const serviceSelect = document.getElementById('serviceFilter');
+
+    // 1. Build a Comprehensive Identity Map (Universal ID)
+    const idToHost = {};
+    rawData.forEach(row => {
+        if(row.host_ip) idToHost[row.host_ip] = row.hostname;
+        if(row.local_router_id) idToHost[row.local_router_id] = row.hostname;
+    });
+
+    var cy = cytoscape({
+        container: document.getElementById('cy'),
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'shape': 'round-rectangle', 'width': '200px', 'height': '60px',
+                    'background-color': '#fff', 'border-width': 2, 'border-color': '#2c3e50',
+                    'label': 'data(id)', 'text-valign': 'center', 'font-size': '14px'
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'width': 4, 'line-color': 'data(color)', 'curve-style': 'bezier',
+                    'target-arrow-shape': 'triangle', 'target-arrow-color': 'data(color)',
+                    'label': 'data(label)', 'font-size': '10px', 'text-rotation': 'autorotate'
+                }
+            }
+        ]
+    });
+
+    function renderTopology() {
+        const proto = document.getElementById('protocolFilter').value;
+        const service = document.getElementById('serviceFilter').value;
+        const tableRows = document.querySelectorAll('.peer-row');      
+
+        cy.elements().remove();
+        let mapSessionCount = 0;
+        let tableVisibleCount = 0;
+        let addedNodes = new Set();
+
+        rawData.forEach((row, index) => {
+            // STEP A: Filter Logic (Must match DB values exactly)
+            const rowVpn = row.vpn_instance || row.service; 
+            const protoMatch = (proto === 'all' || row.protocol === proto);
+            const serviceMatch = (service === 'all' || rowVpn === service);
+
+            // --- TABLE SYNC ---
+            // Table should show ALL data rows that match the filter, even if not on map
+            if (protoMatch && serviceMatch) {
+                tableRows[index].style.display = '';
+                tableVisibleCount++;
+            } else {
+                tableRows[index].style.display = 'none';
+            }
+
+            // --- MAP SYNC ---
+            if (protoMatch && serviceMatch) {
+                const s_host = row.hostname;
+                const n_host = idToHost[row.neighbor_address];
+
+                // Only draw links if the neighbor is a known core switch in our list
+                if (n_host && s_host !== n_host) {
+                    if(!addedNodes.has(s_host)) { cy.add({ data: { id: s_host } }); addedNodes.add(s_host); }
+                    if(!addedNodes.has(n_host)) { cy.add({ data: { id: n_host } }); addedNodes.add(n_host); }
+
+                    const isUp = row.state.toLowerCase().includes('est') || row.state.toLowerCase().includes('full');
+                    cy.add({
+                        data: {
+                            source: s_host, 
+                            target: n_host,
+                            label: row.protocol,
+                            color: isUp ? '#2ECC40' : '#FF4136'
+                        }
+                    });
+                    mapSessionCount++;
+                }
+            }
+        });
+
+        // Use 'cose' layout for better spacing with 80+ potential sessions
+        cy.layout({ name: 'cose', nodeRepulsion: 8000, animate: false }).run();
+        
+        // Update UI counters
+        document.getElementById('sessionBadge').innerText = mapSessionCount;
+        document.getElementById('sessionCount').innerText = tableVisibleCount;
+    }
+
+    // Attach listeners for instant filtering
+    document.getElementById('protocolFilter').addEventListener('change', renderTopology);
+    document.getElementById('serviceFilter').addEventListener('change', renderTopology);
+
+    renderTopology(); // Initial draw
+
+    function updateServiceDropdown() {
+        const selectedProto = protoSelect.value;
+        
+        // 1. Get unique services for the selected protocol
+        const filteredServices = new Set();
+        rawData.forEach(row => {
+            const rowService = row.vpn_instance || row.service || row.vrf;
+            if (rowService && (selectedProto === 'all' || row.protocol === selectedProto)) {
+                filteredServices.add(rowService);
+            }
+        });
+
+        // 2. Clear and rebuild the dropdown
+        const currentSelection = serviceSelect.value; // Save selection if possible
+        serviceSelect.innerHTML = '<option value="all">All VPNs / VRFs</option>';
+        
+        Array.from(filteredServices).sort().forEach(srv => {
+            const opt = document.createElement('option');
+            opt.value = srv;
+            opt.textContent = srv;
+            serviceSelect.appendChild(opt);
+        });
+
+        // 3. Restore selection if it still exists in the new list
+        if (Array.from(filteredServices).includes(currentSelection)) {
+            serviceSelect.value = currentSelection;
+        }
+        
+        // 4. Trigger the actual data filtering (Map/Table)
+        renderTopology(); 
+        filterTable();
+    }
+
+    // Attach listeners
+    protoSelect.addEventListener('change', updateServiceDropdown);
+    serviceSelect.addEventListener('change', () => {
+        renderTopology();
+        filterTable();
+    });
+    // Initial population
+    updateServiceDropdown();
+    
+});
+</script>
+</body>
+</html>
