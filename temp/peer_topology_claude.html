@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Core Backbone Topology</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        /* ── Design tokens ─────────────────────────────────────── */
+        :root {
+            --clr-up:      #2ECC40;
+            --clr-down:    #FF4136;
+            --clr-bgp:     #378ADD;
+            --clr-ospf:    #1D9E75;
+            --clr-bg:      #f4f6f8;
+            --clr-canvas:  #ffffff;
+            --clr-border:  #dee2e6;
+            --clr-header:  #1a1f2e;
+        }
+
+        body { background: var(--clr-bg); font-family: 'Segoe UI', sans-serif; }
+
+        /* ── Top bar ───────────────────────────────────────────── */
+        #topbar {
+            background: var(--clr-header);
+            color: #fff;
+            padding: .75rem 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        #topbar h5 { margin: 0; font-size: 1rem; letter-spacing: .03em; }
+
+        .badge-stat {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            background: rgba(255,255,255,.12);
+            border-radius: 999px;
+            padding: .2rem .65rem;
+            font-size: .78rem;
+        }
+        .badge-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot-up   { background: var(--clr-up);   }
+        .dot-down { background: var(--clr-down);  }
+
+        .filter-group {
+            display: flex;
+            gap: .5rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-group select {
+            font-size: .82rem;
+            padding: .25rem .5rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,.25);
+            background: rgba(255,255,255,.1);
+            color: #fff;
+            min-width: 130px;
+        }
+        .filter-group select option { background: #1a1f2e; }
+
+        /* ── Canvas ────────────────────────────────────────────── */
+        #cy-wrap {
+            position: relative;
+            background: var(--clr-canvas);
+            border-bottom: 2px solid var(--clr-border);
+        }
+        #cy { width: 100%; height: 580px; }
+
+        #cy-loading {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,.85);
+            font-size: .9rem; color: #555;
+            pointer-events: none;
+            transition: opacity .3s;
+        }
+        #cy-loading.hidden { opacity: 0; }
+
+        /* ── Legend ────────────────────────────────────────────── */
+        #legend {
+            position: absolute;
+            bottom: 12px; right: 14px;
+            background: rgba(255,255,255,.93);
+            border: 1px solid var(--clr-border);
+            border-radius: 8px;
+            padding: .45rem .75rem;
+            font-size: .75rem;
+            display: flex;
+            flex-direction: column;
+            gap: .25rem;
+        }
+        .legend-item { display: flex; align-items: center; gap: .4rem; }
+        .legend-line {
+            width: 22px; height: 3px;
+            border-radius: 2px;
+            display: inline-block;
+        }
+
+        /* ── Tooltip ───────────────────────────────────────────── */
+        #tooltip {
+            position: fixed;
+            background: #1a1f2e;
+            color: #e8ecf0;
+            border-radius: 8px;
+            padding: .55rem .8rem;
+            font-size: .78rem;
+            pointer-events: none;
+            display: none;
+            z-index: 9999;
+            max-width: 260px;
+            line-height: 1.6;
+            box-shadow: 0 4px 16px rgba(0,0,0,.25);
+        }
+        #tooltip strong { color: #fff; display: block; margin-bottom: .15rem; }
+
+        /* ── Table section ─────────────────────────────────────── */
+        #table-section { padding: 1.25rem 1.5rem; }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            margin-bottom: .75rem;
+        }
+        .section-header h5 { margin: 0; font-size: .95rem; font-weight: 600; }
+
+        .count-badge {
+            background: #e8f0fe;
+            color: #1a56db;
+            border-radius: 999px;
+            padding: .1rem .55rem;
+            font-size: .8rem;
+            font-weight: 600;
+        }
+
+        #searchBox {
+            width: 220px;
+            font-size: .82rem;
+            padding: .3rem .6rem;
+            border: 1px solid var(--clr-border);
+            border-radius: 6px;
+            margin-left: auto;
+        }
+
+        /* Table */
+        #peerTable { font-size: .82rem; }
+        #peerTable thead th {
+            background: #1a1f2e;
+            color: #cbd5e1;
+            font-weight: 500;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        .peer-row:hover { background: #f0f4ff !important; cursor: pointer; }
+        .peer-row.highlighted { background: #fff8e1 !important; }
+
+        .state-up   { color: var(--clr-up);   font-weight: 600; }
+        .state-down { color: var(--clr-down);  font-weight: 600; }
+
+        .proto-badge {
+            display: inline-block;
+            padding: .1rem .45rem;
+            border-radius: 4px;
+            font-size: .72rem;
+            font-weight: 600;
+            letter-spacing: .04em;
+        }
+        .proto-bgp  { background: #e8f1fc; color: var(--clr-bgp);  }
+        .proto-ospf { background: #e6f7f2; color: var(--clr-ospf); }
+    </style>
+</head>
+<body>
+
+<!-- ── Top bar ──────────────────────────────────────────────────────────── -->
+<div id="topbar">
+    <div style="display:flex;align-items:center;gap:.75rem">
+        <h5>Backbone Topology</h5>
+        <span class="badge-stat">
+            <span class="badge-dot dot-up"></span>
+            <span id="countUp">—</span> up
+        </span>
+        <span class="badge-stat">
+            <span class="badge-dot dot-down"></span>
+            <span id="countDown">—</span> down
+        </span>
+        <span class="badge-stat" id="mapLinksBadge">
+            <span id="mapLinks">0</span> map links
+        </span>
+    </div>
+
+    <div class="filter-group">
+        <select id="protocolFilter">
+            <option value="all">All protocols</option>
+            <option value="BGP">BGP only</option>
+            <option value="OSPF">OSPF only</option>
+        </select>
+        <select id="serviceFilter">
+            <option value="all">All VPN / VRF</option>
+            {% for srv in services %}
+            <option value="{{ srv }}">{{ srv }}</option>
+            {% endfor %}
+        </select>
+        <select id="layoutSelect">
+            <option value="cose">Layout: CoSE</option>
+            <option value="circle">Layout: Circle</option>
+            <option value="grid">Layout: Grid</option>
+            <option value="breadthfirst">Layout: Tree</option>
+        </select>
+    </div>
+</div>
+
+<!-- ── Cytoscape canvas ──────────────────────────────────────────────────── -->
+<div id="cy-wrap">
+    <div id="cy"></div>
+    <div id="cy-loading">Loading topology…</div>
+
+    <div id="legend">
+        <div class="legend-item">
+            <span class="legend-line" style="background:var(--clr-up)"></span> Link up
+        </div>
+        <div class="legend-item">
+            <span class="legend-line" style="background:var(--clr-down)"></span> Link down
+        </div>
+        <div class="legend-item">
+            <span class="legend-line" style="background:var(--clr-bgp)"></span> BGP
+        </div>
+        <div class="legend-item">
+            <span class="legend-line" style="background:var(--clr-ospf)"></span> OSPF
+        </div>
+    </div>
+</div>
+
+<!-- ── Tooltip ───────────────────────────────────────────────────────────── -->
+<div id="tooltip"></div>
+
+<!-- ── Reference table ──────────────────────────────────────────────────── -->
+<div id="table-section">
+    <div class="section-header">
+        <h5>Reference Table</h5>
+        <span class="count-badge" id="tableCount">0</span>
+        <small class="text-muted">matching rows</small>
+        <input id="searchBox" type="search" placeholder="Quick search…">
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle" id="peerTable">
+            <thead>
+                <tr>
+                    <th>Protocol</th>
+                    <th>Hostname</th>
+                    <th>Local ID</th>
+                    <th>Neighbor IP</th>
+                    <th>VPN / VRF</th>
+                    <th>State</th>
+                    <th>Updated</th>
+                </tr>
+            </thead>
+            <tbody id="peerTbody">
+                {% for row in raw_data %}
+                <tr class="peer-row"
+                    data-protocol="{{ row.protocol }}"
+                    data-service="{{ row.service | default('') }}"
+                    data-hostname="{{ row.hostname }}"
+                    data-neighbor="{{ row.neighbor_address }}"
+                    data-state="{{ row.state }}">
+                    <td>
+                        <span class="proto-badge proto-{{ row.protocol | lower }}">
+                            {{ row.protocol }}
+                        </span>
+                    </td>
+                    <td>{{ row.hostname }}</td>
+                    <td><code style="font-size:.78rem">{{ row.local_router_id }}</code></td>
+                    <td><code style="font-size:.78rem">{{ row.neighbor_address }}</code></td>
+                    <td>{{ row.service or '—' }}</td>
+                    <td class="{{ 'state-up' if ('EST' in row.state.upper() or 'FULL' in row.state.upper()) else 'state-down' }}">
+                        {{ row.state }}
+                    </td>
+                    <td>{{ row.last_updated_ts }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// ── Data from server ─────────────────────────────────────────────────────────
+const RAW_DATA = {{ raw_data | tojson | safe }};
+
+// ── Identity map: any IP or router-id → hostname ─────────────────────────────
+const idToHost = {};
+RAW_DATA.forEach(row => {
+    if (row.host_ip)         idToHost[row.host_ip]         = row.hostname;
+    if (row.local_router_id) idToHost[row.local_router_id] = row.hostname;
+});
+
+// ── Cytoscape init ────────────────────────────────────────────────────────────
+const cy = cytoscape({
+    container: document.getElementById('cy'),
+    style: [
+        {
+            selector: 'node',
+            style: {
+                shape: 'round-rectangle',
+                width: 180, height: 52,
+                'background-color': '#fff',
+                'border-width': 2,
+                'border-color': '#1a1f2e',
+                label: 'data(id)',
+                'text-valign': 'center',
+                'font-size': '12px',
+                'font-family': 'Segoe UI, sans-serif',
+                'text-wrap': 'ellipsis',
+                'text-max-width': 160,
+            }
+        },
+        {
+            selector: 'node:selected',
+            style: {
+                'border-color': '#378ADD',
+                'border-width': 3,
+                'background-color': '#e8f1fc',
+            }
+        },
+        {
+            selector: 'edge',
+            style: {
+                width: 3,
+                'line-color': 'data(color)',
+                'curve-style': 'bezier',
+                'target-arrow-shape': 'triangle',
+                'target-arrow-color': 'data(color)',
+                label: 'data(protocol)',
+                'font-size': '9px',
+                'text-rotation': 'autorotate',
+                'text-margin-y': -6,
+                'color': '#555',
+                opacity: 0.85,
+            }
+        },
+        {
+            selector: 'edge[protocol="BGP"]',
+            style: { 'line-color': '#378ADD', 'target-arrow-color': '#378ADD' }
+        },
+        {
+            selector: 'edge[protocol="OSPF"]',
+            style: { 'line-color': '#1D9E75', 'target-arrow-color': '#1D9E75' }
+        },
+        {
+            selector: 'edge.link-down',
+            style: { 'line-style': 'dashed', opacity: 0.5 }
+        },
+        {
+            selector: '.faded',
+            style: { opacity: 0.15 }
+        }
+    ]
+});
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+const tooltip = document.getElementById('tooltip');
+
+cy.on('mouseover', 'node', e => {
+    const node = e.target;
+    const connEdges = node.connectedEdges();
+    const upCount   = connEdges.filter(ed => ed.data('is_up')).length;
+    const downCount = connEdges.length - upCount;
+    tooltip.innerHTML = `
+        <strong>${node.id()}</strong>
+        Links: ${connEdges.length} &nbsp;
+        <span style="color:var(--clr-up)">▲${upCount}</span>
+        <span style="color:var(--clr-down)">▼${downCount}</span>
+    `;
+    tooltip.style.display = 'block';
+});
+
+cy.on('mousemove', e => {
+    tooltip.style.left = (e.originalEvent.clientX + 14) + 'px';
+    tooltip.style.top  = (e.originalEvent.clientY + 14) + 'px';
+});
+
+cy.on('mouseout', 'node', () => { tooltip.style.display = 'none'; });
+
+cy.on('mouseover', 'edge', e => {
+    const ed = e.target;
+    tooltip.innerHTML = `
+        <strong>${ed.data('source')} → ${ed.data('target')}</strong>
+        Protocol: ${ed.data('protocol')}<br>
+        Service: ${ed.data('service') || '—'}<br>
+        State: ${ed.data('state')}
+    `;
+    tooltip.style.display = 'block';
+});
+
+cy.on('mouseout', 'edge', () => { tooltip.style.display = 'none'; });
+
+// ── Node click: highlight neighbourhood ──────────────────────────────────────
+cy.on('tap', 'node', e => {
+    const node = e.target;
+    cy.elements().addClass('faded');
+    node.removeClass('faded');
+    node.connectedEdges().removeClass('faded').connectedNodes().removeClass('faded');
+    // Sync table highlight
+    document.querySelectorAll('.peer-row').forEach(tr => {
+        tr.classList.toggle(
+            'highlighted',
+            tr.dataset.hostname === node.id() || idToHost[tr.dataset.neighbor] === node.id()
+        );
+    });
+});
+
+cy.on('tap', e => {
+    if (e.target === cy) {   // click on background → clear
+        cy.elements().removeClass('faded');
+        document.querySelectorAll('.peer-row.highlighted').forEach(tr => tr.classList.remove('highlighted'));
+    }
+});
+
+// ── Main render ───────────────────────────────────────────────────────────────
+function renderTopology() {
+    const proto   = document.getElementById('protocolFilter').value;
+    const service = document.getElementById('serviceFilter').value;
+    const layout  = document.getElementById('layoutSelect').value;
+
+    cy.elements().remove();
+    const addedNodes = new Set();
+    let upCount = 0, downCount = 0;
+
+    RAW_DATA.forEach(row => {
+        const protoMatch   = (proto === 'all'   || row.protocol === proto);
+        const serviceMatch = (service === 'all' || (row.service || '') === service);
+        if (!protoMatch || !serviceMatch) return;
+
+        const src = row.hostname;
+        const dst = idToHost[row.neighbor_address];
+        if (!dst || src === dst) return;
+
+        [src, dst].forEach(h => {
+            if (!addedNodes.has(h)) {
+                cy.add({ data: { id: h } });
+                addedNodes.add(h);
+            }
+        });
+
+        const isUp = /EST|FULL/i.test(row.state);
+        isUp ? upCount++ : downCount++;
+
+        cy.add({
+            data: {
+                source:   src,
+                target:   dst,
+                protocol: row.protocol,
+                service:  row.service || '',
+                state:    row.state,
+                is_up:    isUp,
+                color:    isUp ? '#2ECC40' : '#FF4136',
+            },
+            classes: isUp ? '' : 'link-down',
+        });
+    });
+
+    cy.layout({
+        name: layout,
+        nodeRepulsion: 10000,
+        animate: false,
+        padding: 30,
+    }).run();
+
+    document.getElementById('mapLinks').textContent  = upCount + downCount;
+    document.getElementById('countUp').textContent   = upCount;
+    document.getElementById('countDown').textContent = downCount;
+
+    document.getElementById('cy-loading').classList.add('hidden');
+}
+
+// ── Table filter ──────────────────────────────────────────────────────────────
+function filterTable() {
+    const proto   = document.getElementById('protocolFilter').value;
+    const service = document.getElementById('serviceFilter').value;
+    const search  = document.getElementById('searchBox').value.toLowerCase();
+
+    let visible = 0;
+    document.querySelectorAll('#peerTbody .peer-row').forEach(tr => {
+        const protoOk   = proto   === 'all' || tr.dataset.protocol === proto;
+        const serviceOk = service === 'all' || tr.dataset.service  === service;
+        const searchOk  = !search || tr.textContent.toLowerCase().includes(search);
+        const show = protoOk && serviceOk && searchOk;
+        tr.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    document.getElementById('tableCount').textContent = visible;
+}
+
+// ── Service dropdown: rebuild on protocol change ──────────────────────────────
+function rebuildServiceDropdown() {
+    const proto = document.getElementById('protocolFilter').value;
+    const sel   = document.getElementById('serviceFilter');
+    const prev  = sel.value;
+
+    const services = new Set();
+    RAW_DATA.forEach(row => {
+        if ((proto === 'all' || row.protocol === proto) && row.service)
+            services.add(row.service);
+    });
+
+    sel.innerHTML = '<option value="all">All VPN / VRF</option>';
+    [...services].sort().forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = s;
+        sel.appendChild(opt);
+    });
+    if ([...services].includes(prev)) sel.value = prev;
+}
+
+// ── Wire events ───────────────────────────────────────────────────────────────
+document.getElementById('protocolFilter').addEventListener('change', () => {
+    rebuildServiceDropdown();
+    renderTopology();
+    filterTable();
+});
+
+document.getElementById('serviceFilter').addEventListener('change', () => {
+    renderTopology();
+    filterTable();
+});
+
+document.getElementById('layoutSelect').addEventListener('change', renderTopology);
+document.getElementById('searchBox').addEventListener('input', filterTable);
+
+// ── Table row → highlight on map ──────────────────────────────────────────────
+document.querySelectorAll('.peer-row').forEach(tr => {
+    tr.addEventListener('click', () => {
+        const hostname = tr.dataset.hostname;
+        const node = cy.getElementById(hostname);
+        if (!node.length) return;
+        cy.elements().addClass('faded');
+        node.removeClass('faded');
+        node.connectedEdges().removeClass('faded').connectedNodes().removeClass('faded');
+        cy.animate({ fit: { eles: node.neighbourhood().add(node), padding: 60 }, duration: 400 });
+    });
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+rebuildServiceDropdown();
+renderTopology();
+filterTable();
+</script>
+</body>
+</html>

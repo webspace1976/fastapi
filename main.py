@@ -11,6 +11,11 @@ import mainconfig as mainconfig
 # import from routers
 from routers import devices, monitor, orion, ringer
 
+### 1.1 Path Traversal — `/edit` and `/save` endpoints (`main.py`)
+from pathlib import Path
+DATA_DIR = Path(__file__).parent / "data"
+ALLOWED_EXTENSIONS = {".txt", ".json", ".html"}
+
 app = FastAPI(
     title="SOC Network-Tools Portal",
     description="Network monitoring and device management system",
@@ -136,8 +141,13 @@ async def get_webssh_page(ip: str):
 # --- Directory listing for logs ---
 @app.get("/logs/{subpath:path}", response_class=HTMLResponse)
 async def serve_log_or_list(subpath: str, request: Request):
-    base_dir = os.path.join(os.path.dirname(__file__), "logs")
-    full_path = os.path.join(base_dir, subpath)
+    # base_dir = os.path.join(os.path.dirname(__file__), "logs")
+    # full_path = os.path.join(base_dir, subpath)
+    base_dir = Path(__file__).parent / "logs"
+    full_path = (base_dir / subpath).resolve()
+    if not str(full_path).startswith(str(base_dir.resolve())):
+        raise HTTPException(status_code=403, detail="Access denied")
+
 
     # Clean up trailing slash for directory listing
     if os.path.isdir(full_path):
@@ -183,6 +193,12 @@ async def get_log_file(file_name: str):
 # --- Directory listing for note data ---
 @app.get("/edit", response_class=HTMLResponse)
 async def edit_tab(filename: str):
+    target = (DATA_DIR / filename).resolve()
+    if not str(target).startswith(str(DATA_DIR)):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if target.suffix not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=403, detail="File type not allowed")
+
     file_path = os.path.join(os.path.dirname(__file__), "data", filename)
     try:
         # Read the file content
@@ -239,6 +255,13 @@ async def edit_tab(filename: str):
 
 @app.post("/save")
 async def save_tab(request: Request):
+    # Same containment + no path separators allowed in filename
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    target = (DATA_DIR / filename).resolve()
+    if not str(target).startswith(str(DATA_DIR)):
+        raise HTTPException(status_code=403, detail="Access denied")
+
     form_data = await request.form()
     filename = form_data.get("filename", "")
     content = form_data.get("content", "")

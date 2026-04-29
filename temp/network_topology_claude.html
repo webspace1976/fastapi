@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Core Backbone Topology — Live View</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;
+  --text:#e6edf3;--text2:#8b949e;--text3:#6e7681;
+  --up:#3fb950;--down:#f85149;--warn:#d29922;
+  --bgp:#58a6ff;--ospf:#56d364;
+  --g1:#ff7b72;--g2:#ffa657;--g3:#79c0ff;--g4:#d2a8ff;--g5:#56d364;
+  --accent:#1f6feb;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── Header ── */
+#header{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:.6rem 1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;flex-shrink:0;
+}
+#header h1{font-size:.95rem;font-weight:600;letter-spacing:.02em;color:var(--text)}
+.stat-pill{
+  display:inline-flex;align-items:center;gap:.35rem;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:999px;padding:.18rem .6rem;font-size:.72rem;color:var(--text2);
+}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot-up{background:var(--up)} .dot-down{background:var(--down)} .dot-warn{background:var(--warn)}
+.controls{display:flex;gap:.5rem;margin-left:auto;flex-wrap:wrap;align-items:center}
+select,button{
+  background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  border-radius:6px;padding:.25rem .55rem;font-size:.75rem;cursor:pointer;
+}
+select:hover,button:hover{border-color:#58a6ff;outline:none}
+button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* ── Main area ── */
+#main{display:flex;flex:1;overflow:hidden}
+
+/* ── Canvas ── */
+#cy-wrap{flex:1;position:relative;background:var(--bg)}
+#cy{width:100%;height:100%}
+#cy-loading{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:.6rem;background:var(--bg);color:var(--text2);font-size:.85rem;
+  transition:opacity .4s;z-index:10;
+}
+#cy-loading.hidden{opacity:0;pointer-events:none}
+.spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--bgp);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Sidebar ── */
+#sidebar{
+  width:280px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+#sidebar-header{
+  padding:.65rem .9rem;border-bottom:1px solid var(--border);
+  font-size:.75rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;
+}
+#sidebar-body{flex:1;overflow-y:auto;padding:.6rem .8rem}
+#sidebar-body::-webkit-scrollbar{width:4px}
+#sidebar-body::-webkit-scrollbar-track{background:transparent}
+#sidebar-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.empty-state{color:var(--text3);font-size:.78rem;text-align:center;padding:2rem 0}
+.node-detail-name{font-weight:600;font-size:.88rem;color:var(--text);margin-bottom:.35rem;word-break:break-all}
+.node-detail-ip{font-family:monospace;font-size:.75rem;color:var(--text2);margin-bottom:.5rem}
+.detail-label{font-size:.68rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:.65rem 0 .3rem}
+.vpn-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:.22rem .35rem;border-radius:4px;font-size:.73rem;margin-bottom:2px;
+  background:var(--surface2);
+}
+.vpn-name{color:var(--text2)}
+.vpn-stat{font-family:monospace;font-size:.7rem}
+.vpn-up{color:var(--up)} .vpn-down{color:var(--down)}
+.link-row{
+  display:flex;flex-direction:column;
+  padding:.3rem .35rem;border-radius:4px;font-size:.73rem;margin-bottom:3px;
+  background:var(--surface2);border-left:3px solid transparent;
+}
+.link-row.up{border-left-color:var(--up)}
+.link-row.down{border-left-color:var(--down)}
+.link-peer{color:var(--text);font-weight:500;margin-bottom:.15rem}
+.link-meta{color:var(--text3);font-family:monospace;font-size:.68rem}
+
+/* ── Legend ── */
+#legend{
+  position:absolute;bottom:12px;left:14px;
+  background:rgba(22,27,34,.92);border:1px solid var(--border);
+  border-radius:8px;padding:.45rem .7rem;font-size:.71rem;
+  display:flex;flex-direction:column;gap:.25rem;
+}
+.leg-row{display:flex;align-items:center;gap:.45rem;color:var(--text2)}
+.leg-line{width:20px;height:2.5px;border-radius:2px;flex-shrink:0}
+.leg-node{width:12px;height:12px;border-radius:3px;flex-shrink:0;opacity:.85}
+
+/* ── Tooltip ── */
+#tip{
+  position:fixed;background:rgba(13,17,23,.96);border:1px solid var(--border);
+  color:var(--text);border-radius:8px;padding:.5rem .75rem;font-size:.73rem;
+  pointer-events:none;display:none;z-index:9999;max-width:240px;line-height:1.6;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);
+}
+#tip strong{color:var(--bgp);display:block;margin-bottom:.1rem}
+</style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
+<div id="header">
+  <h1>Core Backbone Topology</h1>
+  <span class="stat-pill"><span class="dot dot-up"></span><span id="s-up">—</span> BGP est.</span>
+  <span class="stat-pill"><span class="dot dot-down"></span><span id="s-down">—</span> BGP down</span>
+  <span class="stat-pill"><span class="dot" style="background:var(--ospf)"></span><span id="s-ospf">—</span> OSPF full</span>
+  <span class="stat-pill"><span id="s-nodes">—</span> nodes</span>
+
+  <div class="controls">
+    <select id="protoSel">
+      <option value="all">All protocols</option>
+      <option value="BGP">BGP only</option>
+      <option value="OSPF">OSPF only</option>
+    </select>
+    <select id="vpnSel"><option value="all">All VPN / Global</option></select>
+    <select id="layoutSel">
+      <option value="cose">CoSE layout</option>
+      <option value="circle">Circle</option>
+      <option value="grid">Grid</option>
+      <option value="breadthfirst">Tree</option>
+      <option value="concentric">Concentric</option>
+    </select>
+    <button id="btnFit" title="Fit all">Fit</button>
+    <button id="btnClear" title="Clear selection">Clear</button>
+  </div>
+</div>
+
+<!-- ── Main ─────────────────────────────────────────────────────────────── -->
+<div id="main">
+
+  <!-- Canvas -->
+  <div id="cy-wrap">
+    <div id="cy"></div>
+    <div id="cy-loading"><div class="spinner"></div>Building topology…</div>
+
+    <div id="legend">
+      <div class="leg-row"><span class="leg-line" style="background:var(--up)"></span>Link up</div>
+      <div class="leg-row"><span class="leg-line" style="background:var(--down)"></span>Link down / non-est.</div>
+      <div class="leg-row"><span class="leg-line" style="background:var(--bgp)"></span>BGP session</div>
+      <div class="leg-row"><span class="leg-line" style="background:var(--ospf)"></span>OSPF adjacency</div>
+      <div class="leg-row"><span class="leg-node" style="background:#ff7b72"></span>ENG-CC/CW</div>
+      <div class="leg-row"><span class="leg-node" style="background:#ffa657"></span>ENG-KAM/KEL</div>
+      <div class="leg-row"><span class="leg-node" style="background:#79c0ff"></span>KDC</div>
+      <div class="leg-row"><span class="leg-node" style="background:#d2a8ff"></span>LGH / NS</div>
+      <div class="leg-row"><span class="leg-node" style="background:#6e7681"></span>Other / DMZ</div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-header">Node detail</div>
+    <div id="sidebar-body">
+      <div class="empty-state">Click a node to inspect</div>
+    </div>
+  </div>
+</div>
+
+<div id="tip"></div>
+
+<script>
+// ── Embedded real data from network_core.db ───────────────────────────────────
+const DB = {"nodes": [{"id": "ENG-KEL-HUT8-5945-Core", "ip": "10.102.102.80", "as": "4200000003", "group": "ENG-KAM-KEL"}, {"id": "ENG22-CC-Core", "ip": "10.8.8.15", "as": "4200000001", "group": "ENG-CC-CW"}, {"id": "ENG22-CW-Core", "ip": "10.8.8.16", "as": "4200000001", "group": "ENG-CC-CW"}, {"id": "ENG22-KAM-Core", "ip": "10.102.102.79", "as": "4200000003", "group": "ENG-KAM-KEL"}, {"id": "KDC-DMZ-HUT8-5945", "ip": "10.251.18.217", "as": "N/A", "group": "Other"}, {"id": "KDC-DMZ-KAM-New", "ip": "10.251.18.216", "as": "N/A", "group": "Other"}, {"id": "KDC-R4.09-12908E-CORE1", "ip": "10.251.0.75", "as": "4200000005", "group": "KDC"}, {"id": "KDC-R4.25-12908E-CORE2", "ip": "10.251.0.76", "as": "4200000005", "group": "KDC"}, {"id": "LGH-EVGH-Core-2", "ip": "10.26.101.1", "as": "4255000101", "group": "LGH-NS"}, {"id": "LGH-PIM-Core-1", "ip": "10.26.101.2", "as": "4255000101", "group": "LGH-NS"}, {"id": "NS-LGH-LGAC-01A-C9600-Core1", "ip": "10.26.101.127", "as": "4255000101", "group": "LGH-NS"}, {"id": "NS-LGH-LGAC-PIMS-C9600-Core2", "ip": "10.26.101.128", "as": "4255000101", "group": "LGH-NS"}, {"id": "VH-VGH-3730-7508R-Core1(s1)", "ip": "10.26.101.7", "as": "N/A", "group": "Other"}, {"id": "VH-VGH-JPNB9-7508R-Core2(s1)", "ip": "10.26.101.8", "as": "N/A", "group": "Other"}], "bgp_edges": [{"source": "ENG-KEL-HUT8-5945-Core", "target": "ENG22-CC-Core", "protocol": "BGP", "vpn": "Global", "state": "Established", "uptime": "0775h44m", "is_up": true}, {"source": "ENG-KEL-HUT8-5945-Core", "target": "ENG22-KAM-Core", "protocol": "BGP", "vpn": "Global", "state": "Established", "uptime": "0569h28m", "is_up": true}, {"source": "ENG-KEL-HUT8-5945-Core", "target": "KDC-R4.25-12908E-CORE2", "protocol": "BGP", "vpn": "Global", "state": "Established", "uptime": "0569h28m", "is_up": true}, {"source": "ENG22-CC-Core", "target": "ENG22-CW-Core", "protocol": "BGP", "vpn": "Global", "state": "Established", "uptime": "5274h23m", "is_up": true}, {"source": "ENG22-CC-Core", "target": "ENG22-CW-Core", "protocol": "BGP", "vpn": "VCHA", "state": "Connect", "uptime": "5276h05m", "is_up": false}, {"source": "ENG22-CW-Core", "target": "ENG22-KAM-Core", "protocol": "BGP", "vpn": "Global", "state": "Established", "uptime": "0354h58m", "is_up": true}, {"source": "ENG22-KAM-Core", "target": "KDC-R4.09-12908E-CORE1", "protocol": "BGP", "vpn": "Global", "state": "Established", "uptime": "6929h37m", "is_up": true}, {"source": "KDC-R4.09-12908E-CORE1", "target": "KDC-R4.25-12908E-CORE2", "protocol": "BGP", "vpn": "Global", "state": "Established", "uptime": "****h09m", "is_up": true}], "ospf_edges": [{"source": "NS-LGH-LGAC-01A-C9600-Core1", "target": "NS-LGH-LGAC-PIMS-C9600-Core2", "protocol": "OSPF", "vpn": "Area 0", "state": "FULL", "uptime": "1y23w", "is_up": true}, {"source": "VH-VGH-3730-7508R-Core1(s1)", "target": "VH-VGH-JPNB9-7508R-Core2(s1)", "protocol": "OSPF", "vpn": "Area 0.0.0.0", "state": "FULL", "uptime": "130d04h", "is_up": true}], "vpn_by_node": {"ENG-KEL-HUT8-5945-Core": [{"vpn": "EHSC-EXT", "total": 1, "up": 1}, {"vpn": "Global", "total": 3, "up": 3}, {"vpn": "HIALDR", "total": 1, "up": 1}, {"vpn": "HIALMAIN", "total": 2, "up": 2}, {"vpn": "HSSBC", "total": 13, "up": 13}, {"vpn": "HSSBC-Internet", "total": 1, "up": 1}, {"vpn": "IHA", "total": 1, "up": 1}, {"vpn": "NHA", "total": 1, "up": 1}, {"vpn": "NTT", "total": 1, "up": 1}, {"vpn": "NTTDMZ", "total": 1, "up": 1}, {"vpn": "SPOK", "total": 1, "up": 1}, {"vpn": "bcnet", "total": 1, "up": 0}, {"vpn": "extranet", "total": 1, "up": 1}, {"vpn": "plis", "total": 1, "up": 0}, {"vpn": "spanbc", "total": 1, "up": 1}], "ENG22-CC-Core": [{"vpn": "BCCSS", "total": 3, "up": 3}, {"vpn": "BCCSS-Internet", "total": 1, "up": 1}, {"vpn": "CERNER", "total": 1, "up": 1}, {"vpn": "CLOUDSP", "total": 3, "up": 3}, {"vpn": "CLOUDSP-Internet", "total": 1, "up": 1}, {"vpn": "EHSC", "total": 3, "up": 3}, {"vpn": "EHSC-EXT", "total": 1, "up": 1}, {"vpn": "FHA", "total": 4, "up": 4}, {"vpn": "FHA-Internet", "total": 1, "up": 1}, {"vpn": "FNHA", "total": 1, "up": 1}, {"vpn": "Global", "total": 2, "up": 2}, {"vpn": "HIALDR", "total": 1, "up": 1}, {"vpn": "HSSBC", "total": 25, "up": 25}, {"vpn": "PHSA", "total": 4, "up": 3}, {"vpn": "PHSA-Internet", "total": 1, "up": 1}, {"vpn": "TELUS-TC2", "total": 1, "up": 1}, {"vpn": "VCHA", "total": 5, "up": 4}, {"vpn": "VCHA-Internet", "total": 1, "up": 1}, {"vpn": "VIHA", "total": 2, "up": 2}, {"vpn": "bcnet", "total": 2, "up": 1}, {"vpn": "extranet", "total": 1, "up": 1}, {"vpn": "plis", "total": 1, "up": 1}], "ENG22-CW-Core": [{"vpn": "BCCSS", "total": 3, "up": 3}, {"vpn": "BCCSS-Internet", "total": 1, "up": 1}, {"vpn": "CERNER", "total": 2, "up": 2}, {"vpn": "CLOUDSP", "total": 5, "up": 5}, {"vpn": "CLOUDSP-Internet", "total": 1, "up": 1}, {"vpn": "EHSC", "total": 3, "up": 3}, {"vpn": "EHSC-EXT", "total": 2, "up": 2}, {"vpn": "FHA", "total": 4, "up": 4}, {"vpn": "FHA-Internet", "total": 1, "up": 1}, {"vpn": "FNHA", "total": 1, "up": 1}, {"vpn": "Global", "total": 2, "up": 2}, {"vpn": "HIALDR", "total": 2, "up": 2}, {"vpn": "HSSBC", "total": 25, "up": 25}, {"vpn": "NTT", "total": 1, "up": 1}, {"vpn": "PHSA", "total": 4, "up": 3}, {"vpn": "PHSA-Internet", "total": 1, "up": 1}, {"vpn": "SPOK", "total": 1, "up": 1}, {"vpn": "TELUS-TC2", "total": 1, "up": 1}, {"vpn": "THSS-SDI", "total": 2, "up": 2}, {"vpn": "UNIT4", "total": 1, "up": 1}, {"vpn": "VCHA", "total": 4, "up": 4}, {"vpn": "VCHA-Internet", "total": 1, "up": 1}, {"vpn": "VIHA", "total": 2, "up": 2}, {"vpn": "bcnet", "total": 2, "up": 2}, {"vpn": "extranet", "total": 2, "up": 2}, {"vpn": "plis", "total": 2, "up": 1}, {"vpn": "spanbc", "total": 1, "up": 1}], "ENG22-KAM-Core": [{"vpn": "CERNER", "total": 1, "up": 1}, {"vpn": "CLOUDSP", "total": 5, "up": 4}, {"vpn": "Global", "total": 3, "up": 3}, {"vpn": "HIALMAIN", "total": 2, "up": 2}, {"vpn": "HSSBC", "total": 13, "up": 13}, {"vpn": "HSSBC-Internet", "total": 1, "up": 1}, {"vpn": "IHA", "total": 1, "up": 1}, {"vpn": "NHA", "total": 1, "up": 1}, {"vpn": "NTT", "total": 2, "up": 2}, {"vpn": "NTTDMZ", "total": 1, "up": 1}, {"vpn": "SDW-UNDERLAY", "total": 1, "up": 1}, {"vpn": "SPOK", "total": 2, "up": 2}, {"vpn": "THSS-SDI", "total": 2, "up": 2}, {"vpn": "UNIT4", "total": 1, "up": 1}], "KDC-R4.09-12908E-CORE1": [{"vpn": "FHA", "total": 3, "up": 3}, {"vpn": "Global", "total": 2, "up": 2}, {"vpn": "HSSBC", "total": 3, "up": 3}, {"vpn": "HSSBC-backup", "total": 1, "up": 1}, {"vpn": "PHSA", "total": 3, "up": 3}, {"vpn": "PHSA-VDI-Internet", "total": 1, "up": 1}, {"vpn": "VCHA", "total": 3, "up": 3}, {"vpn": "VCHA-VDI-Internet", "total": 1, "up": 1}], "KDC-R4.25-12908E-CORE2": [{"vpn": "FHA", "total": 3, "up": 3}, {"vpn": "Global", "total": 2, "up": 2}, {"vpn": "HSSBC", "total": 3, "up": 3}, {"vpn": "HSSBC-backup", "total": 1, "up": 1}, {"vpn": "PHSA", "total": 3, "up": 3}, {"vpn": "PHSA-VDI-Internet", "total": 1, "up": 1}, {"vpn": "VCHA", "total": 3, "up": 3}, {"vpn": "VCHA-VDI-Internet", "total": 1, "up": 1}], "LGH-EVGH-Core-2": [{"vpn": "VCHA-TC2", "total": 7, "up": 3}], "LGH-PIM-Core-1": [{"vpn": "VCHA-TC2", "total": 7, "up": 3}], "NS-LGH-LGAC-01A-C9600-Core1": [{"vpn": "VCHA-TC2", "total": 9, "up": 6}], "NS-LGH-LGAC-PIMS-C9600-Core2": [{"vpn": "VCHA-TC2", "total": 9, "up": 6}]}, "bgp_states": [{"state": "Established", "cnt": 252}, {"state": "Idle", "cnt": 12}, {"state": "Connect", "cnt": 6}, {"state": "Active", "cnt": 2}, {"state": "Idle(Admin)", "cnt": 1}, {"state": "IDLE", "cnt": 1}], "ospf_states": [{"state": "Full", "cnt": 275}, {"state": "FULL", "cnt": 229}, {"state": "established", "cnt": 1}]};
+
+// ── Color map ─────────────────────────────────────────────────────────────────
+const GROUP_COLOR = {
+  'ENG-CC-CW':   '#ff7b72',
+  'ENG-KAM-KEL': '#ffa657',
+  'KDC':         '#79c0ff',
+  'LGH-NS':      '#d2a8ff',
+  'Other':       '#6e7681',
+};
+
+// ── Build Cytoscape elements ──────────────────────────────────────────────────
+function buildElements(proto, vpnFilter) {
+  const elems = [];
+  const nodesSeen = new Set();
+  const allEdges = [
+    ...DB.bgp_edges.map(e => ({...e, _proto:'BGP'})),
+    ...DB.ospf_edges.map(e => ({...e, _proto:'OSPF'})),
+  ];
+
+  const filtered = allEdges.filter(e => {
+    if (proto !== 'all' && e._proto !== proto) return false;
+    if (vpnFilter !== 'all' && e.vpn !== vpnFilter) return false;
+    return true;
+  });
+
+  filtered.forEach(e => {
+    [e.source, e.target].forEach(id => {
+      if (!nodesSeen.has(id)) {
+        nodesSeen.add(id);
+        const nd = DB.nodes.find(n => n.id === id) || {id, ip:'?', as:'?', group:'Other'};
+        elems.push({
+          data: {
+            id, label: id.replace(/-Core[12]?$/i,'\nCore').replace(/^(NS|VH)-/,''),
+            ip: nd.ip, as: nd.as, group: nd.group,
+            color: GROUP_COLOR[nd.group] || '#6e7681',
+          }
+        });
+      }
+    });
+    const isUp = e.is_up;
+    elems.push({
+      data: {
+        id: `${e.source}_${e.target}_${e.vpn}_${e._proto}`,
+        source: e.source, target: e.target,
+        protocol: e._proto, vpn: e.vpn,
+        state: e.state, uptime: e.uptime,
+        is_up: isUp,
+        color: isUp ? (e._proto==='OSPF' ? '#56d364' : '#3fb950') : '#f85149',
+      },
+      classes: isUp ? 'link-up' : 'link-down'
+    });
+  });
+
+  return {elems, edgeCount: filtered.length, nodeCount: nodesSeen.size};
+}
+
+// ── Cytoscape init ────────────────────────────────────────────────────────────
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  style: [
+    {
+      selector: 'node',
+      style: {
+        shape: 'round-rectangle', width: 160, height: 44,
+        'background-color': 'data(color)', 'background-opacity': .18,
+        'border-color': 'data(color)', 'border-width': 1.5,
+        label: 'data(label)',
+        color: '#e6edf3', 'font-size': '10px', 'font-family': 'Segoe UI, sans-serif',
+        'text-valign': 'center', 'text-halign': 'center',
+        'text-wrap': 'wrap', 'text-max-width': 148,
+        'text-overflow-wrap': 'whitespace',
+      }
+    },
+    {
+      selector: 'node:selected',
+      style: {
+        'border-color': '#58a6ff', 'border-width': 2.5,
+        'background-color': '#58a6ff', 'background-opacity': .28,
+      }
+    },
+    {
+      selector: 'edge',
+      style: {
+        width: 2, 'line-color': 'data(color)',
+        'curve-style': 'bezier', opacity: .75,
+        'target-arrow-shape': 'none',
+      }
+    },
+    {
+      selector: 'edge.link-down',
+      style: {'line-style': 'dashed', opacity: .45}
+    },
+    {
+      selector: 'edge:selected',
+      style: {width: 3.5, opacity: 1, 'line-color': '#58a6ff'}
+    },
+    {
+      selector: '.faded',
+      style: {opacity: .08}
+    },
+  ],
+  minZoom: .15, maxZoom: 4,
+});
+
+// ── VPN dropdown populate ─────────────────────────────────────────────────────
+const allVpns = new Set();
+[...DB.bgp_edges, ...DB.ospf_edges].forEach(e => allVpns.add(e.vpn));
+const vpnSel = document.getElementById('vpnSel');
+[...allVpns].sort().forEach(v => {
+  const o = document.createElement('option');
+  o.value = o.textContent = v;
+  vpnSel.appendChild(o);
+});
+
+// ── Stats header ──────────────────────────────────────────────────────────────
+function updateStats() {
+  const upBGP  = DB.bgp_edges.filter(e => e.is_up).length;
+  const downBGP= DB.bgp_edges.filter(e => !e.is_up).length;
+  const upOSPF = DB.ospf_edges.filter(e => e.is_up).length;
+  document.getElementById('s-up').textContent   = upBGP;
+  document.getElementById('s-down').textContent = downBGP;
+  document.getElementById('s-ospf').textContent = upOSPF;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const proto = document.getElementById('protoSel').value;
+  const vpn   = document.getElementById('vpnSel').value;
+  const layout= document.getElementById('layoutSel').value;
+
+  cy.elements().remove();
+  const {elems, nodeCount} = buildElements(proto, vpn);
+  cy.add(elems);
+  document.getElementById('s-nodes').textContent = nodeCount;
+
+  cy.layout({
+    name: layout,
+    nodeRepulsion: 12000, idealEdgeLength: 160,
+    animate: false, padding: 48,
+    fit: true,
+  }).run();
+
+  document.getElementById('cy-loading').classList.add('hidden');
+}
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+const tip = document.getElementById('tip');
+cy.on('mouseover', 'node', e => {
+  const n = e.target;
+  const edges = n.connectedEdges();
+  tip.innerHTML = `<strong>${n.id()}</strong>IP: ${n.data('ip')}<br>AS: ${n.data('as')}<br>Links: ${edges.length} (${edges.filter(ed=>ed.data('is_up')).length} up)`;
+  tip.style.display = 'block';
+});
+cy.on('mouseover', 'edge', e => {
+  const ed = e.target;
+  const stateColor = ed.data('is_up') ? '#3fb950' : '#f85149';
+  tip.innerHTML = `<strong>${ed.data('protocol')} · ${ed.data('vpn')}</strong>${ed.data('source')} ↔ ${ed.data('target')}<br>State: <span style="color:${stateColor}">${ed.data('state')}</span><br>Uptime: ${ed.data('uptime') || '—'}`;
+  tip.style.display = 'block';
+});
+cy.on('mousemove', e => {
+  tip.style.left = (e.originalEvent.clientX + 15) + 'px';
+  tip.style.top  = (e.originalEvent.clientY + 12) + 'px';
+});
+cy.on('mouseout', 'node, edge', () => tip.style.display = 'none');
+
+// ── Node click → sidebar ──────────────────────────────────────────────────────
+cy.on('tap', 'node', e => {
+  const id = e.target.id();
+  showNodeDetail(id);
+  // Neighbourhood highlight
+  cy.elements().addClass('faded');
+  e.target.removeClass('faded');
+  e.target.connectedEdges().removeClass('faded').connectedNodes().removeClass('faded');
+});
+
+cy.on('tap', e => {
+  if (e.target === cy) clearSel();
+});
+
+function clearSel() {
+  cy.elements().removeClass('faded');
+  document.getElementById('sidebar-body').innerHTML = '<div class="empty-state">Click a node to inspect</div>';
+}
+
+function showNodeDetail(id) {
+  const nd = DB.nodes.find(n => n.id === id);
+  const vpns = DB.vpn_by_node[id] || [];
+  const links = cy.getElementById(id).connectedEdges().map(ed => ed.data());
+
+  let html = `<div class="node-detail-name">${id}</div>`;
+  if (nd) html += `<div class="node-detail-ip">${nd.ip}</div>`;
+  if (nd?.as && nd.as !== 'N/A') html += `<div class="node-detail-ip">AS ${nd.as}</div>`;
+
+  if (links.length) {
+    html += '<div class="detail-label">Adjacencies on map</div>';
+    links.forEach(l => {
+      const peer = l.source === id ? l.target : l.source;
+      html += `<div class="link-row ${l.is_up ? 'up' : 'down'}">
+        <span class="link-peer">${peer}</span>
+        <span class="link-meta">${l.protocol} · ${l.vpn} · ${l.state} · ${l.uptime || '—'}</span>
+      </div>`;
+    });
+  }
+
+  if (vpns.length) {
+    html += '<div class="detail-label">VPN instances (all peers)</div>';
+    vpns.forEach(v => {
+      const allUp = v.total === v.up;
+      html += `<div class="vpn-row">
+        <span class="vpn-name">${v.vpn}</span>
+        <span class="vpn-stat ${allUp ? 'vpn-up' : 'vpn-down'}">${v.up}/${v.total}</span>
+      </div>`;
+    });
+  }
+
+  document.getElementById('sidebar-body').innerHTML = html;
+}
+
+// ── Controls wiring ───────────────────────────────────────────────────────────
+document.getElementById('protoSel').addEventListener('change', render);
+document.getElementById('vpnSel').addEventListener('change', render);
+document.getElementById('layoutSel').addEventListener('change', render);
+document.getElementById('btnFit').addEventListener('click', () => cy.fit(48));
+document.getElementById('btnClear').addEventListener('click', clearSel);
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+updateStats();
+render();
+</script>
+</body>
+</html>
