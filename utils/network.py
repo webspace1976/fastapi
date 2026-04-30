@@ -2,7 +2,8 @@
 
 import asyncio, json, traceback
 from concurrent.futures import ThreadPoolExecutor
-from netmiko import ConnectHandler, NetMikoTimeoutException, NetMikoAuthenticationException
+from netmiko import ConnectHandler
+from netmiko.exceptions import NetMikoTimeoutException, NetMikoAuthenticationException
 from paramiko.ssh_exception import SSHException
 from datetime import datetime
 from pathlib import Path

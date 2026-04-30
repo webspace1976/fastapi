@@ -182,13 +182,13 @@ async def serve_log_or_list(subpath: str, request: Request):
     else:
         raise HTTPException(status_code=404, detail="File or directory not found")
 
-@app.get("/logs/{file_name}", response_class=FileResponse)
-async def get_log_file(file_name: str):
-    file_path = os.path.join(os.path.dirname(__file__), "logs", file_name)
-    if os.path.isfile(file_path):
-        return FileResponse(file_path)
-    else:
-        raise HTTPException(status_code=404, detail="File not found")
+# @app.get("/logs/{file_name}", response_class=FileResponse)
+# async def get_log_file(file_name: str):
+#     file_path = os.path.join(os.path.dirname(__file__), "logs", file_name)
+#     if os.path.isfile(file_path):
+#         return FileResponse(file_path)
+#     else:
+#         raise HTTPException(status_code=404, detail="File not found")
 
 # --- Directory listing for note data ---
 @app.get("/edit", response_class=HTMLResponse)

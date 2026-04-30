@@ -1,0 +1,3 @@
+# Windows-only extras — install in addition to requirements.txt on Windows
+pywin32==311
+wfastcgi==3.0.0

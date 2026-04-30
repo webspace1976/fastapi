@@ -10,8 +10,9 @@ from datetime import datetime, timedelta
 from orionsdk import SwisClient
 from netmiko import ConnectHandler, SSHDetect
 from paramiko.ssh_exception import SSHException 
-from netmiko.ssh_exception import  AuthenticationException
-from netmiko.ssh_exception import NetMikoTimeoutException
+#update py 3.8 - 3.12 for paramiko 4.0 SSHException import
+from netmiko.exceptions import NetMikoTimeoutException
+from netmiko.exceptions import NetMikoAuthenticationException
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # This finds the absolute path to the 'fastapi' root folder
@@ -405,7 +406,7 @@ def core_check(log_dir, fname, ip, nodeid, logger=None):
 
     log_dir = mainconfig.CORE_LOGS_DIR
     log_file_path = os.path.join(log_dir, fname)
-    ip_pattern = "(?:[0-9]{1,3}\.){3}[0-9]{1,3}"
+    ip_pattern = r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}"
     ip_match = re.search(ip_pattern, fname)
     ip = ip_match[0] if ip_match else "unknown"
 
