@@ -300,7 +300,11 @@
         /* ══════════════════════════════════════════════════════
            TAB 3 — TOPOLOGY  (API-driven, no full page reload)
         ══════════════════════════════════════════════════════ */
-        #panel-topology { overflow: hidden; }
+        #panel-topology {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
 
         /* Toolbar */
         #topo-bar {
@@ -312,6 +316,15 @@
             gap: .75rem;
             flex-wrap: wrap;
             flex-shrink: 0;
+        }
+
+        .topo-main {
+            display: flex;
+            gap: 1rem;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+            padding: 1rem;
         }
 
         .topo-stats { display: flex; gap: .5rem; }
@@ -354,12 +367,167 @@
         /* Canvas */
         #cy-wrap {
             position: relative;
-            flex: 1;
+            flex: 1 1 70%;
             min-height: 0;
             background: var(--hdr2);
         }
 
         #cy { width: 100%; height: 100%; }
+
+        #node-details {
+            flex: 0 0 320px;
+            min-width: 260px;
+            max-width: 360px;
+            background: var(--surf2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            overflow-y: auto;
+            min-height: 0;
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+        }
+
+        .node-detail-block.hidden {
+            display: none;
+        }
+
+        .node-detail-empty {
+            padding: 1rem;
+            border: 1px dashed var(--border);
+            border-radius: var(--radius);
+            color: var(--muted);
+            font-size: .85rem;
+            background: rgba(255,255,255,.02);
+        }
+
+        .node-detail-summary {
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+            padding: .9rem 1rem;
+            border-radius: var(--radius);
+            background: rgba(23,27,33,.7);
+            border: 1px solid rgba(148,163,184,.12);
+        }
+
+        .node-detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: .5rem;
+            font-size: .95rem;
+            color: var(--text);
+        }
+
+        .node-detail-header span:first-child {
+            font-weight: 700;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: .2rem .6rem;
+            border-radius: 999px;
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            color: var(--bg);
+            background: var(--muted);
+        }
+
+        .status-up { background: #2ecc40; }
+        .status-degraded { background: #ff9500; }
+        .status-down { background: #ff4136; }
+        .status-unknown { background: var(--muted); }
+
+        .node-detail-stats {
+            display: flex;
+            gap: .5rem;
+            flex-wrap: wrap;
+            color: var(--muted);
+            font-size: .82rem;
+        }
+
+        .node-detail-stats span { display: inline-flex; gap: .35rem; align-items: center; }
+
+        .problem-link {
+            display: inline-block;
+            margin-left: .5rem;
+            font-size: .65rem;
+        }
+
+        .problem-link a {
+            color: var(--red);
+            text-decoration: none;
+            border: 1px solid rgba(255,77,79,.2);
+            padding: .12rem .4rem;
+            border-radius: 999px;
+            transition: background .2s, color .2s;
+        }
+
+        .problem-link a:hover {
+            background: rgba(255,77,79,.1);
+            color: var(--red);
+        }
+
+        #node-details h3 {
+            margin-top: 0;
+            margin-bottom: .75rem;
+            font-size: .85rem;
+            color: var(--accent);
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .node-detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: .5rem;
+            font-size: .82rem;
+        }
+
+        .node-detail-row span:last-child {
+            color: var(--text);
+            font-weight: 700;
+        }
+
+        .node-detail-list {
+            margin: .75rem 0 0;
+            padding-left: 1rem;
+            color: var(--muted);
+            font-size: .82rem;
+        }
+
+        .node-detail-list li {
+            margin-bottom: .35rem;
+            line-height: 1.4;
+        }
+
+        .peer-detail-link {
+            margin-left: .55rem;
+            font-size: .72rem;
+            color: var(--accent);
+            text-decoration: none;
+            border: 1px solid rgba(88,166,255,.2);
+            padding: .12rem .4rem;
+            border-radius: 999px;
+        }
+
+        .peer-detail-link:hover {
+            background: rgba(88,166,255,.08);
+        }
+
+        .peer-problem span {
+            font-weight: 700;
+        }
 
         #cy-overlay {
             position: absolute;
@@ -420,8 +588,8 @@
 
         /* Peer table */
         #topo-table {
-            flex-shrink: 0;
-            max-height: 220px;
+            flex: 0 0 220px;
+            min-height: 220px;
             overflow-y: auto;
             border-top: 1px solid var(--border);
         }
@@ -645,14 +813,42 @@
             </div>
         </div>
 
-        <div id="cy-wrap">
-            <div id="cy"></div>
-            <div id="cy-overlay">LOADING TOPOLOGY…</div>
-            <div id="topo-legend">
-                <div class="leg"><span class="leg-line" style="background:var(--green)"></span>Link up</div>
-                <div class="leg"><span class="leg-line" style="background:var(--red);opacity:.6"></span>Link down</div>
-                <div class="leg"><span class="leg-line" style="background:var(--bgp-clr)"></span>BGP</div>
-                <div class="leg"><span class="leg-line" style="background:var(--ospf-clr)"></span>OSPF</div>
+        <div class="topo-main">
+            <div id="cy-wrap">
+                <div id="cy"></div>
+                <div id="cy-overlay">LOADING TOPOLOGY…</div>
+                <div id="topo-legend">
+                    <div class="leg"><span class="leg-line" style="background:var(--green)"></span>Link up</div>
+                    <div class="leg"><span class="leg-line" style="background:var(--red);opacity:.6"></span>Link down</div>
+                    <div class="leg"><span class="leg-line" style="background:var(--bgp-clr)"></span>BGP</div>
+                    <div class="leg"><span class="leg-line" style="background:var(--ospf-clr)"></span>OSPF</div>
+                </div>
+            </div>
+            <div id="node-details">
+                <h3>Node Details</h3>
+                <div class="node-detail-summary hidden" id="node-detail-summary">
+                    <div class="node-detail-header">
+                        <span id="detail-name">—</span>
+                        <span id="detail-status" class="status-badge">Unknown</span>
+                    </div>
+                    <div class="node-detail-stats">
+                        <span><strong id="detail-links">0</strong> links</span>
+                        <span><strong id="detail-up">0</strong> up</span>
+                        <span><strong id="detail-down">0</strong> down</span>
+                    </div>
+                </div>
+                <div class="node-detail-empty">Click a node to inspect status and neighbor detail.</div>
+                <div class="node-detail-block hidden" id="node-detail-fields">
+                    <div class="node-detail-row"><span>Name</span><span id="detail-name-label">—</span></div>
+                    <div class="node-detail-row"><span>Node IP</span><span id="detail-host-ip">—</span></div>
+                    <div class="node-detail-row"><span>Total Links</span><span id="detail-links-label">—</span></div>
+                    <div class="node-detail-row"><span>Up</span><span id="detail-up-label">—</span></div>
+                    <div class="node-detail-row"><span>Down</span><span id="detail-down-label">—</span></div>
+                    <div class="node-detail-row"><span>Protocols</span><span id="detail-protocols">—</span></div>
+                    <div class="node-detail-row"><span>Last Clicked</span><span id="detail-selected">—</span></div>
+                    <div class="node-detail-row"><span>Neighbors</span></div>
+                    <ul class="node-detail-list" id="detail-neighbors"></ul>
+                </div>
             </div>
         </div>
 
@@ -685,10 +881,23 @@ function showTab(name) {
     document.querySelectorAll('.tab-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.tab === name);
     });
+
     document.querySelectorAll('.panel').forEach(p => {
-        p.classList.toggle('active', p.id === 'panel-' + name);
+        p.classList.remove('active');
+        p.style.display = 'none';
     });
+
+    const target = document.getElementById('panel-' + name);
+    if (target) {
+        target.classList.add('active');
+        target.style.display = 'flex';
+    }
+
     localStorage.setItem('soc-tab', name);
+
+    if (name !== 'topology' && typeof hideNodeDetails === 'function') {
+        hideNodeDetails();
+    }
 
     // Lazy-load iframe only on first visit to tracker tab
     if (name === 'tracker' && !trackerLoaded) {
@@ -757,6 +966,8 @@ function fetchPeerStats() {
 let cy        = null;
 let topoData  = { nodes: [], links: [] };  // raw API response
 let allPeers  = [];                         // flat peer list for the table
+let renderNodeDetails = null;
+let hideNodeDetails = null;
 
 function initCy() {
     cy = cytoscape({
@@ -846,13 +1057,96 @@ function initCy() {
             tr.classList.toggle('hl', tr.dataset.hostname === node.id()
                                    || tr.dataset.neighbor === node.id());
         });
+        renderNodeDetails(node.id());
     });
 
     cy.on('tap', e => {
         if (e.target !== cy) return;
         cy.elements().removeClass('faded');
         document.querySelectorAll('#peer-tbody-topo tr.hl').forEach(tr => tr.classList.remove('hl'));
+        hideNodeDetails();
     });
+
+    renderNodeDetails = function(nodeId) {
+        const summary = document.getElementById('node-detail-summary');
+        const block   = document.getElementById('node-detail-fields');
+        const empty   = document.querySelector('.node-detail-empty');
+        const node    = topoData.nodes.find(n => n.id === nodeId);
+        const links   = topoData.links.filter(lk => lk.source === nodeId || lk.target === nodeId);
+        const peerRows = allPeers.filter(r => r.hostname === nodeId);
+
+        if (!node || (!links.length && !peerRows.length)) {
+            hideNodeDetails();
+            return;
+        }
+
+        const rows = peerRows.length ? peerRows : links.map(lk => {
+            const peer = lk.source === nodeId ? lk.target : lk.source;
+            return {
+                hostname: nodeId,
+                neighbor_address: peer,
+                protocol: lk.protocol,
+                state: lk.state,
+                host_ip: '',
+                local_router_id: '',
+                is_problem: !lk.is_up,
+            };
+        });
+
+        const hostIp = rows.find(r => r.host_ip)?.host_ip
+            || rows.find(r => r.local_router_id)?.local_router_id
+            || '—';
+
+        const up = rows.filter(r => /EST|FULL/i.test(r.state || '')).length;
+        const down = rows.length - up;
+        const protocolCounts = rows.reduce((acc, r) => {
+            const proto = r.protocol || 'Unknown';
+            acc[proto] = (acc[proto] || 0) + 1;
+            return acc;
+        }, {});
+
+        const neighborItems = rows.map(r => {
+            const isUp = /EST|FULL/i.test(r.state || '');
+            const stateLabel = `<span style="color:${isUp ? '#3fb950' : '#f85149'};">[${r.protocol} ${isUp ? 'up' : 'down'}]</span>`;
+            const serviceLabel = r.service ? ` (${r.service})` : '';
+            const ipLink = `<a href="/api/monitor/history?hostname=${encodeURIComponent(nodeId)}&neighbor=${encodeURIComponent(r.neighbor_address)}&protocol=${encodeURIComponent(r.protocol)}" target="_blank" rel="noreferrer">${r.neighbor_address}</a>`;
+            return `<li class="${r.is_problem ? 'peer-problem' : ''}">${ipLink}${serviceLabel} ${stateLabel}</li>`;
+        }).join('');
+
+        const statusEl = document.getElementById('detail-status');
+        const good = up > 0 && down === 0;
+        const degraded = up > 0 && down > 0;
+        const statusText = good ? 'Healthy' : degraded ? 'Degraded' : 'Down';
+        statusEl.textContent = statusText;
+        statusEl.className = `status-badge ${good ? 'status-up' : degraded ? 'status-degraded' : 'status-down'}`;
+
+        if (empty) empty.classList.add('hidden');
+        if (summary) summary.classList.remove('hidden');
+        if (block) block.classList.remove('hidden');
+        const nodeLabel = node.label || node.id;
+        document.getElementById('detail-name').textContent = nodeLabel;
+        document.getElementById('detail-name-label').textContent = nodeLabel;
+        document.getElementById('detail-host-ip').textContent = hostIp;
+        document.getElementById('detail-links').textContent = rows.length;
+        document.getElementById('detail-links-label').textContent = rows.length;
+        document.getElementById('detail-up').textContent = up;
+        document.getElementById('detail-up-label').textContent = up;
+        document.getElementById('detail-down').textContent = down;
+        document.getElementById('detail-down-label').textContent = down;
+        document.getElementById('detail-protocols').textContent = Object.entries(protocolCounts)
+            .map(([proto, count]) => `${proto}: ${count}`).join(', ');
+        document.getElementById('detail-selected').textContent = new Date().toLocaleTimeString();
+        document.getElementById('detail-neighbors').innerHTML = neighborItems || '<li>No connected peers</li>';
+    }
+
+    hideNodeDetails = function() {
+        const summary = document.getElementById('node-detail-summary');
+        const block   = document.getElementById('node-detail-fields');
+        const empty   = document.querySelector('.node-detail-empty');
+        if (summary) summary.classList.add('hidden');
+        if (block) block.classList.add('hidden');
+        if (empty) empty.classList.remove('hidden');
+    }
 }
 
 // ── Load topology from API ────────────────────────────────────────────────────
@@ -934,13 +1228,18 @@ function renderTable(peers) {
         const proto = (r.protocol || '').toLowerCase();
         const text  = [r.hostname, r.local_router_id, r.neighbor_address,
                        r.service, r.state, r.last_updated_ts].join(' ').toLowerCase();
+        const isProblem = r.is_problem || !isUp;
 
         if (search && !text.includes(search)) return;
         visible++;
 
+        const problemLink = isProblem
+            ? `<div class="problem-link"><a href="/api/monitor/history?hostname=${encodeURIComponent(r.hostname)}&neighbor=${encodeURIComponent(r.neighbor_address)}&protocol=${encodeURIComponent(r.protocol)}" target="_blank" rel="noreferrer" title="View history for this peer">Problem</a></div>`
+            : '';
+
         rows.push(`<tr data-hostname="${r.hostname}" data-neighbor="${r.neighbor_address}">
             <td><span class="pb pb-${proto}">${r.protocol}</span></td>
-            <td style="color:var(--text)">${r.hostname}</td>
+            <td style="color:var(--text)">${r.hostname}${problemLink}</td>
             <td><code>${r.local_router_id || '—'}</code></td>
             <td><code>${r.neighbor_address}</code></td>
             <td>${r.service || '—'}</td>
@@ -952,7 +1251,7 @@ function renderTable(peers) {
     tbody.innerHTML = rows.join('');
     document.getElementById('topo-count').textContent = visible;
 
-    // Row click → zoom to node on map
+    // Row click → zoom to node on map and show node details
     tbody.querySelectorAll('tr').forEach(tr => {
         tr.addEventListener('click', () => {
             if (!cy) return;
@@ -962,6 +1261,7 @@ function renderTable(peers) {
             node.removeClass('faded');
             node.connectedEdges().removeClass('faded').connectedNodes().removeClass('faded');
             cy.animate({ fit: { eles: node.neighbourhood().add(node), padding: 50 }, duration: 300 });
+            renderNodeDetails(node.id());
         });
     });
 }
