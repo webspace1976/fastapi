@@ -284,6 +284,105 @@ def get_peer_history(db: DatabaseManager, hostname: str, protocol: str, ip: str)
     return db.execute_query(sql, {"ip": ip, "hostname": hostname})
 
 
+def display_history_page(db: DatabaseManager, hostname: str, protocol: str, neighbor: str) -> list:
+    html_history = []
+    html_history.append(f"<h1>History for {protocol.upper()} Peer: {hostname} {neighbor}</h1>")
+
+    history = get_peer_history(db, hostname, protocol, neighbor)
+    if db is None or not history:
+        html_history.append(
+            f"<p>No historical state change events found for {neighbor}. Use 'Flush Status' to initialize data.</p>"
+        )
+        return html_history
+
+    stmt = ""
+    if protocol.lower() == 'bgp':
+        stmt = "SELECT * FROM bgp_peer_status WHERE neighbor_address = :ip AND hostname = :hostname ORDER BY last_snapshot_id DESC"
+    else:
+        stmt = "SELECT * FROM ospf_peer_status WHERE neighbor_address = :ip AND hostname = :hostname ORDER BY last_snapshot_id DESC"
+
+    params = {"ip": neighbor, "hostname": hostname}
+    current_rows = db.execute_query(stmt, params)
+    current_status = current_rows[0] if current_rows else None
+
+    if current_status:
+        html_history.append("<div style='background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px;'>")
+        html_history.append("<h3>Current Status</h3>")
+        if protocol.lower() == 'bgp':
+            html_history.append(
+                f"<p>State: <strong>{current_status.get('state') or 'N/A'}</strong> | "
+            )
+            html_history.append(
+                f"Uptime: <strong>{current_status.get('up_down_time') or 'N/A'}</strong> | "
+            )
+            html_history.append(
+                f"Last Check: {current_status.get('last_updated_ts') or 'N/A'}</p>"
+            )
+        else:
+            html_history.append(
+                f"<p>State: <strong>{current_status.get('state') or 'N/A'}</strong> | "
+            )
+            html_history.append(
+                f"Interface: <strong>{current_status.get('interface') or 'N/A'}</strong> | "
+            )
+            html_history.append(
+                f"Last Check: {current_status.get('last_updated_ts') or 'N/A'}</p>"
+            )
+        html_history.append("</div>")
+
+    html_history.append("<h3>State Change History</h3>")
+    html_history.append("<div class='table-container'>")
+    html_history.append("<table>")
+
+    if protocol.lower() == 'bgp':
+        html_history.append(
+            "<tr><th>Hostname</th><th>VPN Instance</th><th>State Change</th><th>last_updated_ts</th><th>LogFile</th></tr>"
+        )
+        seen_history = set()
+        for entry in history:
+            key = (entry.get('hostname'), entry.get('neighbor_address'), entry.get('last_updated_ts'))
+            if key not in seen_history:
+                seen_history.add(key)
+                log_file = entry.get('log_file')
+                log_link = (
+                    f"<a href='{CORE_LOGS_DIR}/{log_file}' target='_blank'>{log_file}</a>"
+                    if log_file else "N/A"
+                )
+                html_history.append(f"<tr><td>{entry.get('hostname') or 'N/A'}</td>")
+                html_history.append(f"<td>{entry.get('vpn_instance') or 'N/A'}</td>")
+                html_history.append(
+                    f"<td>{entry.get('from_state') or 'N/A'} → {entry.get('to_state') or 'N/A'}</td>"
+                )
+                html_history.append(f"<td>{entry.get('last_updated_ts') or 'N/A'}</td>")
+                html_history.append(f"<td>{log_link}</td></tr>")
+    else:
+        html_history.append(
+            "<tr><th>Hostname</th><th>Process</th><th>Interface</th><th>State Change</th><th>last_updated_ts</th><th>Log File</th></tr>"
+        )
+        seen_history = set()
+        for entry in history:
+            key = (entry.get('hostname'), entry.get('neighbor_address'), entry.get('last_updated_ts'))
+            if key not in seen_history:
+                seen_history.add(key)
+                log_file = entry.get('log_file')
+                log_link = (
+                    f"<a href='{CORE_LOGS_DIR}/{log_file}' target='_blank'>{log_file}</a>"
+                    if log_file else "N/A"
+                )
+                html_history.append(f"<tr><td>{entry.get('hostname') or 'N/A'}</td>")
+                html_history.append(f"<td>{entry.get('process') or 'N/A'}</td>")
+                html_history.append(f"<td>{entry.get('interface') or 'N/A'}</td>")
+                html_history.append(
+                    f"<td>{entry.get('from_state') or 'N/A'} → {entry.get('to_state') or 'N/A'}</td>"
+                )
+                html_history.append(f"<td>{entry.get('last_updated_ts') or 'N/A'}</td>")
+                html_history.append(f"<td>{log_link}</td></tr>")
+
+    html_history.append("</table>")
+    html_history.append("</div>")
+    return html_history
+
+
 def get_peer_status(
     db: DatabaseManager,
     protocol: str,
@@ -596,11 +695,12 @@ async def peer_history(
     protocol:  str = "BGP",
 ):
     db = DatabaseManager(DB_PATH)
-    history = get_peer_history(db, hostname, protocol, neighbor)
+    html_content = display_history_page(db, hostname, protocol, neighbor)
+    full_html_string = "".join(html_content)
     return templates.TemplateResponse("monitor_history.html", {
-        "request":  request,
-        "history":  history,
-        "neighbor": neighbor,
-        "protocol": protocol,
-        "hostname": hostname,
+        "request":      request,
+        "html_history": full_html_string,
+        "neighbor":     neighbor,
+        "protocol":     protocol,
+        "hostname":     hostname,
     })
