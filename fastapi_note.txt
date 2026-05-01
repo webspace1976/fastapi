@@ -10,7 +10,22 @@ source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt 
 
-(venv) vacotaolin@penguin:~/FastAPI$ sudo venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8080 --reload
+(venv) vacotaolin@penguin:~/FastAPI$ sudo
+ venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8080 --reload
+=============================
+new branch for refactor
+# Make sure you're on main and it's clean
+git status
+git checkout main
+git pull origin main
+
+# Create and switch to the refactor branch
+git checkout -b refactor/python312-cleanup
+Note: Using the -b option on checkout will create a new branch, and move to it, if it does not exist
+# Verify you're on it
+git branch
+
+
 ==============================
 202604 logic:
 
