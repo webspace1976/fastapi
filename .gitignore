@@ -1,13 +1,46 @@
-# Python environment
+# ── Python ────────────────────────────────────────────────
 venv/
+venv_38_backup/
 __pycache__/
 *.pyc
+*.pyo
+.env
 
-# Local Data (Don't sync these to GitHub)
-data/core_archived
-data/orion_sessions
+# ── Data files (runtime, not source) ──────────────────────
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/*.json
+data/*.html
+data/core_archived/
+data/orion_sessions/
+
+# ── Logs ──────────────────────────────────────────────────
 logs/
+
+# ── Backup / copy files (dev clutter) ─────────────────────
+*- Copy.py
+*- Copy.py
+*- Copy.json
+*- Copy.db
+*- Copy*.db
+*- Copy*.html
+"*- Copy*"
+* - Copy*
+*[Copy]*
 scripts-backup/
 
-# Sensitive Info
+# ── Dated backup files ────────────────────────────────────
+*-20260416.py
+*-202604.py
+*_202604.py
+*_20260416.py
+main - Copy.py
+"main - Copy.py"
+
+# ── Test / scratch files ──────────────────────────────────
+test.json
+test_*.json
+
+# ── Sensitive ─────────────────────────────────────────────
 .env

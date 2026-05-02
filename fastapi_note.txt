@@ -1,4 +1,36 @@
+==============================
+20260501 upgrade to python 3.12.10 from 3.8.0 
+ 3.12, skip 3.14 for now.
+Python 3.14 was released October 2025 but the scientific/networking package ecosystem (pandas, numpy, netmiko, pydantic) hasn't fully caught up with prebuilt wheels yet — claude
 
+:: 1. Download Python 3.12 from python.org and install it
+::    https://www.python.org/downloads/release/python-31212/
+::    ✓ Check "Add python.exe to PATH" during install
+
+:: 2. Go to app folder
+cd C:\inetpub\fastapi
+
+:: 3. Backup old venv just in case
+rename venv venv_38_backup
+
+:: 4. Create new 3.12 venv
+py -3.12 -m venv venv
+
+::  Verify — should show 3.12 and correct path
+python --version
+where python
+
+:: 5. Install deps
+venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install -r requirements_win.txt
+
+:: 6. Test it starts before touching IIS
+venv\Scripts\python -m uvicorn main:app --host 0.0.0.0 --port 5050
+
+:: 7. If OK — update your IIS/wfastcgi config to point to the new venv
+::    Then delete venv_38_backup once stable
 ==============================
 20260429
 github.dev codespace

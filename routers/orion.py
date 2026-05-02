@@ -394,7 +394,7 @@ def generate_event_table(session):
         # event time:
         timestamp=row['EventTime']
         date=re.split("T",timestamp)[0]
-        time_utc=re.search("[0-9][0-9]\:[0-9][0-9]\:[0-9][0-9]",timestamp)[0]
+        time_utc=re.search(r"[0-9][0-9]\:[0-9][0-9]\:[0-9][0-9]",timestamp)[0]
         t=re.split(":",time_utc)
         utc_offset=datetime.utcnow().hour-datetime.now().hour
         if utc_offset < 0 :
@@ -428,7 +428,7 @@ def generate_event_table(session):
             row['Message']=re.sub(r'[^\x00-\x7F]','',row['Message'])
 
         #filter option for "sanity check"   
-        if re.match("Windows|Eaton|Merlin|Northern",row['Vendor']) :
+        if re.match(r"Windows|Eaton|Merlin|Northern",row['Vendor']) :
             url="/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:"+str(row['NetworkNode'])
             url_link=orion_prefix+url
 

@@ -82,7 +82,7 @@ def core_check(log_dir, fname, ip, nodeid, logger=None):
 
     log_dir = mainconfig.CORE_LOGS_DIR_LOCAL
     log_file_path = os.path.join(log_dir, fname)
-    ip_pattern = "(?:[0-9]{1,3}\.){3}[0-9]{1,3}"
+    ip_pattern = r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}"
     ip_match = re.search(ip_pattern, fname)
     ip = ip_match[0] if ip_match else "unknown"
 
@@ -805,7 +805,7 @@ def log_summary(log, hostname, ip):
                 if bgp_peer_duration_val != 'UNKNOWN':
                     bgp_peer_duration = bgp_peer_duration_val
                 else:
-                    bgp_peer_duration = get_dynamic_duration(current_ts) 
+                    bgp_peer_duration = get_dynamic_duration(current_ts)[0]  # Get duration based on current timestamp and last change timestamp
 
                 state_counts = {state: 0 for state in bgp_all_states}
                 for _, _, state in entries:
@@ -817,6 +817,7 @@ def log_summary(log, hostname, ip):
                     + f"<td>{current_ts}</td></tr>"
                 )
                 log_analysis.append(row)
+        print(log_analysis)
         log_analysis.append("</table>")
 
 
