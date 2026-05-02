@@ -42,6 +42,7 @@ templates = Jinja2Templates(directory=mainconfig.TEMPLATES_DIR)
 logger = mainconfig.setup_module_logger(__name__)
 
 DB_PATH = mainconfig.DB_PATH
+ORION_DB_PATH = mainconfig.DB_ORION_PATH
 CORE_LOGS_DIR = mainconfig.CORE_LOGS_DIR
 
 
@@ -507,6 +508,127 @@ def build_topology_data(db: DatabaseManager) -> Tuple[list, list]:
     raw: List[Dict] = [dict(r) for r in (bgp_rows + ospf_rows)]
     services = sorted({r["service"] for r in raw if r["service"]})
     return raw, services
+
+
+def build_orion_topology_data(db: DatabaseManager, site: Optional[str] = None) -> Tuple[List[Dict], List[Dict]]:
+    """Return node/link graph data from Orion.Topology."""
+    query = """
+        SELECT SourceNodeID, SourceNodeName, SourceInterface,
+               TargetNodeID, TargetNodeName, TargetInterface,
+               SourceSite, TargetSite, LayerType
+        FROM [Orion.Topology]
+    """
+    params = {}
+    if site:
+        query += " WHERE SourceSite LIKE :site OR TargetSite LIKE :site"
+        params = {"site": f"%{site}%"}
+
+    rows = db.execute_query(query, params)
+    nodes: Dict[str, Dict] = {}
+    links: List[Dict] = []
+
+    for row in rows:
+        source_id = str(row.get("SourceNodeID") or "")
+        source_name = str(row.get("SourceNodeName") or "").strip()
+        target_id = str(row.get("TargetNodeID") or "")
+        target_name = str(row.get("TargetNodeName") or "").strip()
+        if not source_id or not target_id:
+            continue
+
+        src_key = f"{source_name} ({source_id})" if source_name else source_id
+        tgt_key = f"{target_name} ({target_id})" if target_name else target_id
+
+        if src_key not in nodes:
+            nodes[src_key] = {
+                "id": src_key,
+                "label": source_name or source_id,
+                "site": row.get("SourceSite", ""),
+                "type": "orion",
+            }
+        if tgt_key not in nodes:
+            nodes[tgt_key] = {
+                "id": tgt_key,
+                "label": target_name or target_id,
+                "site": row.get("TargetSite", ""),
+                "type": "orion",
+            }
+
+        links.append({
+            "source": src_key,
+            "target": tgt_key,
+            "protocol": "ORION",
+            "service": row.get("LayerType", ""),
+            "state": "unknown",
+            "source_site": row.get("SourceSite", ""),
+            "target_site": row.get("TargetSite", ""),
+            "source_interface": row.get("SourceInterface", ""),
+            "target_interface": row.get("TargetInterface", ""),
+            "is_up": True,
+            "color": "#888",
+            "source_type": "orion",
+        })
+
+    return list(nodes.values()), links
+
+
+def merge_peer_and_orion_topology(peer_rows: List[Dict], orion_nodes: List[Dict], orion_links: List[Dict]) -> Dict[str, List[Dict]]:
+    """Combine peer topology with Orion topology into a single graph payload."""
+    nodes: Dict[str, Dict] = {node["id"]: node for node in orion_nodes}
+    links: List[Dict] = []
+
+    for row in peer_rows:
+        src = row["hostname"]
+        dst = row.get("neighbor_address")
+        if not dst or src == dst:
+            continue
+
+        if src not in nodes:
+            nodes[src] = {"id": src, "label": src, "type": "peer"}
+        if dst not in nodes:
+            nodes[dst] = {"id": dst, "label": dst, "type": "peer"}
+
+        is_up = any(k in str(row.get("state", "")).upper() for k in ("EST", "FULL"))
+        links.append({
+            "source": src,
+            "target": dst,
+            "protocol": row["protocol"],
+            "service": row.get("service", ""),
+            "state": row.get("state", ""),
+            "is_up": is_up,
+            "color": "#2ECC40" if is_up else "#FF4136",
+            "source_type": "peer",
+        })
+
+    links.extend(orion_links)
+    return {"nodes": list(nodes.values()), "links": links}
+
+
+@router.get("/api/orion_topology")
+def api_orion_topology(site: Optional[str] = None):
+    db = DatabaseManager(ORION_DB_PATH)
+    nodes, links = build_orion_topology_data(db, site)
+    return JSONResponse({"nodes": nodes, "links": links})
+
+
+@router.get("/api/topology/merged")
+def api_merged_topology(
+    protocol: str = "all",
+    service:  str = "all",
+    site: Optional[str] = None,
+):
+    peer_rows, _ = build_topology_data(DatabaseManager(DB_PATH))
+    orion_nodes, orion_links = build_orion_topology_data(DatabaseManager(ORION_DB_PATH), site)
+
+    filtered_peer_rows = []
+    for row in peer_rows:
+        if protocol != "all" and row["protocol"] != protocol.upper():
+            continue
+        if service != "all" and row.get("service", "") != service:
+            continue
+        filtered_peer_rows.append(row)
+
+    graph = merge_peer_and_orion_topology(filtered_peer_rows, orion_nodes, orion_links)
+    return JSONResponse(graph)
 
 
 # ── FastAPI routes ───────────────────────────────────────────────────────────

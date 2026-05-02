@@ -297,6 +297,8 @@
 <script>
 // ── Data from server ─────────────────────────────────────────────────────────
 const RAW_DATA = {{ raw_data | tojson | safe }};
+const TOPOLOGY_API = '/api/topology/merged';
+let topoData = { nodes: [], links: [] };
 
 // ── Identity map: any IP or router-id → hostname ─────────────────────────────
 const idToHost = {};
@@ -358,6 +360,10 @@ const cy = cytoscape({
             style: { 'line-color': '#1D9E75', 'target-arrow-color': '#1D9E75' }
         },
         {
+            selector: 'edge[protocol="ORION"]',
+            style: { 'line-color': '#888', 'target-arrow-color': '#888', 'line-style': 'dotted' }
+        },
+        {
             selector: 'edge.link-down',
             style: { 'line-style': 'dashed', opacity: 0.5 }
         },
@@ -405,6 +411,19 @@ cy.on('mouseover', 'edge', e => {
 
 cy.on('mouseout', 'edge', () => { tooltip.style.display = 'none'; });
 
+function loadMergedTopology() {
+    document.getElementById('cy-loading').textContent = 'Loading merged topology…';
+    fetch(TOPOLOGY_API)
+        .then(response => response.json())
+        .then(data => {
+            topoData = data;
+            renderTopology();
+        })
+        .catch(err => {
+            document.getElementById('cy-loading').textContent = 'Error loading topology: ' + err;
+        });
+}
+
 // ── Node click: highlight neighbourhood ──────────────────────────────────────
 cy.on('tap', 'node', e => {
     const node = e.target;
@@ -437,36 +456,43 @@ function renderTopology() {
     const addedNodes = new Set();
     let upCount = 0, downCount = 0;
 
-    RAW_DATA.forEach(row => {
-        const protoMatch   = (proto === 'all'   || row.protocol === proto);
-        const serviceMatch = (service === 'all' || (row.service || '') === service);
+    topoData.nodes.forEach(node => {
+        if (!addedNodes.has(node.id)) {
+            cy.add({ data: { id: node.id, label: node.label } });
+            addedNodes.add(node.id);
+        }
+    });
+
+    topoData.links.forEach(link => {
+        const protoMatch   = (proto === 'all'   || link.protocol === proto);
+        const serviceMatch = (service === 'all' || (link.service || '') === service);
         if (!protoMatch || !serviceMatch) return;
 
-        const src = row.hostname;
-        const dst = idToHost[row.neighbor_address];
-        if (!dst || src === dst) return;
+        if (!addedNodes.has(link.source)) {
+            cy.add({ data: { id: link.source, label: link.source } });
+            addedNodes.add(link.source);
+        }
+        if (!addedNodes.has(link.target)) {
+            cy.add({ data: { id: link.target, label: link.target } });
+            addedNodes.add(link.target);
+        }
 
-        [src, dst].forEach(h => {
-            if (!addedNodes.has(h)) {
-                cy.add({ data: { id: h } });
-                addedNodes.add(h);
-            }
-        });
-
-        const isUp = /EST|FULL/i.test(row.state);
-        isUp ? upCount++ : downCount++;
+        const isUp = !!link.is_up;
+        if (link.protocol !== 'ORION') {
+            isUp ? upCount++ : downCount++;
+        }
 
         cy.add({
             data: {
-                source:   src,
-                target:   dst,
-                protocol: row.protocol,
-                service:  row.service || '',
-                state:    row.state,
+                source:   link.source,
+                target:   link.target,
+                protocol: link.protocol,
+                service:  link.service || '',
+                state:    link.state || 'unknown',
                 is_up:    isUp,
-                color:    isUp ? '#2ECC40' : '#FF4136',
+                color:    link.color,
             },
-            classes: isUp ? '' : 'link-down',
+            classes: link.protocol === 'ORION' ? '' : (isUp ? '' : 'link-down'),
         });
     });
 
@@ -477,9 +503,9 @@ function renderTopology() {
         padding: 30,
     }).run();
 
-    document.getElementById('mapLinks').textContent  = upCount + downCount;
-    document.getElementById('countUp').textContent   = upCount;
-    document.getElementById('countDown').textContent = downCount;
+    document.getElementById('mapLinks').textContent  = topoData.links.length;
+    document.getElementById('countUp').textContent   = topoData.links.filter(l => l.is_up).length;
+    document.getElementById('countDown').textContent = topoData.links.filter(l => !l.is_up).length;
 
     document.getElementById('cy-loading').classList.add('hidden');
 }
@@ -553,7 +579,7 @@ document.querySelectorAll('.peer-row').forEach(tr => {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 rebuildServiceDropdown();
-renderTopology();
+loadMergedTopology();
 filterTable();
 </script>
 </body>
