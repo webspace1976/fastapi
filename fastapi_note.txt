@@ -27,10 +27,19 @@ pip install -r requirements.txt
 pip install -r requirements_win.txt
 
 :: 6. Test it starts before touching IIS
-venv\Scripts\python -m uvicorn main:app --host 0.0.0.0 --port 5050
+venv\Scripts\python -m uvicorn main:app --host 0.0.0.0 --port 8080
 
 :: 7. If OK — update your IIS/wfastcgi config to point to the new venv
 ::    Then delete venv_38_backup once stable
+
+:: Refresh git index so new gitignore rules take effect
+git rm -r --cached data/
+git rm -r --cached venv_38_backup/
+
+git add .gitignore
+git add .
+git status --short
+
 ==============================
 20260429
 github.dev codespace

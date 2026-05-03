@@ -86,6 +86,25 @@ OSPF_ADJ_SPECIAL_RE = re.compile(
     r'(?::\s+.*state\s+was:\s+(?P<old_state>\w+))?',    # Optional: previous state
     re.IGNORECASE
 )
+# cisco BGP adjacency change logs
+# 047981: Apr 30 18:46:30 PST: %BGP-3-NOTIFICATION: sent to neighbor 10.26.101.2 active 6/2 (Administrative Shutdown) 0 bytes
+
+# 047982: Apr 30 18:46:30 PST: %BGP-5-NBR_RESET: Neighbor 10.26.101.2 active reset (Admin. shutdown)
+
+# 047983: Apr 30 18:46:30 PST: %BGP-5-ADJCHANGE: neighbor 10.26.101.2 active Down Admin. shutdown
+#  120538: Apr 30 19:41:57 PDT: %BGP-5-ADJCHANGE: neighbor 10.253.83.2 active vpn vrf VCHA-TC2 Down Admin. shutdown
+CISCO_BGP_ADJCHG = re.compile(
+    r'(?P<seq>\d+)?:\s*'                                 # Optional Sequence Number
+    r'(?P<timestamp>\w{3}\s+\d+\s+[\d:]+(?:\s+\w+)?):\s+' # Date, Time, and optional TZ
+    r'(?:(?P<hostname>\S+)\s+)?'                        # Optional Hostname
+    r'%BGP-\d+-(?P<event_type>\w+):\s+'                 # BGP Event
+    r'neighbor\s+(?P<neighbor>[\d.]+)\s+'               # Neighbor IP
+    r'(?P<status_mode>\S+\s+)?'                         # Matches 'active'
+    r'(?:vpn\s+vrf\s+(?P<vrf>\S+)\s+)?'                 # NEW: Specifically captures the VRF name
+    r'(?P<action>Up|Down|reset)'                        # The actual state change
+    r'(?:\s+(?P<reason>.*))?',                          # Optional reason
+    re.IGNORECASE
+)
 
 HPE_OSPF_REASON_REGEX = re.compile(
     r"""
