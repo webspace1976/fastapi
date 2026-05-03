@@ -19,6 +19,7 @@ ALLOWED_EXTENSIONS = {".txt", ".json", ".html"}
 app = FastAPI(
     title="SOC Network-Tools Portal",
     description="Network monitoring and device management system",
+    redirect_slashes=False,     # add this line
     version="2025.12.09"
 )
 

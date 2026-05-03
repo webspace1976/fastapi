@@ -1,73 +1,1303 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Device Check Form</title>
-    <script src="/static/js/d3.v7.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOC Network Portal</title>
+    <!-- <script src="/static/js/d3.v7.min.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+    <style>
+        /* ── Design tokens ──────────────────────────────────── */
+        :root {
+            --hdr:     #0d1117;
+            --hdr2:    #161b22;
+            --surface: #161b22;
+            --surf2:   #21262d;
+            --border:  #30363d;
+            --text:    #e6edf3;
+            --muted:   #8b949e;
+            --accent:  #58a6ff;
+            --green:   #3fb950;
+            --red:     #f85149;
+            --yellow:  #d29922;
+            --bgp-clr: #58a6ff;
+            --ospf-clr:#3fb950;
+            --radius:  6px;
+            --tab-h:   42px;
+            --appbar-h:50px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'SF Mono','Cascadia Code','Fira Code',monospace;
+            //background: var(--hdr);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── App bar ─────────────────────────────────────────── */
+        #appbar {
+            height: var(--appbar-h);
+            background: var(--hdr);
+            border-bottom: 1px solid var(--border);
+            padding: 0 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .brand {
+            font-size: .82rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .brand-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 6px var(--green);
+            animation: blink 2.5s ease-in-out infinite;
+        }
+
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+        .appbar-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            font-size: .7rem;
+            color: var(--muted);
+            background: var(--surf2);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: .15rem .55rem;
+            white-space: nowrap;
+        }
+
+        .chip-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+        }
+
+        /* ── Tab bar ─────────────────────────────────────────── */
+        #tabbar {
+            height: var(--tab-h);
+            background: var(--hdr2);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: flex-end;
+            padding: 0 1.25rem;
+            gap: .2rem;
+            flex-shrink: 0;
+        }
+
+        .tab-btn {
+            height: var(--tab-h);
+            padding: 0 1rem;
+            border: none;
+            border-bottom: 2px solid transparent;
+            background: none;
+            color: var(--muted);
+            font-family: inherit;
+            font-size: .75rem;
+            font-weight: 600;
+            letter-spacing: .07em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+            transition: color .12s, border-color .12s;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover { color: var(--text); }
+
+        .tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .tab-badge {
+            background: var(--red);
+            color: #fff;
+            font-size: .62rem;
+            font-weight: 700;
+            border-radius: 999px;
+            padding: .05rem .32rem;
+            min-width: 17px;
+            text-align: center;
+            transition: background .3s;
+        }
+
+        .tab-badge.zero {
+            background: var(--surf2);
+            color: var(--muted);
+        }
+
+        /* ── Panel container ─────────────────────────────────── */
+        #panels {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panel {
+            position: absolute;
+            inset: 0;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel.active { display: flex; }
+
+        /* ══════════════════════════════════════════════════════
+           TAB 1 — CORE DEVICE CHECK
+        ══════════════════════════════════════════════════════ */
+        #panel-core {
+            overflow-y: auto;
+            padding: 1.25rem;
+            gap: 1rem;
+        }
+
+        .core-grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 1.25rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.1rem;
+        }
+
+        .card-title {
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-bottom: .9rem;
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+        }
+
+        .card-title::before {
+            content: '';
+            display: inline-block;
+            width: 3px; height: 12px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        .field { margin-bottom: .75rem; }
+
+        .field label {
+            display: block;
+            font-size: .68rem;
+            color: var(--muted);
+            letter-spacing: .07em;
+            margin-bottom: .25rem;
+        }
+
+        .field input, .field select {
+            width: 100%;
+            background: var(--surf2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: inherit;
+            font-size: .78rem;
+            padding: .42rem .65rem;
+            outline: none;
+            transition: border-color .12s;
+        }
+
+        .field select[multiple] {
+            height: 200px;
+        }
+
+        .field input:focus, .field select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(88,166,255,.1);
+        }
+
+        .field input::placeholder { color: var(--muted); }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #0d1117;
+            border: none;
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: .75rem;
+            font-weight: 700;
+            letter-spacing: .07em;
+            padding: .5rem 1.1rem;
+            cursor: pointer;
+            transition: opacity .12s;
+        }
+
+        .btn-primary:hover { opacity: .85; }
+
+        .btn-row {
+            display: flex;
+            gap: .5rem;
+            margin-top: .6rem;
+        }
+
+        /* Historical reports card */
+        .report-select {
+            width: 100%;
+            background: var(--surf2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: inherit;
+            font-size: .75rem;
+            padding: .4rem .6rem;
+            outline: none;
+            height: 200px;
+        }
+
+        .report-select:focus { border-color: var(--accent); }
+
+        /* ══════════════════════════════════════════════════════
+           TAB 2 — PEER TRACKER
+        ══════════════════════════════════════════════════════ */
+        #panel-tracker { overflow: hidden; }
+
+        #trackerFrame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            flex: 1;
+        }
+
+        /* ══════════════════════════════════════════════════════
+           TAB 3 — TOPOLOGY  (API-driven, no full page reload)
+        ══════════════════════════════════════════════════════ */
+        #panel-topology {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Toolbar */
+        #topo-bar {
+            background: var(--hdr2);
+            border-bottom: 1px solid var(--border);
+            padding: .5rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        .topo-main {
+            display: flex;
+            gap: 1rem;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+            padding: 1rem;
+        }
+
+        .topo-stats { display: flex; gap: .5rem; }
+
+        .topo-controls {
+            display: flex;
+            gap: .4rem;
+            margin-left: auto;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .topo-controls select {
+            background: var(--surf2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: inherit;
+            font-size: .73rem;
+            padding: .28rem .5rem;
+            outline: none;
+        }
+
+        .topo-controls select:focus { border-color: var(--accent); }
+
+        .btn-sm {
+            background: var(--surf2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: inherit;
+            font-size: .7rem;
+            padding: .28rem .65rem;
+            cursor: pointer;
+            transition: border-color .12s;
+        }
+
+        .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* Canvas */
+        #cy-wrap {
+            position: relative;
+            flex: 1 1 70%;
+            min-height: 0;
+            background: var(--hdr2);
+        }
+
+        #cy { width: 100%; height: 100%; }
+
+        #node-details {
+            flex: 0 0 320px;
+            min-width: 260px;
+            max-width: 360px;
+            background: var(--surf2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            overflow-y: auto;
+            min-height: 0;
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+        }
+
+        .node-detail-block.hidden {
+            display: none;
+        }
+
+        .node-detail-empty {
+            padding: 1rem;
+            border: 1px dashed var(--border);
+            border-radius: var(--radius);
+            color: var(--muted);
+            font-size: .85rem;
+            background: rgba(255,255,255,.02);
+        }
+
+        .node-detail-summary {
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+            padding: .9rem 1rem;
+            border-radius: var(--radius);
+            background: rgba(23,27,33,.7);
+            border: 1px solid rgba(148,163,184,.12);
+        }
+
+        .node-detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: .5rem;
+            font-size: .95rem;
+            color: var(--text);
+        }
+
+        .node-detail-header span:first-child {
+            font-weight: 700;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: .2rem .6rem;
+            border-radius: 999px;
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            color: var(--bg);
+            background: var(--muted);
+        }
+
+        .status-up { background: #2ecc40; }
+        .status-degraded { background: #ff9500; }
+        .status-down { background: #ff4136; }
+        .status-unknown { background: var(--muted); }
+
+        .node-detail-stats {
+            display: flex;
+            gap: .5rem;
+            flex-wrap: wrap;
+            color: var(--muted);
+            font-size: .82rem;
+        }
+
+        .node-detail-stats span { display: inline-flex; gap: .35rem; align-items: center; }
+
+        .problem-link {
+            display: inline-block;
+            margin-left: .5rem;
+            font-size: .65rem;
+        }
+
+        .problem-link a {
+            color: var(--red);
+            text-decoration: none;
+            border: 1px solid rgba(255,77,79,.2);
+            padding: .12rem .4rem;
+            border-radius: 999px;
+            transition: background .2s, color .2s;
+        }
+
+        .problem-link a:hover {
+            background: rgba(255,77,79,.1);
+            color: var(--red);
+        }
+
+        #node-details h3 {
+            margin-top: 0;
+            margin-bottom: .75rem;
+            font-size: .85rem;
+            color: var(--accent);
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .node-detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: .5rem;
+            font-size: .82rem;
+        }
+
+        .node-detail-row span:last-child {
+            color: var(--text);
+            font-weight: 700;
+        }
+
+        .node-detail-list {
+            margin: .75rem 0 0;
+            padding-left: 1rem;
+            color: var(--muted);
+            font-size: .82rem;
+        }
+
+        .node-detail-list li {
+            margin-bottom: .35rem;
+            line-height: 1.4;
+        }
+
+        .peer-detail-link {
+            margin-left: .55rem;
+            font-size: .72rem;
+            color: var(--accent);
+            text-decoration: none;
+            border: 1px solid rgba(88,166,255,.2);
+            padding: .12rem .4rem;
+            border-radius: 999px;
+        }
+
+        .peer-detail-link:hover {
+            background: rgba(88,166,255,.08);
+        }
+
+        .peer-problem span {
+            font-weight: 700;
+        }
+
+        #cy-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(13,17,23,.85);
+            font-size: .8rem;
+            color: var(--muted);
+            letter-spacing: .1em;
+            pointer-events: none;
+            transition: opacity .25s;
+        }
+
+        #cy-overlay.hidden { opacity: 0; pointer-events: none; }
+
+        /* Legend */
+        #topo-legend {
+            position: absolute;
+            bottom: 10px;
+            right: 12px;
+            background: rgba(22,27,34,.92);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: .4rem .65rem;
+            font-size: .68rem;
+            display: flex;
+            flex-direction: column;
+            gap: .2rem;
+        }
+
+        .leg { display: flex; align-items: center; gap: .35rem; color: var(--muted); }
+
+        .leg-line {
+            width: 18px; height: 2px;
+            border-radius: 1px;
+        }
+
+        /* Tooltip */
+        #topo-tip {
+            position: fixed;
+            background: var(--hdr2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-size: .73rem;
+            padding: .45rem .7rem;
+            pointer-events: none;
+            display: none;
+            z-index: 9999;
+            max-width: 240px;
+            line-height: 1.55;
+            box-shadow: 0 4px 20px rgba(0,0,0,.45);
+        }
+
+        #topo-tip strong { color: var(--accent); display: block; margin-bottom: .1rem; }
+
+        /* Peer table */
+        #topo-table {
+            flex: 0 0 220px;
+            min-height: 220px;
+            overflow-y: auto;
+            border-top: 1px solid var(--border);
+        }
+
+        .tbl-hdr {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .45rem .9rem;
+            background: var(--surf2);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        .tbl-hdr span {
+            font-size: .68rem;
+            font-weight: 700;
+            letter-spacing: .09em;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .count-chip {
+            background: var(--surf2);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            font-size: .65rem;
+            color: var(--accent);
+            font-weight: 700;
+            padding: .05rem .4rem;
+        }
+
+        #topo-search {
+            margin-left: auto;
+            background: var(--hdr2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: inherit;
+            font-size: .72rem;
+            padding: .22rem .5rem;
+            width: 160px;
+            outline: none;
+        }
+
+        #topo-search:focus { border-color: var(--accent); }
+
+        #peer-tbody-topo { font-size: .72rem; }
+
+        #peer-tbody-topo tr {
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background .1s;
+        }
+
+        #peer-tbody-topo tr:hover { background: var(--surf2); }
+        #peer-tbody-topo tr.hl    { background: rgba(88,166,255,.07); }
+
+        #peer-tbody-topo td { padding: .28rem .7rem; color: var(--muted); }
+
+        .st-up   { color: var(--green); font-weight: 600; }
+        .st-down { color: var(--red);   font-weight: 600; }
+
+        .pb {
+            display: inline-block;
+            padding: .08rem .38rem;
+            border-radius: 3px;
+            font-size: .65rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+        }
+
+        .pb-bgp  { background: rgba(88,166,255,.15); color: var(--bgp-clr);  }
+        .pb-ospf { background: rgba(63,185,80,.15);  color: var(--ospf-clr); }
+
+        code { font-family: inherit; font-size: .68rem; }
+    </style>
 </head>
-    <body>
-    <div class='container'>
-    <!-- <form method='post' enctype='multipart/form-data' action='/run-getweboutput' target='_blank'> -->
-    <div class="flex-container">
-        <div style="display:flex">
-            <div style="width:100%;">
-                <form method='post' enctype='multipart/form-data' action='/api/devices/check_output' target='_blank'>
-                <h3 style='margin:0'> KDC/eNG Core Switch, 202601 updated:</h3>
-                    Device IP address (Multi-Select): <br>
-                    <select name="core_ipaddress" multiple style="width:100%;height:200px; font-size: 12px;" >
-                        {% for device in core_devices %}
-                        <option value="{{ device.os }}:{{ device.ip }}:{{ device.nodeid }}">{{ device.name }} ({{ device.ip }})
+<body>
+
+<!-- ══ APP BAR ══════════════════════════════════════════════════════════ -->
+<div id="appbar">
+    <a class="brand" href="/">
+        <span class="brand-dot"></span>
+        CORE NETWORK
+    </a>
+    <div class="appbar-right">
+        <span class="chip">
+            <span class="chip-dot" style="background:var(--green)"></span>
+            <span id="stat-up">—</span> UP
+        </span>
+        <span class="chip">
+            <span class="chip-dot" style="background:var(--red)"></span>
+            <span id="stat-down">—</span> DOWN
+        </span>
+        <span class="chip" id="stat-ts" style="display:none">
+            <span id="stat-updated">—</span>
+        </span>
+    </div>
+</div>
+
+<!-- ══ TAB BAR ══════════════════════════════════════════════════════════ -->
+<div id="tabbar">
+    <button class="tab-btn" data-tab="core">
+        ⬡ CORE CHECK
+    </button>
+    <button class="tab-btn" data-tab="tracker">
+        ◈ PEER TRACKER
+        <span class="tab-badge zero" id="problem-badge">—</span>
+    </button>
+    <button class="tab-btn" data-tab="topology">
+        ◎ TOPOLOGY
+    </button>
+</div>
+
+<!-- ══ PANELS ═══════════════════════════════════════════════════════════ -->
+<div id="panels">
+
+    <!-- ── TAB 1: CORE DEVICE CHECK ────────────────────────────────── -->
+    <div class="panel" id="panel-core">
+        <div class="core-grid">
+
+            <!-- Device form -->
+            <div class="card">
+                <div class="card-title">KDC / eNG Core Switch Check</div>
+                <form method="post" enctype="multipart/form-data"
+                      action="/api/devices/check_output" target="_blank">
+                    <input type="hidden" name="check_type" value="core">
+                    <input type="hidden" name="uname"   value="">
+                    <input type="hidden" name="passwd"  value="">
+
+                    <div class="field">
+                        <label>DEVICE IP (MULTI-SELECT)</label>
+                        <select name="core_ipaddress" multiple>
+                            {% for device in core_devices %}
+                            <option value="{{ device.os }}:{{ device.ip }}:{{ device.nodeid }}">
+                                {{ device.name }} ({{ device.ip }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label>SA USERNAME</label>
+                        <input type="text" name="core_uname" placeholder="soc2019_sa">
+                    </div>
+
+                    <div class="field">
+                        <label>PASSWORD</label>
+                        <input type="password" name="core_passwd">
+                    </div>
+
+                    <button type="submit" class="btn-primary">RUN CHECK →</button>
+                </form>
+            </div>
+
+            <!-- Historical reports -->
+            <div class="card">
+                <div class="card-title">Historical Reports — 202601</div>
+                <div class="field">
+                    <label>SELECT REPORT</label>
+                    <select class="report-select" id="reportSelector"
+                            onchange="openReport(this.value)" size="8">
+                        <option value="" disabled selected>— Select a report —</option>
+                        {% for report in reports_data %}
+                        {% set result_url = '/api/devices/results/' ~ report.task_id %}
+                        <option value="{{ result_url }}">
+                            {{ report.time }} · {{ report.user_name }} · {{ report.size }}
                         </option>
                         {% endfor %}
                     </select>
-                    <br><br>
-                    SA-User name:         <input type="text" name="core_uname" placeholder="soc2019_sa"><br>
-                    User password:        <input type="password" name="core_passwd"><br>
-                    <!-- Alias to uname/passwd if backend strictly requires them -->
-                    <input type="hidden" name="check_type" value="core">
-                    <input type="hidden" name="uname" value="" />  <!-- Or dynamically set via JS -->
-                    <input type="hidden" name="passwd" value="" />  <!-- Or dynamically set via JS -->
-                    <input type="submit" value="Submit" >
-                </form>
-            </div>           
-
-            <div id="report-list-container" style="width:100%;margin-left: 20px;text-align: right;">                    
-                <h3 style='margin-top:0;text-align: left;'>Select a Historical Report:</h3>
-                <select id="reportSelector" onchange="openReport(this.value)" style="padding: 0px; font-size: 12px; width: 100%;">
-                <option value="" disabled selected>-- Select an Report --</option>
-                    {# CORRECTED LOOP: Iterate over reports_data #}
-                    {% for report in reports_data %}
-                        
-                        {# Use report.task_id directly to construct the URL #}
-                        {% set result_url = '/api/devices/results/' ~ report.task_id %}
-
-                        <option value="{{ result_url }}">
-                            {# Use report.display_name (human-readable file name) and report.size (timestamp) #}
-                            {{ report.time  }} {{ report.user_name}} {{ report.size}}
-                        </option>
-                    {% endfor %}
-                </select>
+                </div>
+                <p style="font-size:.68rem;color:var(--muted);margin-top:.5rem">
+                    Click a report to open it in a new tab.
+                </p>
             </div>
         </div>
     </div>
 
-    <div style="margin-top: 20px;">
-        <main>
-            <iframe id="contentFrame" 
-                    name="contentFrame" 
-                    src="/api/monitor" 
-                    title="BGP&OSPF Peer Analyzer"
-                    style="width: 100%; height: 800px; border: 1px solid #ddd; border-radius: 8px;">
-            </iframe>
-        </main>
+    <!-- ── TAB 2: PEER TRACKER (iframe) ────────────────────────────── -->
+    <div class="panel" id="panel-tracker">
+        <iframe id="trackerFrame"
+                src="about:blank"
+                title="BGP &amp; OSPF Peer Tracker">
+        </iframe>
     </div>
-    
-        <script>
-            function openReport(url) {
-                if (url) {
-                    window.open(url, '_blank');
-                }
-            }
-        </script>
 
+    <!-- ── TAB 3: TOPOLOGY (live API) ──────────────────────────────── -->
+    <div class="panel" id="panel-topology" style="height: 80%;">
+
+        <div id="topo-bar">
+            <div class="topo-stats">
+                <span class="chip">
+                    <span class="chip-dot" style="background:var(--green)"></span>
+                    <span id="topo-up">—</span> links up
+                </span>
+                <span class="chip">
+                    <span class="chip-dot" style="background:var(--red)"></span>
+                    <span id="topo-down">—</span> links down
+                </span>
+            </div>
+
+            <div class="topo-controls">
+                <select id="proto-filter">
+                    <option value="all">All protocols</option>
+                    <option value="BGP">BGP only</option>
+                    <option value="OSPF">OSPF only</option>
+                </select>
+                <select id="svc-filter">
+                    <option value="all">All VPN / VRF</option>
+                </select>
+                <select id="layout-sel">
+                    <option value="cose">CoSE layout</option>
+                    <option value="circle">Circle</option>
+                    <option value="grid">Grid</option>
+                    <option value="breadthfirst">Tree</option>
+                </select>
+                <button class="btn-sm" id="btn-refresh-topo">↻ Refresh</button>
+            </div>
+        </div>
+
+        <div class="topo-main">
+            <div id="cy-wrap">
+                <div id="cy"></div>
+                <div id="cy-overlay">LOADING TOPOLOGY…</div>
+                <div id="topo-legend">
+                    <div class="leg"><span class="leg-line" style="background:var(--green)"></span>Link up</div>
+                    <div class="leg"><span class="leg-line" style="background:var(--red);opacity:.6"></span>Link down</div>
+                    <div class="leg"><span class="leg-line" style="background:var(--bgp-clr)"></span>BGP</div>
+                    <div class="leg"><span class="leg-line" style="background:var(--ospf-clr)"></span>OSPF</div>
+                </div>
+            </div>
+            <div id="node-details">
+                <h3>Node Details</h3>
+                <div class="node-detail-summary hidden" id="node-detail-summary">
+                    <div class="node-detail-header">
+                        <span id="detail-name">—</span>
+                        <span id="detail-status" class="status-badge">Unknown</span>
+                    </div>
+                    <div class="node-detail-stats">
+                        <span><strong id="detail-links">0</strong> links</span>
+                        <span><strong id="detail-up">0</strong> up</span>
+                        <span><strong id="detail-down">0</strong> down</span>
+                    </div>
+                </div>
+                <div class="node-detail-empty">Click a node to inspect status and neighbor detail.</div>
+                <div class="node-detail-block hidden" id="node-detail-fields">
+                    <div class="node-detail-row"><span>Name</span><span id="detail-name-label">—</span></div>
+                    <div class="node-detail-row"><span>Node IP</span><span id="detail-host-ip">—</span></div>
+                    <div class="node-detail-row"><span>Total Links</span><span id="detail-links-label">—</span></div>
+                    <div class="node-detail-row"><span>Up</span><span id="detail-up-label">—</span></div>
+                    <div class="node-detail-row"><span>Down</span><span id="detail-down-label">—</span></div>
+                    <div class="node-detail-row"><span>Protocols</span><span id="detail-protocols">—</span></div>
+                    <div class="node-detail-row"><span>Last Clicked</span><span id="detail-selected">—</span></div>
+                    <div class="node-detail-row"><span>Neighbors</span></div>
+                    <ul class="node-detail-list" id="detail-neighbors"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="topo-table">
+            <div class="tbl-hdr">
+                <span>Peer Reference</span>
+                <span class="count-chip" id="topo-count">0</span>
+                <input id="topo-search" type="search" placeholder="Search…">
+            </div>
+            <table style="width:100%;border-collapse:collapse">
+                <tbody id="peer-tbody-topo"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- /panels -->
+
+<div id="topo-tip"></div>
+
+<!-- ══ SCRIPTS ══════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── Tab switching ────────────────────────────────────────────────────────────
+const TABS = ['core','tracker','topology'];
+let trackerLoaded = false;
+let topoLoaded    = false;
+
+function showTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === name);
+    });
+
+    document.querySelectorAll('.panel').forEach(p => {
+        p.classList.remove('active');
+        p.style.display = 'none';
+    });
+
+    const target = document.getElementById('panel-' + name);
+    if (target) {
+        target.classList.add('active');
+        target.style.display = 'flex';
+    }
+
+    localStorage.setItem('soc-tab', name);
+
+    if (name !== 'topology' && typeof hideNodeDetails === 'function') {
+        hideNodeDetails();
+    }
+
+    // Lazy-load iframe only on first visit to tracker tab
+    if (name === 'tracker' && !trackerLoaded) {
+        trackerLoaded = true;
+        document.getElementById('trackerFrame').src = '/api/monitor';
+    }
+
+    // Lazy-load topology only on first visit
+    if (name === 'topology' && !topoLoaded) {
+        topoLoaded = true;
+        initCy();
+        loadTopology();
+        // document.getElementById('trackerFrame').src = '/api/monitor/topology';
+    }
+}
+
+// Wire tab clicks — no inline onclick needed
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => showTab(btn.dataset.tab));
+});
+
+// Restore last active tab on load
+window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('soc-tab') || 'core';
+    showTab(saved);
+    fetchPeerStats();
+});
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function openReport(url) {
+    if (url) window.open(url, '_blank');
+}
+
+// ── Peer stats for appbar + problem badge ────────────────────────────────────
+function fetchPeerStats() {
+    fetch('/api/monitor/api/peers')
+        .then(r => r.ok ? r.json() : [])
+        .then(peers => {
+            let up = 0, dn = 0, problems = 0;
+            peers.forEach(r => {
+                if (/EST|FULL/i.test(r.state || '')) up++; else dn++;
+                if (r.is_problem) problems++;
+            });
+            document.getElementById('stat-up').textContent   = up;
+            document.getElementById('stat-down').textContent = dn;
+
+            const badge = document.getElementById('problem-badge');
+            badge.textContent = problems;
+            badge.classList.toggle('zero', problems === 0);
+
+            const ts = document.getElementById('stat-ts');
+            const updated = document.getElementById('stat-updated');
+            const now = new Date();
+            updated.textContent = 'Updated ' + now.toLocaleTimeString();
+            ts.style.display = '';
+        })
+        .catch(() => {});
+
+    // Refresh every 60 s
+    setTimeout(fetchPeerStats, 60_000);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TOPOLOGY — API-driven Cytoscape
+// ════════════════════════════════════════════════════════════════════════════
+let cy        = null;
+let topoData  = { nodes: [], links: [] };  // raw API response
+let allPeers  = [];                         // flat peer list for the table
+let renderNodeDetails = null;
+let hideNodeDetails = null;
+
+function initCy() {
+    cy = cytoscape({
+        container: document.getElementById('cy'),
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    shape: 'round-rectangle',
+                    width: 150, height: 44,
+                    'background-color': '#161b22',
+                    'border-width': 1.5,
+                    'border-color': '#30363d',
+                    label: 'data(label)',
+                    'text-valign': 'center',
+                    'font-size': '11px',
+                    'font-family': 'SF Mono,Cascadia Code,Fira Code,monospace',
+                    color: '#e6edf3',
+                    'text-wrap': 'ellipsis',
+                    'text-max-width': 138,
+                }
+            },
+            {
+                selector: 'node:selected',
+                style: {
+                    'border-color': '#58a6ff',
+                    'border-width': 2.5,
+                    'background-color': '#1c2a3a',
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    width: 2,
+                    'line-color': 'data(color)',
+                    'curve-style': 'bezier',
+                    'target-arrow-shape': 'triangle',
+                    'target-arrow-color': 'data(color)',
+                    label: 'data(protocol)',
+                    'font-size': '8px',
+                    'text-rotation': 'autorotate',
+                    'text-margin-y': -5,
+                    color: '#8b949e',
+                    opacity: 0.8,
+                }
+            },
+            { selector: 'edge.link-down',  style: { 'line-style': 'dashed', opacity: 0.3 } },
+            { selector: '.faded',          style: { opacity: 0.1 } },
+        ]
+    });
+
+    // ── Tooltip ──────────────────────────────────────────────────────────────
+    const tip = document.getElementById('topo-tip');
+
+    cy.on('mouseover', 'node', e => {
+        const n = e.target, edges = n.connectedEdges();
+        tip.innerHTML = `<strong>${n.id()}</strong>
+            Links: ${edges.length} &nbsp;
+            <span style="color:var(--green)">▲${edges.filter(ed=>ed.data('is_up')).length}</span>
+            <span style="color:var(--red)">▼${edges.filter(ed=>!ed.data('is_up')).length}</span>`;
+        tip.style.display = 'block';
+    });
+    cy.on('mousemove', e => {
+        tip.style.left = (e.originalEvent.clientX + 14) + 'px';
+        tip.style.top  = (e.originalEvent.clientY + 14) + 'px';
+    });
+    cy.on('mouseout', 'node', () => tip.style.display = 'none');
+
+    cy.on('mouseover', 'edge', e => {
+        const ed = e.target;
+        tip.innerHTML = `<strong>${ed.data('source')} → ${ed.data('target')}</strong>
+            Protocol: ${ed.data('protocol')}<br>
+            Service: ${ed.data('service') || '—'}<br>
+            State: ${ed.data('state')}`;
+        tip.style.display = 'block';
+    });
+    cy.on('mouseout', 'edge', () => tip.style.display = 'none');
+
+    // ── Node click: dim others ────────────────────────────────────────────────
+    cy.on('tap', 'node', e => {
+        const node = e.target;
+        cy.elements().addClass('faded');
+        node.removeClass('faded');
+        node.connectedEdges().removeClass('faded').connectedNodes().removeClass('faded');
+        // Highlight matching rows in table
+        document.querySelectorAll('#peer-tbody-topo tr').forEach(tr => {
+            tr.classList.toggle('hl', tr.dataset.hostname === node.id()
+                                   || tr.dataset.neighbor === node.id());
+        });
+        renderNodeDetails(node.id());
+    });
+
+    cy.on('tap', e => {
+        if (e.target !== cy) return;
+        cy.elements().removeClass('faded');
+        document.querySelectorAll('#peer-tbody-topo tr.hl').forEach(tr => tr.classList.remove('hl'));
+        hideNodeDetails();
+    });
+
+    renderNodeDetails = function(nodeId) {
+        const summary = document.getElementById('node-detail-summary');
+        const block   = document.getElementById('node-detail-fields');
+        const empty   = document.querySelector('.node-detail-empty');
+        const node    = topoData.nodes.find(n => n.id === nodeId);
+        const links   = topoData.links.filter(lk => lk.source === nodeId || lk.target === nodeId);
+        const peerRows = allPeers.filter(r => r.hostname === nodeId);
+
+        if (!node || (!links.length && !peerRows.length)) {
+            hideNodeDetails();
+            return;
+        }
+
+        const rows = peerRows.length ? peerRows : links.map(lk => {
+            const peer = lk.source === nodeId ? lk.target : lk.source;
+            return {
+                hostname: nodeId,
+                neighbor_address: peer,
+                protocol: lk.protocol,
+                state: lk.state,
+                host_ip: '',
+                local_router_id: '',
+                is_problem: !lk.is_up,
+            };
+        });
+
+        const hostIp = rows.find(r => r.host_ip)?.host_ip
+            || rows.find(r => r.local_router_id)?.local_router_id
+            || '—';
+
+        const up = rows.filter(r => /EST|FULL/i.test(r.state || '')).length;
+        const down = rows.length - up;
+        const protocolCounts = rows.reduce((acc, r) => {
+            const proto = r.protocol || 'Unknown';
+            acc[proto] = (acc[proto] || 0) + 1;
+            return acc;
+        }, {});
+
+        const neighborItems = rows.map(r => {
+            const isUp = /EST|FULL/i.test(r.state || '');
+            const stateLabel = `<span style="color:${isUp ? '#3fb950' : '#f85149'};">[${r.protocol} ${isUp ? 'up' : 'down'}]</span>`;
+            const serviceLabel = r.service ? ` (${r.service})` : '';
+            const ipLink = `<a href="/api/monitor/history?hostname=${encodeURIComponent(nodeId)}&neighbor=${encodeURIComponent(r.neighbor_address)}&protocol=${encodeURIComponent(r.protocol)}" target="_blank" rel="noreferrer">${r.neighbor_address}</a>`;
+            return `<li class="${r.is_problem ? 'peer-problem' : ''}">${ipLink}${serviceLabel} ${stateLabel}</li>`;
+        }).join('');
+
+        const statusEl = document.getElementById('detail-status');
+        const good = up > 0 && down === 0;
+        const degraded = up > 0 && down > 0;
+        const statusText = good ? 'Healthy' : degraded ? 'Degraded' : 'Down';
+        statusEl.textContent = statusText;
+        statusEl.className = `status-badge ${good ? 'status-up' : degraded ? 'status-degraded' : 'status-down'}`;
+
+        if (empty) empty.classList.add('hidden');
+        if (summary) summary.classList.remove('hidden');
+        if (block) block.classList.remove('hidden');
+        const nodeLabel = node.label || node.id;
+        document.getElementById('detail-name').textContent = nodeLabel;
+        document.getElementById('detail-name-label').textContent = nodeLabel;
+        document.getElementById('detail-host-ip').textContent = hostIp;
+        document.getElementById('detail-links').textContent = rows.length;
+        document.getElementById('detail-links-label').textContent = rows.length;
+        document.getElementById('detail-up').textContent = up;
+        document.getElementById('detail-up-label').textContent = up;
+        document.getElementById('detail-down').textContent = down;
+        document.getElementById('detail-down-label').textContent = down;
+        document.getElementById('detail-protocols').textContent = Object.entries(protocolCounts)
+            .map(([proto, count]) => `${proto}: ${count}`).join(', ');
+        document.getElementById('detail-selected').textContent = new Date().toLocaleTimeString();
+        document.getElementById('detail-neighbors').innerHTML = neighborItems || '<li>No connected peers</li>';
+    }
+
+    hideNodeDetails = function() {
+        const summary = document.getElementById('node-detail-summary');
+        const block   = document.getElementById('node-detail-fields');
+        const empty   = document.querySelector('.node-detail-empty');
+        if (summary) summary.classList.add('hidden');
+        if (block) block.classList.add('hidden');
+        if (empty) empty.classList.remove('hidden');
+    }
+}
+
+// ── Load topology from API ────────────────────────────────────────────────────
+function loadTopology() {
+    const proto   = document.getElementById('proto-filter').value;
+    const service = document.getElementById('svc-filter').value;
+    const layout  = document.getElementById('layout-sel').value;
+
+    document.getElementById('cy-overlay').classList.remove('hidden');
+
+    const params = new URLSearchParams({ protocol: proto, service });
+    fetch('/api/monitor/api/topology?' + params)
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(data => {
+            topoData = data;
+            renderCy(layout);
+        })
+        .catch(err => {
+            document.getElementById('cy-overlay').textContent = 'Error loading topology: ' + err;
+        });
+
+    // Also fetch flat peer list for the table
+    fetch('/api/monitor/api/peers?' + params)
+        .then(r => r.ok ? r.json() : [])
+        .then(peers => {
+            allPeers = peers;
+            rebuildServiceDropdown();
+            renderTable(peers);
+        })
+        .catch(() => {});
+}
+
+function renderCy(layoutName) {
+    if (!cy) return;
+    cy.elements().remove();
+    let up = 0, dn = 0;
+
+    // Add nodes
+    topoData.nodes.forEach(n => cy.add({ data: { id: n.id, label: n.label } }));
+
+    // Add edges
+    topoData.links.forEach(lk => {
+        lk.is_up ? up++ : dn++;
+        cy.add({
+            data: {
+                source:   lk.source,
+                target:   lk.target,
+                protocol: lk.protocol,
+                service:  lk.service,
+                state:    lk.state,
+                is_up:    lk.is_up,
+                color:    lk.color,
+            },
+            classes: lk.is_up ? '' : 'link-down',
+        });
+    });
+
+    cy.layout({
+        name: layoutName,
+        nodeRepulsion: 10000,
+        animate: false,
+        padding: 30,
+    }).run();
+
+    document.getElementById('topo-up').textContent   = up;
+    document.getElementById('topo-down').textContent = dn;
+    document.getElementById('cy-overlay').classList.add('hidden');
+}
+
+// ── Peer reference table ──────────────────────────────────────────────────────
+function renderTable(peers) {
+    const search  = (document.getElementById('topo-search').value || '').toLowerCase();
+    const tbody   = document.getElementById('peer-tbody-topo');
+    let visible   = 0;
+    const rows    = [];
+
+    peers.forEach(r => {
+        const isUp  = /EST|FULL/i.test(r.state || '');
+        const proto = (r.protocol || '').toLowerCase();
+        const text  = [r.hostname, r.local_router_id, r.neighbor_address,
+                       r.service, r.state, r.last_updated_ts].join(' ').toLowerCase();
+        const isProblem = r.is_problem || !isUp;
+
+        if (search && !text.includes(search)) return;
+        visible++;
+
+        const problemLink = isProblem
+            ? `<div class="problem-link"><a href="/api/monitor/history?hostname=${encodeURIComponent(r.hostname)}&neighbor=${encodeURIComponent(r.neighbor_address)}&protocol=${encodeURIComponent(r.protocol)}" target="_blank" rel="noreferrer" title="View history for this peer">Problem</a></div>`
+            : '';
+
+        rows.push(`<tr data-hostname="${r.hostname}" data-neighbor="${r.neighbor_address}">
+            <td><span class="pb pb-${proto}">${r.protocol}</span></td>
+            <td style="color:var(--text)">${r.hostname}${problemLink}</td>
+            <td><code>${r.local_router_id || '—'}</code></td>
+            <td><code>${r.neighbor_address}</code></td>
+            <td>${r.service || '—'}</td>
+            <td class="${isUp ? 'st-up' : 'st-down'}">${r.state}</td>
+            <td style="font-size:.65rem">${r.last_updated_ts || ''}</td>
+        </tr>`);
+    });
+
+    tbody.innerHTML = rows.join('');
+    document.getElementById('topo-count').textContent = visible;
+
+    // Row click → zoom to node on map and show node details
+    tbody.querySelectorAll('tr').forEach(tr => {
+        tr.addEventListener('click', () => {
+            if (!cy) return;
+            const node = cy.getElementById(tr.dataset.hostname);
+            if (!node.length) return;
+            cy.elements().addClass('faded');
+            node.removeClass('faded');
+            node.connectedEdges().removeClass('faded').connectedNodes().removeClass('faded');
+            cy.animate({ fit: { eles: node.neighbourhood().add(node), padding: 50 }, duration: 300 });
+            renderNodeDetails(node.id());
+        });
+    });
+}
+
+// ── Service dropdown: build from current peer data ────────────────────────────
+function rebuildServiceDropdown() {
+    const proto = document.getElementById('proto-filter').value;
+    const sel   = document.getElementById('svc-filter');
+    const prev  = sel.value;
+    const svcs  = new Set();
+
+    allPeers.forEach(r => {
+        if ((proto === 'all' || r.protocol === proto) && r.service) svcs.add(r.service);
+    });
+
+    sel.innerHTML = '<option value="all">All VPN / VRF</option>';
+    [...svcs].sort().forEach(s => {
+        const o = document.createElement('option');
+        o.value = o.textContent = s;
+        sel.appendChild(o);
+    });
+    if ([...svcs].includes(prev)) sel.value = prev;
+}
+
+// ── Filter controls ───────────────────────────────────────────────────────────
+document.getElementById('proto-filter').addEventListener('change', () => {
+    rebuildServiceDropdown();
+    loadTopology();
+});
+document.getElementById('svc-filter').addEventListener('change', loadTopology);
+document.getElementById('layout-sel').addEventListener('change', () => {
+    renderCy(document.getElementById('layout-sel').value);
+});
+document.getElementById('btn-refresh-topo').addEventListener('click', loadTopology);
+document.getElementById('topo-search').addEventListener('input', () => renderTable(allPeers));
+
+</script>
 </body>
 </html>

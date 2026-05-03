@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}Orion Site Topology{% endblock %}
+{% block content %}
+<h1>Orion Site Topology</h1>
+<p>Displays site → node membership and Orion device links from <code>Orion.Topology</code>.</p>
+<div style="margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+    <label for="siteFilter" style="font-weight: 600;">Site:</label>
+    <select id="siteFilter" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px;">
+        <option value="all">All Sites</option>
+    </select>
+    <label for="haFilter" style="font-weight: 600;">HA:</label>
+    <select id="haFilter" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px;">
+        <option value="all">All HA Types</option>
+        <option value="FHA">FHA</option>
+        <option value="PHSA">PHSA</option>
+        <option value="VIHA">VIHA</option>
+        <option value="VCHA">VCHA</option>
+        <option value="HSSBC">HSSBC</option>
+        <option value="PHC">PHC</option>
+        <option value="3NG">3NG</option>
+        <option value="Shared">Shared</option>
+    </select>
+    <button id="btnLoad" style="padding: 7px 14px; border-radius: 6px; border: none; background: #1d72b8; color: #fff; cursor: pointer;">Load topology</button>
+    <span id="statusText" style="font-size: .95rem; color: #555;"></span>
+</div>
+<div id="topoSummary" style="margin-bottom: 16px; display: flex; gap: 16px; flex-wrap: wrap;">
+    <span><strong>Nodes:</strong> <span id="nodeCount">0</span></span>
+    <span><strong>Edges:</strong> <span id="edgeCount">0</span></span>
+</div>
+<div id="cy-wrap" style="position: relative; background: #fff; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; height: 600px; display: none;">
+    <div id="cy" style="width: 100%; height: 100%;"></div>
+    <div id="cy-loading" style="position: absolute; inset: 0; display:flex; align-items:center; justify-content:center; background: rgba(255,255,255,.95); font-weight: 600; color: #333; flex-direction: column; gap: 10px; z-index: 10;"><div>Loading topology…</div><div style="font-size: 0.8rem; color: #666;">This may take a moment for large networks</div></div>
+</div>
+<div id="legend" style="margin-top: 14px; padding: 12px 16px; background: #f9fafb; border: 1px solid #e3e7ee; border-radius: 10px; display: none; flex: gap: 16px; flex-wrap: wrap;">
+    <div><span style="display:inline-block;width:12px;height:12px;background:#1d72b8;border-radius:50%;margin-right:6px;"></span>Site node</div>
+    <div><span style="display:inline-block;width:12px;height:12px;background:#23a455;border-radius:50%;margin-right:6px;"></span>Device node</div>
+    <div><span style="display:inline-block;width:12px;height:12px;background:#4b7be5;border-radius:50%;margin-right:6px;"></span>Site membership edge</div>
+    <div><span style="display:inline-block;width:12px;height:12px;background:#888;border-radius:50%;margin-right:6px;"></span>Device link edge</div>
+</div>
+
+<!-- Reference Table -->
+<div id="table-section" style="margin-top: 20px; display: none;">
+    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem;">
+        <h5 style="margin: 0; font-size: 1rem; font-weight: 600;">Reference Table</h5>
+        <span style="background: #e8f0fe; color: #1a56db; border-radius: 999px; padding: 0.1rem 0.55rem; font-size: 0.8rem; font-weight: 600;" id="tableCount">0</span>
+        <small style="color: #666;">matching nodes</small>
+        <input id="searchBox" type="search" placeholder="Quick search…" style="width: 220px; font-size: 0.82rem; padding: 0.3rem 0.6rem; border: 1px solid #dee2e6; border-radius: 6px; margin-left: auto;">
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table class="table table-sm table-hover align-middle" id="siteTable" style="font-size: 0.82rem;">
+            <thead style="background: #1a1f2e; color: #cbd5e1; font-weight: 500; white-space: nowrap; position: sticky; top: 0;">
+                <tr>
+                    <th>Node Name</th>
+                    <th>Site</th>
+                    <th>Down/Total</th>
+                    <th>HA</th>
+                    <th>Status</th>
+                    <th>City</th>
+                    <th>Device Type</th>
+                </tr>
+            </thead>
+            <tbody id="siteTbody">
+                <!-- Data will be populated by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<script>
+const API_URL = '/api/orion/site_topology';
+let RAW_DATA = [];
+let allSites = new Set();
+
+const cy = cytoscape({
+    container: document.getElementById('cy'),
+    style: [
+        { selector: 'node', style: { label: 'data(label)', 'text-wrap': 'wrap', 'text-max-width': 140, 'font-size': 11, 'background-color': '#ffffff', 'border-width': 2, 'border-color': '#333', color: '#111', 'text-valign': 'center', 'text-halign': 'center', width: 'label', height: 'label', padding: '10px' } },
+        { selector: 'node[type="site"]', style: { shape: 'round-rectangle', 'background-color': '#1d72b8', color: '#fff', 'border-color': '#174c7d' } },
+        { selector: 'node[type="device"]', style: { shape: 'ellipse', 'background-color': '#23a455', color: '#fff', 'border-color': '#1c6c3e' } },
+        { selector: 'edge', style: { width: 3, 'line-color': 'data(color)', 'target-arrow-shape': 'triangle', 'target-arrow-color': 'data(color)', label: 'data(label)', 'font-size': 9, 'text-rotation': 'autorotate', 'text-margin-y': -8, 'curve-style': 'bezier', 'opacity': 0.95 } },
+        { selector: 'edge[type="membership"]', style: { 'line-style': 'dashed', 'line-color': '#4b7be5', 'target-arrow-shape': 'none' } },
+        { selector: 'edge[type="link"]', style: { 'line-style': 'solid', 'line-color': '#888', 'target-arrow-shape': 'triangle' } }
+    ],
+    layout: { name: 'grid', animate: false, padding: 20 }
+});
+
+const statusText = document.getElementById('statusText');
+const nodeCount = document.getElementById('nodeCount');
+const edgeCount = document.getElementById('edgeCount');
+const loadingOverlay = document.getElementById('cy-loading');
+const tableCount = document.getElementById('tableCount');
+const siteTbody = document.getElementById('siteTbody');
+
+function updateSummary(nodes, edges) {
+    nodeCount.textContent = nodes.length;
+    edgeCount.textContent = edges.length;
+}
+
+function handleError(error) {
+    statusText.textContent = 'Error loading topology: ' + error;
+    loadingOverlay.textContent = 'Failed to load topology';
+}
+
+function renderData(data) {
+    try {
+        cy.elements().remove();
+        if (data.nodes && data.nodes.length > 0) {
+            cy.add(data.nodes.map(n => ({ data: n })));
+        }
+        if (data.edges && data.edges.length > 0) {
+            cy.add(data.edges.map(e => ({ data: e })));
+        }
+        const layout = cy.layout({ name: 'cose', animate: true, animationDuration: 500, padding: 20, randomize: false });
+        layout.on('layoutstop', function() {
+            loadingOverlay.style.display = 'none';
+            statusText.textContent = 'Loaded ' + (data.nodes ? data.nodes.length : 0) + ' nodes and ' + (data.edges ? data.edges.length : 0) + ' edges.';
+        });
+        layout.run();
+        updateSummary(data.nodes || [], data.edges || []);
+    } catch (e) {
+        console.error('Render error:', e);
+        handleError(e.message);
+    }
+}
+
+function populateSiteDropdown() {
+    const siteFilter = document.getElementById('siteFilter');
+    // Clear existing options except "All Sites"
+    while (siteFilter.options.length > 1) {
+        siteFilter.remove(1);
+    }
+    
+    // Add sites alphabetically
+    Array.from(allSites).sort().forEach(site => {
+        const option = document.createElement('option');
+        option.value = site;
+        option.textContent = site;
+        siteFilter.appendChild(option);
+    });
+}
+
+function populateTable(data) {
+    RAW_DATA = data.raw_data || [];
+    siteTbody.innerHTML = '';
+    
+    RAW_DATA.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.className = 'peer-row';
+        
+        // Status class
+        const statusClass = row.status && row.status.toString().toLowerCase().includes('up') ? 'text-success' : 
+                           row.status && row.status.toString().toLowerCase().includes('down') ? 'text-danger' : '';
+        
+        tr.innerHTML = `
+            <td>${row.node_name || '—'}</td>
+            <td>${row.site || '—'}</td>
+            <td>${row.ha || '—'}</td>
+            <td class="${statusClass}">${row.status || '—'}</td>
+            <td>${row.city || '—'}</td>
+            <td>${row.device_type || '—'}</td>
+        `;
+        
+        siteTbody.appendChild(tr);
+        
+        // Collect sites for dropdown
+        if (row.site) {
+            allSites.add(row.site);
+        }
+    });
+    
+    tableCount.textContent = RAW_DATA.length;
+    populateSiteDropdown();
+}
+
+function filterTable() {
+    const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+    const rows = siteTbody.querySelectorAll('tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const isVisible = text.includes(searchTerm);
+        row.style.display = isVisible ? '' : 'none';
+        if (isVisible) visibleCount++;
+    });
+    
+    tableCount.textContent = visibleCount;
+}
+
+function loadTopology() {
+    const cyWrap = document.getElementById('cy-wrap');
+    const legend = document.getElementById('legend');
+    const tableSection = document.getElementById('table-section');
+    
+    loadingOverlay.style.display = 'flex';
+    statusText.textContent = 'Loading...';
+    
+    const site = document.getElementById('siteFilter').value;
+    const ha = document.getElementById('haFilter').value;
+    
+    let url = API_URL;
+    const params = [];
+    if (site && site !== 'all') params.push(`site=${encodeURIComponent(site)}`);
+    if (ha && ha !== 'all') params.push(`ha=${encodeURIComponent(ha)}`);
+    if (params.length > 0) url += '?' + params.join('&');
+    
+    fetch(url)
+        .then(resp => {
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return resp.json();
+        })
+        .then(data => {
+            if (data.raw_data) {
+                populateTable(data);
+                tableSection.style.display = 'block';
+            }
+            
+            // Only show topology if there are nodes
+            if (data.nodes && data.nodes.length > 0) {
+                renderData(data);
+                cyWrap.style.display = 'block';
+                legend.style.display = 'flex';
+            } else {
+                cyWrap.style.display = 'none';
+                legend.style.display = 'none';
+                statusText.textContent = 'No topology data to display. Try adjusting filters.';
+                loadingOverlay.style.display = 'none';
+            }
+        })
+        .catch(err => {
+            console.error('Load error:', err);
+            handleError(err.message);
+            cyWrap.style.display = 'none';
+            legend.style.display = 'none';
+            tableSection.style.display = 'none';
+        });
+}
+
+document.getElementById('btnLoad').addEventListener('click', loadTopology);
+document.getElementById('searchBox').addEventListener('input', filterTable);
+
+// Load initial data without showing topology
+fetch(`${API_URL}?site=all&ha=all`)
+    .then(resp => resp.json())
+    .then(data => {
+        if (data.raw_data) {
+            populateTable(data);
+            document.getElementById('table-section').style.display = 'block';
+        }
+    })
+    .catch(err => {
+        console.error('Initial load error:', err);
+    });
+</script>
+{% endblock %}

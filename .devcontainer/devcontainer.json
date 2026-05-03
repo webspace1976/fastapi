@@ -1,0 +1,24 @@
+{
+  "name": "FastAPI Codespace",
+  "build": {
+    "dockerfile": "../Dockerfile.dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspaces/fastapi",
+  "postCreateCommand": "python -m venv .venv && .venv/bin/python -m pip install --upgrade pip && .venv/bin/pip install -r requirements.txt",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/workspaces/fastapi/.venv/bin/python"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ]
+    }
+  },
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash"
+  },
+  "forwardPorts": [8000]
+}

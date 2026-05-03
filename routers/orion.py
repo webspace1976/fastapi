@@ -973,6 +973,12 @@ def safe_generate(func, session, default_val="<p class='text-danger'>Error loadi
 ############## main
 templates = Jinja2Templates(directory="templates")
 
+@router.get("/dashboard", response_class=HTMLResponse)
+async def get_orion_dashboard_tabs(request: Request):
+    """Main Orion monitoring dashboard with tabs for login, nodes status, and site topology."""
+    return templates.TemplateResponse("orion_dashboard_tabs.html", {"request": request})
+
+
 @router.get("/check_form", response_class=HTMLResponse)
 async def get_device_output_form(request: Request):
     return templates.TemplateResponse("orion_login.html", {"request": request})
@@ -1099,6 +1105,251 @@ async def get_map_data(site: str = None):
         })
 
     return {"nodes": nodes, "edges": edges}
+
+
+@router.get("/site_topology")
+async def get_site_topology(site: str = None, ha: str = None):
+    db = OrionDatabaseManager(mainconfig.DB_ORION_PATH)
+    db.connect()
+
+    # Get topology data with HA information
+    query = """
+        SELECT t.SourceNodeID, t.SourceNodeName, t.TargetNodeID, t.TargetNodeName,
+               t.SourceInterface, t.TargetInterface, t.SourceSite, t.TargetSite, t.LayerType,
+               scp_source.HA as SourceHA, scp_target.HA as TargetHA
+        FROM [Orion.Topology] t
+        LEFT JOIN [Orion.NodesCustomProperties] scp_source ON t.SourceNodeID = scp_source.NodeID
+        LEFT JOIN [Orion.NodesCustomProperties] scp_target ON t.TargetNodeID = scp_target.NodeID
+    """
+    params = {}
+    conditions = []
+    
+    if site and site != "all":
+        conditions.append("(t.SourceSite LIKE :site OR t.TargetSite LIKE :site)")
+        params["site"] = f"%{site}%"
+    
+    if ha and ha != "all":
+        conditions.append("(scp_source.HA = :ha OR scp_target.HA = :ha)")
+        params["ha"] = ha
+    
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+
+    df = pd.read_sql_query(query, db.conn, params=params)
+    
+    # Get raw data for reference table: Site-level aggregates with down nodes
+    raw_query = """
+        SELECT scp.Site, scp.Address, scp.City, scp.TotalNodes, scp.DownCount,
+               n.NodeID, n.NodeName, n.Status, n.StatusDescription,
+               cp.HA, cp.DeviceType
+        FROM [Orion.SitesCustomProperties] scp
+        LEFT JOIN [Orion.NodesCustomProperties] cp ON scp.Site = cp.Site
+        LEFT JOIN [Orion.Nodes] n ON cp.NodeID = n.NodeID
+        --WHERE n.Status IN (2, 12)  -- Only DOWN or UNREACHABLE nodes
+    """
+    raw_params = {}
+    raw_conditions = []
+    
+    if site and site != "all":
+        raw_conditions.append("scp.Site LIKE :site")
+        raw_params["site"] = f"%{site}%"
+    
+    if ha and ha != "all":
+        raw_conditions.append("cp.HA = :ha")
+        raw_params["ha"] = ha
+    
+    if raw_conditions:
+        raw_query += " AND " + " AND ".join(raw_conditions)
+    
+    raw_query += " ORDER BY scp.Site, n.NodeName"
+    raw_df = pd.read_sql_query(raw_query, db.conn, params=raw_params)
+
+    # Fetch site metadata from SitesCustomProperties for site node details
+    site_meta_query = """
+        SELECT Site, Address, City, TotalNodes, DownCount
+        FROM [Orion.SitesCustomProperties]
+    """
+    site_meta_params = {}
+    if site and site != "all":
+        site_meta_query += " WHERE Site LIKE :site"
+        site_meta_params["site"] = f"%{site}%"
+
+    site_meta_df = pd.read_sql_query(site_meta_query, db.conn, params=site_meta_params)
+    db.conn.close()
+
+    # Convert raw data to list of dicts, grouped by site with down nodes only
+    raw_data = []
+    site_down_nodes = {}  # Temp dict to group nodes by site
+    
+    for _, row in raw_df.iterrows():
+        site_name = row.get("Site")
+        if not site_name:
+            continue
+            
+        if site_name not in site_down_nodes:
+            site_down_nodes[site_name] = {
+                "site": site_name,
+                "address": row.get("Address"),
+                "city": row.get("City"),
+                "total_nodes": int(row["TotalNodes"]) if str(row.get("TotalNodes") or "").isdigit() else 0,
+                "down_count": int(row["DownCount"]) if str(row.get("DownCount") or "").isdigit() else 0,
+                "down_nodes": []
+            }
+        
+        # Add down node to this site's list
+        node_id = row.get("NodeID")
+        if node_id:
+            site_down_nodes[site_name]["down_nodes"].append({
+                "node_id": node_id,
+                "node_name": row.get("NodeName"),
+                "status": row.get("Status"),
+                "status_description": row.get("StatusDescription"),
+                "ha": row.get("HA"),
+                "device_type": row.get("DeviceType")
+            })
+    
+    # Flatten for table display: one row per down node (not per site)
+    for site_name, site_info in site_down_nodes.items():
+        for down_node in site_info["down_nodes"]:
+            raw_data.append({
+                "node_id": down_node["node_id"],
+                "node_name": down_node["node_name"],
+                "site": site_name,
+                "address": site_info["address"],
+                "city": site_info["city"],
+                "ha": down_node["ha"],
+                "status": down_node["status"],
+                "status_description": down_node["status_description"],
+                "device_type": down_node["device_type"],
+                "total_nodes_in_site": site_info["total_nodes"],
+                "down_count_in_site": site_info["down_count"]
+            })
+
+    site_metadata = {}
+    for _, row in site_meta_df.iterrows():
+        site_name = str(row["Site"] or "").strip()
+        if not site_name:
+            continue
+        site_metadata[site_name] = {
+            "id": f"site:{site_name}",
+            "label": site_name,
+            "type": "site",
+            "address": row.get("Address"),
+            "city": row.get("City"),
+            "total_nodes": int(row["TotalNodes"]) if str(row.get("TotalNodes") or "").isdigit() else row.get("TotalNodes"),
+            "down_count": int(row["DownCount"]) if str(row.get("DownCount") or "").isdigit() else row.get("DownCount")
+        }
+
+    site_nodes = {}
+    device_nodes = {}
+    edges = []
+    seen_edge_keys = set()
+
+    def make_site_id(site_name):
+        return f"site:{site_name}" if site_name else None
+
+    def make_device_id(node_id):
+        return f"node:{node_id}" if node_id else None
+
+    for _, row in df.iterrows():
+        for side in ["Source", "Target"]:
+            site_name = row[f"{side}Site"]
+            if site_name:
+                site_id = make_site_id(site_name)
+                if site_id and site_id not in site_nodes:
+                    site_info = site_metadata.get(site_name)
+                    if site_info:
+                        site_nodes[site_id] = site_info.copy()
+                        site_nodes[site_id].setdefault("ha", row[f"{side}HA"])
+                    else:
+                        site_nodes[site_id] = {
+                            "id": site_id,
+                            "label": site_name,
+                            "type": "site",
+                            "ha": row[f"{side}HA"],
+                            "address": None,
+                            "city": None,
+                            "total_nodes": None,
+                            "down_count": None
+                        }
+
+            node_id = row[f"{side}NodeID"]
+            node_name = row[f"{side}NodeName"]
+            site_name = row[f"{side}Site"]
+            if node_id and node_name:
+                device_nodes[make_device_id(node_id)] = {
+                    "id": make_device_id(node_id),
+                    "label": node_name,
+                    "site": site_name,
+                    "ha": row[f"{side}HA"],
+                    "type": "device"
+                }
+
+                site_node_id = make_site_id(site_name)
+                if site_node_id and site_node_id != make_device_id(node_id):
+                    edge_key = (site_node_id, make_device_id(node_id), row[f"{side}Interface"] or "")
+                    if edge_key not in seen_edge_keys:
+                        edges.append({
+                            "source": site_node_id,
+                            "target": make_device_id(node_id),
+                            "label": row[f"{side}Interface"] or "",
+                            "type": "membership",
+                            "protocol": "ORION",
+                            "interface": row[f"{side}Interface"] or "",
+                            "site_role": side.lower(),
+                            "is_up": True,
+                            "color": "#4B7BE5"
+                        })
+                        seen_edge_keys.add(edge_key)
+
+        src = make_device_id(row["SourceNodeID"])
+        tgt = make_device_id(row["TargetNodeID"])
+        if src and tgt and src != tgt:
+            edge_key = (src, tgt, row["SourceInterface"] or row["TargetInterface"] or row["LayerType"])
+            if edge_key not in seen_edge_keys:
+                edges.append({
+                    "source": src,
+                    "target": tgt,
+                    "label": row["SourceInterface"] or row["TargetInterface"] or row["LayerType"] or "",
+                    "type": "link",
+                    "protocol": row["LayerType"] or "ORION",
+                    "source_site": row["SourceSite"],
+                    "target_site": row["TargetSite"],
+                    "source_interface": row["SourceInterface"],
+                    "target_interface": row["TargetInterface"],
+                    "is_up": True,
+                    "color": "#888"
+                })
+                seen_edge_keys.add(edge_key)
+
+        source_site_name = row["SourceSite"]
+        target_site_name = row["TargetSite"]
+        if source_site_name and target_site_name and source_site_name != target_site_name:
+            source_site_id = make_site_id(source_site_name)
+            target_site_id = make_site_id(target_site_name)
+            site_edge_key = tuple(sorted([source_site_id, target_site_id])) + ("site_link",)
+            if site_edge_key not in seen_edge_keys:
+                edges.append({
+                    "source": source_site_id,
+                    "target": target_site_id,
+                    "label": row["LayerType"] or "",
+                    "type": "site_link",
+                    "protocol": row["LayerType"] or "ORION",
+                    "source_site": source_site_name,
+                    "target_site": target_site_name,
+                    "is_up": True,
+                    "color": "#34A853",
+                    "weight": 2
+                })
+                seen_edge_keys.add(site_edge_key)
+
+    nodes = list(site_nodes.values()) + list(device_nodes.values())
+    return {"nodes": nodes, "edges": edges, "raw_data": raw_data}
+
+
+@router.get("/site_topology_page", response_class=HTMLResponse)
+async def get_site_topology_page(request: Request):
+    return templates.TemplateResponse("orion_site_topology.html", {"request": request})
 
 
 @router.get("/orion_analysis", response_class=HTMLResponse)
