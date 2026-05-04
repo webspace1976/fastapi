@@ -1,6 +1,7 @@
 import os, re , asyncio, json, csv, io
 from typing import List
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from datetime import datetime
 from fastapi import FastAPI, Form, Request, Query, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
@@ -11,48 +12,47 @@ import mainconfig as mainconfig
 # import from routers
 from routers import devices, monitor, orion, ringer
 
-### 1.1 Path Traversal — `/edit` and `/save` endpoints (`main.py`)
+### Path Traversal guards for `/edit` and `/save`
 from pathlib import Path
 DATA_DIR = Path(__file__).parent / "data"
 ALLOWED_EXTENSIONS = {".txt", ".json", ".html"}
 
-app = FastAPI(
-    title="SOC Network-Tools Portal",
-    description="Network monitoring and device management system",
-    redirect_slashes=False,     # add this line
-    version="2025.12.09"
-)
-
-# Import the function from  websocket_server_ds.py
+# Import startup dependencies
 from utils.websocket_server_ds import start_websocket_server_in_background
-
-#startup
-@app.on_event("startup")
-async def startup_event():
-    start_websocket_server_in_background()
-
-
-# from fastapi_utils.tasks import repeat_every . Not used currently
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from utils.orion_db_manager import cleanup_expired_sessions
+
 scheduler = AsyncIOScheduler()
 
-@app.on_event("startup")
-async def start_scheduler():
-    # Schedule the task to run at 7:00 (7am) and 19:00 (7pm) every day
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Single lifespan handler — replaces the two deprecated @app.on_event handlers.
+    Startup order is explicit and deterministic."""
+    # --- startup ---
+    start_websocket_server_in_background()
+
     scheduler.add_job(
-        cleanup_expired_sessions, 
-        'cron', 
-        hour='7,19', 
+        cleanup_expired_sessions,
+        'cron',
+        hour='7,19',
         minute=0,
-        args=[24] # Passes 24 to the max_age_hours argument
+        args=[24]  # max_age_hours
     )
     scheduler.start()
 
-@app.on_event("shutdown")
-async def shutdown_scheduler():
+    yield  # app runs here
+
+    # --- shutdown ---
     scheduler.shutdown()
-#startup
+
+
+app = FastAPI(
+    title="SOC Network-Tools Portal",
+    description="Network monitoring and device management system",
+    redirect_slashes=False,
+    version="2025.12.09",
+    lifespan=lifespan,
+)
 
 # Set up folder paths and mount 
 templates = Jinja2Templates(directory="templates")
@@ -66,6 +66,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Logging configuration
 logger = mainconfig.setup_module_logger(__name__)
+
+# Wire up DEBUG_MODE and LOG_LEVEL env var (refactor report items #21 and #23)
+import logging as _logging
+_log_level = os.getenv("LOG_LEVEL", "DEBUG" if mainconfig.DEBUG_MODE else "WARNING").upper()
+logging_root = _logging.getLogger()
+logging_root.setLevel(getattr(_logging, _log_level, _logging.WARNING))
 
 # Include routers
 app.include_router(devices.router, prefix="/api/devices", tags=["Devices"])
@@ -256,23 +262,24 @@ async def edit_tab(filename: str):
 
 @app.post("/save")
 async def save_tab(request: Request):
-    # Same containment + no path separators allowed in filename
-    if "/" in filename or "\\" in filename or ".." in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename")
-    target = (DATA_DIR / filename).resolve()
-    if not str(target).startswith(str(DATA_DIR)):
-        raise HTTPException(status_code=403, detail="Access denied")
-
+    # FIX: read form data FIRST — filename was used before it was read from the form
     form_data = await request.form()
     filename = form_data.get("filename", "")
     content = form_data.get("content", "")
 
-    file_path = os.path.join(os.path.dirname(__file__), "data", filename)
+    # Validate filename AFTER reading it
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if not filename:
+        raise HTTPException(status_code=400, detail="Filename required")
 
-    # Save the content to the file
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(content)
+    target = (DATA_DIR / filename).resolve()
+    if not str(target).startswith(str(DATA_DIR.resolve())):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if target.suffix not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=403, detail="File type not allowed")
 
+    target.write_text(content, encoding="utf-8")
     return HTMLResponse(content=f"<h1>{filename} saved successfully!</h1><a href='/edit?filename={filename}'>Go back to edit</a>")
 
 @app.get("/orionmap", response_class=HTMLResponse)

@@ -845,11 +845,11 @@ def process_log_file(db, log_file_path, file_id, log_dir_base):
 
     elif vendor in ('cisco', 'arista'):
         
-        for match in mainconfig.CISCO_BGP_ADJ_SPECIFIC_RE.finditer(content):
+        for match in mainconfig.CISCO_BGP_ADJCHG.finditer(content):
             message = match.group(0)  # Capture the entire log line
             g = match.groupdict()
             neighbor = g['neighbor']
-            from_state = g['mode']
+            from_state = g['status_mode']
             to_state = g['action']
             last_updated_ts = parse_last_updated_ts(g['timestamp'], log_year)
 

@@ -31,7 +31,7 @@
     <div id="cy" style="width: 100%; height: 100%;"></div>
     <div id="cy-loading" style="position: absolute; inset: 0; display:flex; align-items:center; justify-content:center; background: rgba(255,255,255,.95); font-weight: 600; color: #333; flex-direction: column; gap: 10px; z-index: 10;"><div>Loading topology…</div><div style="font-size: 0.8rem; color: #666;">This may take a moment for large networks</div></div>
 </div>
-<div id="legend" style="margin-top: 14px; padding: 12px 16px; background: #f9fafb; border: 1px solid #e3e7ee; border-radius: 10px; display: none; flex: gap: 16px; flex-wrap: wrap;">
+<div id="legend" style="margin-top: 14px; padding: 12px 16px; background: #f9fafb; border: 1px solid #e3e7ee; border-radius: 10px; display: none; gap: 16px; flex-wrap: wrap;">
     <div><span style="display:inline-block;width:12px;height:12px;background:#1d72b8;border-radius:50%;margin-right:6px;"></span>Site node</div>
     <div><span style="display:inline-block;width:12px;height:12px;background:#23a455;border-radius:50%;margin-right:6px;"></span>Device node</div>
     <div><span style="display:inline-block;width:12px;height:12px;background:#4b7be5;border-radius:50%;margin-right:6px;"></span>Site membership edge</div>
@@ -149,24 +149,28 @@ function populateTable(data) {
         const tr = document.createElement('tr');
         tr.className = 'peer-row';
         
-        // Status class
-        const statusClass = row.status && row.status.toString().toLowerCase().includes('up') ? 'text-success' : 
-                           row.status && row.status.toString().toLowerCase().includes('down') ? 'text-danger' : '';
+        const statusVal = (row.status || row.Status || '').toString();
+        const statusClass = statusVal.toLowerCase().includes('up') ? 'text-success' : 
+                           statusVal.toLowerCase().includes('down') ? 'text-danger' : '';
         
+        const downTotal = (row.down_count_in_site !== undefined)
+            ? `${row.down_count_in_site}/${row.total_nodes_in_site}`
+            : '—';
+
         tr.innerHTML = `
-            <td>${row.node_name || '—'}</td>
-            <td>${row.site || '—'}</td>
-            <td>${row.ha || '—'}</td>
-            <td class="${statusClass}">${row.status || '—'}</td>
-            <td>${row.city || '—'}</td>
-            <td>${row.device_type || '—'}</td>
+            <td>${row.node_name || row.NodeName || '—'}</td>
+            <td>${row.site || row.Site || '—'}</td>
+            <td>${downTotal}</td>
+            <td>${row.ha || row.HA || '—'}</td>
+            <td class="${statusClass}">${statusVal || '—'}</td>
+            <td>${row.city || row.City || '—'}</td>
+            <td>${row.device_type || row.DeviceType || '—'}</td>
         `;
         
         siteTbody.appendChild(tr);
         
-        // Collect sites for dropdown
-        if (row.site) {
-            allSites.add(row.site);
+        if (row.site || row.Site) {
+            allSites.add(row.site || row.Site);
         }
     });
     
@@ -241,17 +245,20 @@ function loadTopology() {
 document.getElementById('btnLoad').addEventListener('click', loadTopology);
 document.getElementById('searchBox').addEventListener('input', filterTable);
 
-// Load initial data without showing topology
-fetch(`${API_URL}?site=all&ha=all`)
-    .then(resp => resp.json())
+// On page load: populate the reference table without rendering the topology graph.
+// We pass no filter params — the endpoint returns raw_data for all sites.
+fetch(API_URL)
+    .then(resp => resp.ok ? resp.json() : Promise.reject(`HTTP ${resp.status}`))
     .then(data => {
-        if (data.raw_data) {
+        if (data.raw_data && data.raw_data.length > 0) {
             populateTable(data);
             document.getElementById('table-section').style.display = 'block';
+            statusText.textContent = 'Table loaded. Select filters and click Load topology to view the graph.';
         }
     })
     .catch(err => {
         console.error('Initial load error:', err);
+        statusText.textContent = 'Could not load initial data: ' + err;
     });
 </script>
 {% endblock %}

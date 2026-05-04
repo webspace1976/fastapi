@@ -844,62 +844,32 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
     # 20251226 Create a dictionary of data for the DB manager
 
         db_manager = OrionDatabaseManager(mainconfig.DB_ORION_PATH)
-        db_manager.setup_tables()
-
-        conn = sqlite3.connect(mainconfig.DB_ORION_PATH)
-        # CRITICAL FIX: This allows accessing columns by name like log['LogEntryID']
-        conn.row_factory = sqlite3.Row
-
-        curr = conn.cursor()
-
-        # 202603 syslog tracking: Get the "First ID" (Highest current ID in SQLite)
-        db_manager.cursor.execute("SELECT MAX(LogEntryID) FROM [Orion.SyslogTracking]")
-        row = db_manager.cursor.fetchone()
-        last_saved_id = row[0] if row and row[0] else 0
-        # db_manager.conn.close() # Close after getting the ID
-
-        # 2. Filter the syslog data
-        # Assuming syslog_table[1] contains the raw 'results' list from the SWIS query
-        all_syslogs = syslog_table[1]
-        # new_syslogs = [log for log in all_syslogs if int(log['LogEntryID']) > last_saved_id]
-
-        new_syslogs = []
-        for log in all_syslogs:
-            # Ensure 'log' is actually a dictionary before accessing keys
-            if isinstance(log, dict) and 'LogEntryID' in log:
-                if int(log['LogEntryID']) > last_saved_id:
-                    new_syslogs.append(log)
-
-        # Check if we have data
-        db_manager.setup_tables()
+        db_manager.connect()       # FIX: must connect before setup_tables or cursor use
+        db_manager.setup_tables()  # idempotent — safe to call every refresh
 
         data_for_db = {
-            "node_table": node_table[1],  # pass the data part
-            "custom_properties_table": node_table[2], 
-            "interface_table": interface_table[1],  
-            "alert_table": alert_table[1],  
-            "netpath_table": netpath_table[1], 
-            "apipoller_table": apipoller_table[1],  
+            "node_table": node_table[1],
+            "custom_properties_table": node_table[2],
+            "interface_table": interface_table[1],
+            "alert_table": alert_table[1],
+            "netpath_table": netpath_table[1],
+            "apipoller_table": apipoller_table[1],
             "sites_topology": node_table[3],
-            "syslog_table": new_syslogs  # Only pass the genuinely NEW logs
-            # add others if needed
+            "syslog_table": syslog_table[1]  # upsert_syslog filters new-only internally
         }
 
-        curr.execute("SELECT COUNT(*) FROM [Orion.NodesCustomProperties]")
-        count = curr.fetchone()[0]
+        with _orion_read_engine.connect() as _tmp_conn:
+            count = _tmp_conn.execute(__import__('sqlalchemy').text(
+                "SELECT COUNT(*) FROM [Orion.NodesCustomProperties]"
+            )).scalar()
         if count == 0:
             logger.debug("Performing Initial Full Load...")
-            query = mainconfig.swis_ncp
-            swis_result = session.query(query)
-            # Safety Check for NoneType
+            swis_result = session.query(mainconfig.swis_ncp)
             if swis_result and swis_result.get("results"):
-                results = swis_result.get("results")
-                # Ensure you are grabbing the correct index (usually results[0] or the whole list)
-                data_for_db["NodesCustomProperties"] = results
-        
-        # Pass the dictionary to the sync function
+                data_for_db["NodesCustomProperties"] = swis_result.get("results")
+
         sync_orion_data(data_for_db)
-        # sync_historical_tracing(session)
+        db_manager.close()  # FIX: always close the write connection
     # 20251226 Create a dictionary of data for the DB manager
 
         # Return both content and session_id (so FastAPI route can attach it)
@@ -972,6 +942,14 @@ def safe_generate(func, session, default_val="<p class='text-danger'>Error loadi
 
 ############## main
 templates = Jinja2Templates(directory="templates")
+
+# Shared read-only engine for all SELECT endpoints — pool handles open/close automatically.
+# Writes still go through OrionDatabaseManager (via sync_orion_data).
+from sqlalchemy import create_engine as _create_engine
+_orion_read_engine = _create_engine(
+    f"sqlite:///{mainconfig.DB_ORION_PATH}",
+    connect_args={"check_same_thread": False}
+)
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def get_orion_dashboard_tabs(request: Request):
@@ -1049,19 +1027,20 @@ async def run_orioncheck_route(
 
 @router.get("/map_data")
 async def get_map_data(site: str = None):
-
     if not site:
         return {"nodes": [], "edges": []}
-    
-    db = OrionDatabaseManager(mainconfig.DB_ORION_PATH)
-    db.connect()
-    
-    # 1. Fetch Topology Links
-    query = "SELECT SourceNodeID, SourceNodeName, TargetNodeID, TargetNodeName, SourceInterface FROM [Orion.Topology]"
-    query += f" WHERE SourceSite LIKE '%{site}%' OR TargetSite LIKE '%{site}%'"
 
-    df = pd.read_sql_query(query, db.conn)
-    db.conn.close()
+    query = """
+        SELECT SourceNodeID, SourceNodeName, TargetNodeID, TargetNodeName, SourceInterface
+        FROM [Orion.Topology]
+        WHERE SourceSite LIKE :site OR TargetSite LIKE :site
+    """
+    try:
+        with _orion_read_engine.connect() as conn:
+            df = pd.read_sql_query(query, conn, params={"site": f"%{site}%"})
+    except Exception as e:
+        logger.error("map_data DB error: %s", e)
+        return {"nodes": [], "edges": [], "error": str(e)}
 
     # 2. Build vis.js format
     nodes = []
@@ -1109,11 +1088,8 @@ async def get_map_data(site: str = None):
 
 @router.get("/site_topology")
 async def get_site_topology(site: str = None, ha: str = None):
-    db = OrionDatabaseManager(mainconfig.DB_ORION_PATH)
-    db.connect()
-
-    # Get topology data with HA information
-    query = """
+    # Topology query — joins NCP for HA on both sides
+    topo_query = """
         SELECT t.SourceNodeID, t.SourceNodeName, t.TargetNodeID, t.TargetNodeName,
                t.SourceInterface, t.TargetInterface, t.SourceSite, t.TargetSite, t.LayerType,
                scp_source.HA as SourceHA, scp_target.HA as TargetHA
@@ -1121,23 +1097,18 @@ async def get_site_topology(site: str = None, ha: str = None):
         LEFT JOIN [Orion.NodesCustomProperties] scp_source ON t.SourceNodeID = scp_source.NodeID
         LEFT JOIN [Orion.NodesCustomProperties] scp_target ON t.TargetNodeID = scp_target.NodeID
     """
-    params = {}
-    conditions = []
-    
+    topo_params = {}
+    topo_conditions = []
     if site and site != "all":
-        conditions.append("(t.SourceSite LIKE :site OR t.TargetSite LIKE :site)")
-        params["site"] = f"%{site}%"
-    
+        topo_conditions.append("(t.SourceSite LIKE :site OR t.TargetSite LIKE :site)")
+        topo_params["site"] = f"%{site}%"
     if ha and ha != "all":
-        conditions.append("(scp_source.HA = :ha OR scp_target.HA = :ha)")
-        params["ha"] = ha
-    
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
+        topo_conditions.append("(scp_source.HA = :ha OR scp_target.HA = :ha)")
+        topo_params["ha"] = ha
+    if topo_conditions:
+        topo_query += " WHERE " + " AND ".join(topo_conditions)
 
-    df = pd.read_sql_query(query, db.conn, params=params)
-    
-    # Get raw data for reference table: Site-level aggregates with down nodes
+    # Raw reference table query
     raw_query = """
         SELECT scp.Site, scp.Address, scp.City, scp.TotalNodes, scp.DownCount,
                n.NodeID, n.NodeName, n.Status, n.StatusDescription,
@@ -1145,37 +1116,34 @@ async def get_site_topology(site: str = None, ha: str = None):
         FROM [Orion.SitesCustomProperties] scp
         LEFT JOIN [Orion.NodesCustomProperties] cp ON scp.Site = cp.Site
         LEFT JOIN [Orion.Nodes] n ON cp.NodeID = n.NodeID
-        --WHERE n.Status IN (2, 12)  -- Only DOWN or UNREACHABLE nodes
     """
     raw_params = {}
     raw_conditions = []
-    
     if site and site != "all":
         raw_conditions.append("scp.Site LIKE :site")
         raw_params["site"] = f"%{site}%"
-    
     if ha and ha != "all":
         raw_conditions.append("cp.HA = :ha")
         raw_params["ha"] = ha
-    
     if raw_conditions:
-        raw_query += " AND " + " AND ".join(raw_conditions)
-    
+        raw_query += " WHERE " + " AND ".join(raw_conditions)  # FIX: WHERE not AND
     raw_query += " ORDER BY scp.Site, n.NodeName"
-    raw_df = pd.read_sql_query(raw_query, db.conn, params=raw_params)
 
-    # Fetch site metadata from SitesCustomProperties for site node details
-    site_meta_query = """
-        SELECT Site, Address, City, TotalNodes, DownCount
-        FROM [Orion.SitesCustomProperties]
-    """
+    # Site metadata for node enrichment
+    site_meta_query = "SELECT Site, Address, City, TotalNodes, DownCount FROM [Orion.SitesCustomProperties]"
     site_meta_params = {}
     if site and site != "all":
         site_meta_query += " WHERE Site LIKE :site"
         site_meta_params["site"] = f"%{site}%"
 
-    site_meta_df = pd.read_sql_query(site_meta_query, db.conn, params=site_meta_params)
-    db.conn.close()
+    try:
+        with _orion_read_engine.connect() as conn:
+            df = pd.read_sql_query(topo_query, conn, params=topo_params)
+            raw_df = pd.read_sql_query(raw_query, conn, params=raw_params)
+            site_meta_df = pd.read_sql_query(site_meta_query, conn, params=site_meta_params)
+    except Exception as e:
+        logger.error("site_topology DB error: %s", e)
+        return {"nodes": [], "edges": [], "raw_data": [], "error": str(e)}
 
     # Convert raw data to list of dicts, grouped by site with down nodes only
     raw_data = []
@@ -1359,33 +1327,28 @@ async def get_analysis_page(request: Request):
 
 @router.get("/get_custom_properties_data")
 async def get_custom_properties_data():
-    db_manager = OrionDatabaseManager(mainconfig.DB_ORION_PATH)
     try:
-        conn = sqlite3.connect(mainconfig.DB_ORION_PATH)
-        db_manager.setup_tables()
-        query = "SELECT  * FROM [Orion.Nodes]"
-        df = pd.read_sql_query(query, conn)
-        conn.close()
-        
-        # Replace NaN/None with empty strings for clean display
-        df = df.fillna("")
-        
-        return {"data": df.to_dict(orient="records")}
+        with _orion_read_engine.connect() as conn:
+            df = pd.read_sql_query("SELECT * FROM [Orion.Nodes]", conn)
+        return {"data": df.fillna("").to_dict(orient="records")}
     except Exception as e:
-        logger.error(f"Failed to fetch table data: {e}")
+        logger.error("Failed to fetch table data: %s", e)
         return {"data": [], "error": str(e)}
 
 @router.get("/topology")
 async def get_topology_data(site: str = None):
-    db = OrionDatabaseManager(mainconfig.DB_ORION_PATH)
-    db.connect()
-    # Filter by site if provided, otherwise return all
     query = "SELECT * FROM [Orion.Topology]"
+    params = {}
     if site:
-        query += f" WHERE Site = '{site}'"
-    df = pd.read_sql_query(query, db.conn)
-    db.conn.close()
-    return {"data": df.to_dict(orient="records")}
+        query += " WHERE SourceSite LIKE :site OR TargetSite LIKE :site"
+        params["site"] = f"%{site}%"
+    try:
+        with _orion_read_engine.connect() as conn:
+            df = pd.read_sql_query(query, conn, params=params)
+        return {"data": df.fillna("").to_dict(orient="records")}
+    except Exception as e:
+        logger.error("Failed to fetch topology data: %s", e)
+        return {"data": [], "error": str(e)}
 
 
 @router.get("/get_PeerTracking")
