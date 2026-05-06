@@ -444,9 +444,9 @@ LEFT JOIN Orion.NPM.Interfaces TargetInt ON t.DestInterfaceID = TargetInt.Interf
 '''
 
 swis_syslog='''
-SELECT top 500  LogEntryID,NodeID, DateTime, Message
+SELECT top 200  LogEntryID,NodeID, DateTime, Message
 FROM Orion.OLM.LogEntry 
-WHERE DateTime > AddHour(-2, GETUTCDATE()) 
+WHERE DateTime > AddHour(-1, GETUTCDATE()) 
 AND nodeid in ('11127','11128','11130','12682','11434','16110') -- Core devices only
 AND (Message LIKE '%OSPF_NBR_CHG:%' OR Message LIKE '%BGP_STATE_CHANGED:%')
 ORDER BY DateTime DESC
