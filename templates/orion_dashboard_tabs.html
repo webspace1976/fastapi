@@ -60,9 +60,7 @@
             transition: all 0.2s;
             font-weight: 500;
         }
-        .tab-btn:hover {
-            background: #dee2e6;
-        }
+        .tab-btn:hover { background: #dee2e6; }
         .tab-btn.active {
             background: #007bff;
             color: white;
@@ -72,13 +70,8 @@
             display: none;
             animation: fadeIn 0.3s;
         }
-        .tab-content.active {
-            display: block;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .tab-iframe {
             width: 100%;
             height: 1000px;
@@ -93,14 +86,8 @@
             font-weight: 600;
             margin-left: 10px;
         }
-        .status-active {
-            background: #d4edda;
-            color: #155724;
-        }
-        .status-warning {
-            background: #fff3cd;
-            color: #856404;
-        }
+        .status-active { background: #d4edda; color: #155724; }
+        .status-warning { background: #fff3cd; color: #856404; }
         .footer-info {
             margin-top: 20px;
             padding-top: 15px;
@@ -113,58 +100,49 @@
 <body>
 
 <div class="container">
-    <!-- <h1>
-        Orion Monitoring Dashboard
-        <span class="status-badge status-active">12h Rotating Shift</span>
-    </h1>
-
-    <div class="header-info">
-        <span class="shift-info">🔄 Work Schedule: 12-hour rotating shifts | SOC Network Operations Centre</span>
-        <span id="currentTime" style="font-family: monospace; color: #0066cc; font-weight: 600;"></span>
-    </div> -->
 
     <div class="summary-tabs">
-        <button class="tab-btn active" data-tab="login" onclick="showTab('login')">
+        <button class="tab-btn" data-tab="login">
             🔐 Orion Login
         </button>
-        <button class="tab-btn" data-tab="nodes" onclick="showTab('nodes')">
+        <button class="tab-btn" data-tab="nodes">
             🖥️ Nodes Status
         </button>
-        <!-- <button class="tab-btn" data-tab="topology" onclick="showTab('topology')">
+        <!-- <button class="tab-btn" data-tab="topology">
             🗺️ Site Topology
         </button> -->
     </div>
 
-    <!-- Login Tab -->
-    <div id="login" class="tab-content active">
-        <iframe class="tab-iframe" src="/api/orion/check_form"></iframe>
+    <!-- Login Tab — pre-loaded on page open, default tab -->
+    <div id="tab-login" class="tab-content">
+        <iframe id="login-frame" class="tab-iframe" src="/api/orion/check_form"></iframe>
     </div>
 
-    <!-- Nodes Status Tab -->
-    <div id="nodes" class="tab-content">
+    <!-- Nodes Status Tab — lazy-loaded on first click -->
+    <div id="tab-nodes" class="tab-content">
         <div style="margin-bottom: 10px;">
-            <button onclick="reloadTab('nodes')" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">
+            <button id="btn-refresh-nodes" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">
                 🔄 Refresh
             </button>
         </div>
-        <iframe id="nodes-frame" class="tab-iframe" src="/api/orion/orion_analysis"></iframe>
+        <iframe id="nodes-frame" class="tab-iframe" src="about:blank"></iframe>
     </div>
 
-    <!-- Site Topology Tab -->
-    <div id="topology" class="tab-content">
+    <!-- Site Topology Tab — lazy-loaded on first click -->
+    <div id="tab-topology" class="tab-content">
         <div style="margin-bottom: 10px;">
-            <button onclick="reloadTab('topology')" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">
+            <button id="btn-refresh-topology" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">
                 🔄 Refresh
             </button>
         </div>
-        <iframe id="topology-frame" class="tab-iframe" src="/api/orion/site_topology_page"></iframe>
+        <iframe id="topology-frame" class="tab-iframe" src="about:blank"></iframe>
     </div>
 
     <div class="footer-info">
         <p style="margin: 0;">
-            📊 <strong>Dashboard Features:</strong> Real-time Orion node status monitoring, site topology visualization, and network health tracking. 
+            📊 <strong>Dashboard Features:</strong> Real-time Orion node status monitoring, site topology visualization, and network health tracking.
             <br>
-            ⏰ <strong>Shift Coverage:</strong> This dashboard is designed for continuous 12-hour rotating shift operations to ensure 24/7 network monitoring coverage.
+            ⏰ <strong>Shift Coverage:</strong> Designed for continuous 12-hour rotating shift operations — 24/7 network monitoring coverage.
             <br>
             Last updated: <span id="lastUpdate">just now</span>
         </p>
@@ -172,55 +150,76 @@
 </div>
 
 <script>
-function showTab(tabName) {
-    const tabs = document.querySelectorAll('.tab-content');
-    const btns = document.querySelectorAll('.tab-btn');
-    
-    tabs.forEach(tab => {
-        tab.classList.remove('active');
-    });
-    btns.forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    document.getElementById(tabName).classList.add('active');
-    event.target.classList.add('active');
+'use strict';
+
+// ── Tab config — matches template_getdeviceoutput_form.html pattern ───────────
+// Each tab declares its iframe id and the URL to lazy-load on first visit.
+// 'login' is pre-loaded in HTML (src already set), so noLoad:true skips the
+// lazy-load logic for it — but it still participates in tab switching normally.
+const TAB_CONFIG = {
+    login:    { frameId: 'login-frame',    url: '/api/orion/check_form',       noLoad: true },
+    nodes:    { frameId: 'nodes-frame',    url: '/api/orion/orion_analysis'                },
+    topology: { frameId: 'topology-frame', url: '/api/orion/site_topology_page'            },
+};
+
+const loaded = new Set(['login']); // login iframe src is set in HTML already
+
+function showTab(name) {
+    if (!TAB_CONFIG[name]) return;
+
+    // Deactivate all panels and buttons
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+    // Activate the selected panel and its button
+    document.getElementById('tab-' + name).classList.add('active');
+    document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
+
+    // Remember across page refreshes — same pattern as template_getdeviceoutput_form.html
+    localStorage.setItem('orion-tab', name);
+
+    // Lazy-load: set iframe src only on first visit
+    const cfg = TAB_CONFIG[name];
+    if (!cfg.noLoad && !loaded.has(name)) {
+        loaded.add(name);
+        const frame = document.getElementById(cfg.frameId);
+        if (frame) frame.src = cfg.url;
+    }
 }
 
-function reloadTab(tabName) {
-    const frameId = tabName + '-frame';
-    const frame = document.getElementById(frameId);
-    if (frame) {
+function reloadTab(name) {
+    const cfg = TAB_CONFIG[name];
+    if (!cfg) return;
+    const frame = document.getElementById(cfg.frameId);
+    // Only reload if the iframe has actually been loaded at least once
+    if (frame && loaded.has(name)) {
         frame.src = frame.src;
     }
 }
 
+// Wire tab buttons — no inline onclick, matches template_getdeviceoutput_form.html
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => showTab(btn.dataset.tab));
+});
+
+// Wire refresh buttons
+document.getElementById('btn-refresh-nodes').addEventListener('click', () => reloadTab('nodes'));
+document.getElementById('btn-refresh-topology').addEventListener('click', () => reloadTab('topology'));
+
+// On load: restore last active tab, default to 'login' — same as template file
+window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('orion-tab') || 'login';
+    showTab(saved);
+});
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
 function updateTime() {
     const now = new Date();
-    const timeStr = now.toLocaleTimeString('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-    });
-    const currentTimeEl = document.getElementById('currentTime');
-    const lastUpdateEl = document.getElementById('lastUpdate');
-    if (currentTimeEl) currentTimeEl.textContent = timeStr;
-    if (lastUpdateEl) lastUpdateEl.textContent = now.toLocaleTimeString();
+    const el  = document.getElementById('lastUpdate');
+    if (el) el.textContent = now.toLocaleTimeString();
 }
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        updateTime();
-        setInterval(updateTime, 1000);
-    });
-} else {
-    updateTime();
-    setInterval(updateTime, 1000);
-}
+updateTime();
+setInterval(updateTime, 1000);
 </script>
 
 </body>

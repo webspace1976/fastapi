@@ -7,7 +7,6 @@ __pycache__/
 .env
 
 # ── Data files (runtime, not source) ──────────────────────
-data/*.db
 data/*.db-shm
 data/*.db-wal
 data/*.json

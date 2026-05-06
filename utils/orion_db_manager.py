@@ -353,16 +353,26 @@ class OrionDatabaseManager:
             last_saved_id = result[0] if result and result[0] else 0
 
             new_records = []
-            
+
             # 2. Filter incoming data for only NEW entries
+            # Guard: SWIS occasionally returns strings (error messages) mixed into
+            # the results list — skip anything that isn't a dict.
             for row in syslog_data:
-                log_id = int(row.get('LogEntryID', 0))
-                
+                if not isinstance(row, dict):
+                    logger.warning("upsert_syslog: skipping non-dict row: %s", type(row))
+                    continue
+
+                try:
+                    log_id = int(row.get('LogEntryID', 0))
+                except (TypeError, ValueError):
+                    logger.warning("upsert_syslog: invalid LogEntryID %r, skipping", row.get('LogEntryID'))
+                    continue
+
                 if log_id > last_saved_id:
                     new_records.append((
                         log_id,
                         row.get('NodeID'),
-                        row.get('NodeName'), 
+                        row.get('NodeName'),
                         row.get('IPAddress'),
                         row.get('DateTime'),
                         row.get('Message')
@@ -424,33 +434,37 @@ def sync_orion_data(rendered_data):
         return
 
     try:
-        node_data = rendered_data["node_table"]
+        node_data = rendered_data.get("node_table")
         if node_data:
             db_conn.upsert_node(node_data)
 
-        interface_data = rendered_data["interface_table"]
-        db_conn.upsert_interface(interface_data)
+        interface_data = rendered_data.get("interface_table")
+        if interface_data:
+            db_conn.upsert_interface(interface_data)
 
-        alert_data = rendered_data["alert_table"]
-        db_conn.upsert_alert(alert_data)
+        alert_data = rendered_data.get("alert_table")
+        if alert_data:
+            db_conn.upsert_alert(alert_data)
 
-        custom_properties_data = rendered_data["custom_properties_table"]
-        db_conn.upsert_sites_properties(custom_properties_data)
+        custom_properties_data = rendered_data.get("custom_properties_table")
+        if custom_properties_data:
+            db_conn.upsert_sites_properties(custom_properties_data)
 
+        # Only present on first run when NodesCustomProperties table is empty
         NodesCustomPropertiess_data = rendered_data.get("NodesCustomProperties")
         if NodesCustomPropertiess_data:
             db_conn.upsert_nodes_properties(NodesCustomPropertiess_data)
 
-        topology_data = rendered_data["sites_topology"]
+        topology_data = rendered_data.get("sites_topology")
         if topology_data:
-            db_conn.upsert_topology(topology_data)  
+            db_conn.upsert_topology(topology_data)
 
-        syslog_data = rendered_data["syslog_table"]
+        syslog_data = rendered_data.get("syslog_table")
         if syslog_data:
             db_conn.upsert_syslog(syslog_data)
 
     except Exception as e:
-        logger.error(f"Error syncing Orion data: {e}")
+        logger.error(f"Error syncing Orion data: {e}"  )
 
     # 4. Always close the connection to prevent database locks
     db_conn.close()                

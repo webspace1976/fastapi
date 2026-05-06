@@ -323,7 +323,7 @@
         .topo-main {
             display: flex;
             gap: 1rem;
-            flex: 1 1 auto;
+            flex: 1;
             min-height: 0;
             overflow: hidden;
             padding: 1rem;
@@ -370,8 +370,10 @@
         #cy-wrap {
             position: relative;
             flex: 1 1 70%;
-            min-height: 0;
+            min-height: 400px;   /* prevents collapse when container is short */
             background: var(--hdr2);
+            border-radius: 4px;
+            overflow: hidden;
         }
 
         #cy { width: 100%; height: 100%; }
@@ -675,7 +677,7 @@
 <body>
 
 <!-- ══ APP BAR ══════════════════════════════════════════════════════════ -->
-<div id="appbar">
+<!-- <div id="appbar">
     <a class="brand" href="/">
         <span class="brand-dot"></span>
         CORE NETWORK
@@ -693,7 +695,7 @@
             <span id="stat-updated">—</span>
         </span>
     </div>
-</div>
+</div> -->
 
 <!-- ══ TAB BAR ══════════════════════════════════════════════════════════ -->
 <div id="tabbar">
@@ -894,7 +896,11 @@ function showTab(name) {
         target.classList.add('active');
         target.style.display = 'flex';
     }
-
+    if (name === 'topology' && cy) {
+        // Force cytoscape to recognize the new panel dimensions
+        cy.resize();
+        cy.fit();
+    }
     localStorage.setItem('soc-tab', name);
 
     if (name !== 'topology' && typeof hideNodeDetails === 'function') {
@@ -979,17 +985,17 @@ function initCy() {
                 selector: 'node',
                 style: {
                     shape: 'round-rectangle',
-                    width: 150, height: 44,
+                    width: 180, height: 44,
                     'background-color': '#161b22',
-                    'border-width': 1.5,
+                    'border-width': 0,
                     'border-color': '#30363d',
                     label: 'data(label)',
                     'text-valign': 'center',
-                    'font-size': '11px',
-                    'font-family': 'SF Mono,Cascadia Code,Fira Code,monospace',
+                    'font-size': '13px',
+                    'font-family': 'Segoe UI, sans-serif',
                     color: '#e6edf3',
-                    'text-wrap': 'ellipsis',
-                    'text-max-width': 138,
+                    'text-wrap': 'wrap',
+                    'text-max-width': 148,
                 }
             },
             {
@@ -1005,19 +1011,40 @@ function initCy() {
                 style: {
                     width: 2,
                     'line-color': 'data(color)',
-                    'curve-style': 'bezier',
+                    // Change 'haystack' to 'taxi' or 'bezier' to separate overlapping lines
+                    'curve-style': 'bezier', 
+                    'control-point-step-size': 40, // Space between parallel lines
                     'target-arrow-shape': 'triangle',
                     'target-arrow-color': 'data(color)',
+                    label: '',
+                    opacity: 0.8,
+                }
+            },
+            // Down edges: visible red dashes instead of near-invisible 0.3 opacity
+            {
+                selector: 'edge.link-down',
+                style: {
+                    'line-style': 'dashed',
+                    'line-dash-pattern': [6, 3],
+                    opacity: 0.55,
+                    width: 1.5,
+                }
+            },
+            // Faded when a node is selected
+            { selector: '.faded', style: { opacity: 0.08 } },
+            // Show edge label + highlight only on hover
+            {
+                selector: 'edge.hovered',
+                style: {
                     label: 'data(protocol)',
                     'font-size': '8px',
                     'text-rotation': 'autorotate',
                     'text-margin-y': -5,
                     color: '#8b949e',
-                    opacity: 0.8,
+                    width: 2.5,
+                    opacity: 1,
                 }
             },
-            { selector: 'edge.link-down',  style: { 'line-style': 'dashed', opacity: 0.3 } },
-            { selector: '.faded',          style: { opacity: 0.1 } },
         ]
     });
 
@@ -1040,13 +1067,17 @@ function initCy() {
 
     cy.on('mouseover', 'edge', e => {
         const ed = e.target;
-        tip.innerHTML = `<strong>${ed.data('source')} → ${ed.data('target')}</strong>
+        ed.addClass('hovered');
+        tip.innerHTML = `<strong>${ed.data('source')} → ${ed.data('target')}</strong><br>
             Protocol: ${ed.data('protocol')}<br>
             Service: ${ed.data('service') || '—'}<br>
             State: ${ed.data('state')}`;
         tip.style.display = 'block';
     });
-    cy.on('mouseout', 'edge', () => tip.style.display = 'none');
+    cy.on('mouseout', 'edge', e => {
+        e.target.removeClass('hovered');
+        tip.style.display = 'none';
+    });
 
     // ── Node click: dim others ────────────────────────────────────────────────
     cy.on('tap', 'node', e => {
@@ -1206,16 +1237,38 @@ function renderCy(layoutName) {
         });
     });
 
-    cy.layout({
+    const layoutOptions = {
         name: layoutName,
-        nodeRepulsion: 10000,
         animate: false,
-        padding: 30,
-    }).run();
+        padding: 60,
+        fit: true,
+        // CoSE physics — strong repulsion so nodes don't pile up
+        nodeRepulsion:      () => 85000,
+        nodeOverlap:        20,
+        idealEdgeLength:    () => 100,
+        edgeElasticity:     () => 45,
+        nestingFactor:      0.1,
+        gravity:            0.25,
+        numIter:            2000,
+        coolingFactor:      0.95,
+        minTemp:            1.0,
+        // fcose / spread extras (ignored if not applicable)
+        randomize:          false,
+        quality:            'proof',
+        samplingType:       true,
+        sampleSize:         25,
+        nodeSeparation:     75,
+    };
+    const layout = cy.layout(layoutOptions);
+    layout.on('layoutstop', () => {
+        cy.fit(cy.elements(), 40);   // re-fit after layout settles
+        document.getElementById('cy-overlay').classList.add('hidden');
+    });
+    layout.run();
 
     document.getElementById('topo-up').textContent   = up;
     document.getElementById('topo-down').textContent = dn;
-    document.getElementById('cy-overlay').classList.add('hidden');
+    // overlay is hidden inside layout.on('layoutstop') above
 }
 
 // ── Peer reference table ──────────────────────────────────────────────────────
