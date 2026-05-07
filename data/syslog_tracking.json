@@ -155255,4 +155255,718 @@
         "NodeName": "ENG22-CC-Core",
         "IPAddress": "10.8.8.15"
     }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
+][
+    {
+        "LogEntryID": 4417193534700912643,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:31",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from OPENCONFIRM to ESTABLISHED.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    },
+    {
+        "LogEntryID": 4417193452123455491,
+        "NodeID": 11130,
+        "DateTime": "2026-05-05T23:47:26",
+        "Message": "2026 ENG22-CC-Core %%10BGP/5/BGP_STATE_CHANGED: -DevIP=10.251.0.42; BGP.HSSBC: 10.29.228.158  state has changed from ESTABLISHED to IDLE for a notification received: Hold Timer Expired/ErrSubCode Unspecified.",
+        "NodeName": "ENG22-CC-Core",
+        "IPAddress": "10.8.8.15"
+    }
 ]

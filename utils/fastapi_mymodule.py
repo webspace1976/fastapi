@@ -195,81 +195,61 @@ def udt_update(src_file,data_file):
     logger.info(f"Updated {dst_udt}, BGP matched: {bgp_count}, OSPF matched: {ospf_count}")
 
 def get_dynamic_duration(last_change_str):
-    if not last_change_str or "UNKNOWN" in last_change_str:
-        return "UNKNOWN"
+    if not last_change_str or "UNKNOWN" in str(last_change_str):
+        return "UNKNOWN", None
 
     try:
-        # 1. Standardize formatting
-        # Replace the colon before milliseconds (:577) with a dot (.577)
-        clean_str = re.sub(r':(\d{3})\b', r'.\1', last_change_str)
-        
-        # 2. Extract parts to determine format
+        # 1. Normalise: convert trailing :NNN milliseconds → .NNN
+        clean_str = re.sub(r':(\d{3})\b', r'.\1', str(last_change_str).strip())
+        # Strip leading HPE % marker if present
+        clean_str = clean_str.lstrip("%")
+
         parts = clean_str.split()
-        tz = pytz.timezone('America/Vancouver')
-        now = datetime.now(tz)
+        tz    = pytz.timezone('America/Vancouver')
+        now   = datetime.now(tz)
+        dt    = None   # FIX Bug 2: always initialise
 
-        # FORMAT A: '%Mar 15 11:38:38:712 2026' , 'Oct  8 21:43:36 2025' ,Apr 4 03.00.34:326 2026
-        if len(parts[-1]) in [3, 4] and parts[-1].isdigit():
-            clean_str = clean_str.replace(".", ":")  # Replace . to :
-            if "." in parts[-2] and len(parts[-1]) == 4:  # Handle the case where milliseconds are separated by a dot
-                fmt = "%b %d %H:%M:%S:%f %Y"
-            else:
-                fmt = "%b %d %H:%M:%S %Y"
-            dt = datetime.strptime(clean_str, fmt)
-            dt = tz.localize(dt)
-        # FORMAT C: '2026-03-23 09:16:22' or 2026-04-03T23:11:09' (ISO/SQLite format)
-        elif '-' in parts[0]:
-            # 1. Normalize the 'T' to a space so one format can rule them all
-            clean_str = clean_str.replace('T', ' ')
-            # If it already has the year at the front, just parse it
-            # Remove fractional seconds if they exist for consistency
-            clean_str = clean_str.split('.')[0] 
-            fmt = "%Y-%m-%d %H:%M:%S"
-            dt = datetime.strptime(clean_str, fmt)
-        # FORMAT B: 'Mar 12 18:40:38 PST' (BGP/Standard style)
-        elif parts[-1] in ['PST', 'PDT']:
+        # FORMAT A: 'Mar 15 11:38:38.712 2026' or 'Oct 8 21:43:36 2025'
+        if len(parts) >= 2 and len(parts[-1]) == 4 and parts[-1].isdigit():
+            fmt = "%b %d %H:%M:%S.%f %Y" if "." in clean_str else "%b %d %H:%M:%S %Y"
+            dt  = tz.localize(datetime.strptime(clean_str, fmt))
+
+        # FORMAT B: '2026-03-23 09:16:22' or '2026-04-03T23:11:09'
+        elif parts[0].startswith("20") and '-' in parts[0]:
+            clean_str = clean_str.replace('T', ' ').split('.')[0]
+            dt = tz.localize(datetime.strptime(clean_str, "%Y-%m-%d %H:%M:%S"))  # FIX Bug 3
+
+        # FORMAT C: 'Mar 12 18:40:38 PST' or 'Mar 12 18:40:38 PDT'
+        elif parts[-1] in ('PST', 'PDT', 'MST', 'MDT', 'EST', 'EDT'):
             clean_str = " ".join(parts[:-1])
-            
-            # Add current year since it's missing in this format
-            current_year = now.year
-            clean_str = f"{current_year} {clean_str}"
-            fmt = "%Y %b %d %H:%M:%S"
-            dt = datetime.strptime(clean_str, fmt)
-            dt = tz.localize(dt)
+            dt = tz.localize(datetime.strptime(f"{now.year} {clean_str}", "%Y %b %d %H:%M:%S"))
 
-        # --- FORMAT D: 'Apr 23 23:38:58' (Short Syslog style - No Year) ---
-        elif len(parts) == 3 and ':' in parts[2] and not parts[-1].isdigit():
-            current_year = now.year
-            clean_str_with_year = f"{current_year} {clean_str}"
-            fmt = "%Y %b %d %H:%M:%S"
-            dt = datetime.strptime(clean_str_with_year, fmt)
-            dt = tz.localize(dt)
-            
-        if dt is None:
+        # FORMAT D: 'Apr 23 23:38:58'  (no year, no TZ)
+        elif len(parts) == 3 and ':' in parts[2]:
+            dt = tz.localize(datetime.strptime(f"{now.year} {clean_str}", "%Y %b %d %H:%M:%S"))
+
+        if dt is None:   # FIX Bug 2: no format matched
+            logger.warning("get_dynamic_duration: unrecognised format %r", last_change_str)
             return "UNKNOWN", None
-            
-        if dt.tzinfo is None:
-            dt = tz.localize(dt)
-        # 3. Calculate Difference
+
+        # 2. Year-flip: log from Dec, now Jan
         duration = now - dt
-        
-        # Handle Year-Flip (e.g., Log is Dec 2025, but it's now Jan 2026)
         if duration.total_seconds() < 0:
-            dt = dt.replace(year=dt.year - 1)
+            dt       = dt.replace(year=dt.year - 1)
             duration = now - dt
 
-        # 4. Format for Display (Days, Hours, Minutes)
-        days = duration.days
+        # 3. Format
+        days             = duration.days
         hours, remainder = divmod(duration.seconds, 3600)
-        minutes, _ = divmod(remainder, 60)
+        minutes, _       = divmod(remainder, 60)
 
-        if days > 0:
-            return f"{days}d {hours:02}h {minutes:02}m", duration
-        return f"{hours:02}h {minutes:02}m", duration
+        return (f"{days}d {hours:02}h {minutes:02}m" if days > 0
+                else f"{hours:02}h {minutes:02}m"), duration
 
     except Exception as e:
-        print(f"Parser Error: {last_change_str} : {e}")
-        return "UNKNOWN"
+        logger.warning("get_dynamic_duration failed for %r: %s", last_change_str, e)
+        return "UNKNOWN", None  # FIX Bug 1: was bare "UNKNOWN"
+    
 
 def format_size(size_bytes):
     """Converts bytes to a human-readable string (KB, MB)."""
@@ -379,7 +359,7 @@ def send_command(device_setting,cmds,output, logger=None):
                                 device.write_channel(" ")
                             elif prompt in output:
                                 break
-                        except (AuthenticationException, SSHException) as error:
+                        except (NetMikoAuthenticationException, SSHException) as error:
                             logger.error(f"Connection Error {device_setting['ip']} : {error}")
                             break
                 else:

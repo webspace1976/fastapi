@@ -448,6 +448,17 @@ async def get_custom_properties_data():
         logger.error("Failed to fetch table data: %s", e)
         return {"data": [], "error": str(e)}
 
+@router.get("/get_site_customproperties_data")
+async def get_site_customproperties_data():
+    try:
+        with _orion_read_engine.connect() as conn:
+            df = pd.read_sql_query("SELECT * FROM [Orion.SitesCustomProperties]", conn)
+        return {"data": df.fillna("").to_dict(orient="records")}
+    except Exception as e:
+        logger.error("Failed to fetch table data: %s", e)
+        return {"data": [], "error": str(e)}
+
+
 @router.get("/topology")
 async def get_topology_data(site: str = None):
     query = "SELECT * FROM [Orion.Topology]"

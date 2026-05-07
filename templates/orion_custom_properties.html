@@ -28,22 +28,22 @@
 <script src="/static/js/buttons.html5-2.4.1.min.js"></script>
 <script type="text/javascript" src="/static/js/vis-network-10.0.2.min.js"></script>
 
-<!--<div class="tabs">
+<div class="tabs">
     <button class="tab-link active" onclick="openTab(event, 'nodeStatusTab')">🖥️ Node Status</button>
-     <button class="tab-link" onclick="openTab(event, 'topologyTab')">🕸️ Site Topology</button>
+     <!-- <button class="tab-link" onclick="openTab(event, 'topologyTab')">🕸️ Site Topology</button> -->
     <button class="tab-link" onclick="openTab(event, 'summaryTab')">Summary</button> 
-</div>-->
+</div>
 
 <div id="nodeStatusTab" class="tab-content active">
     <table id="nodeTable" class="display nowrap" style="width:100%">
 
 <div style="display: flex; font-size: 22px; margin: 0px;">
     <div>
-        <button id="btnShowDown" class="btn-filter-down">⚠️ Show Down Nodes Only</button>
+        <button id="btnShowDown" class="btn-filter-down">⚠️ Down Nodes</button>
     </div>
-    <div>
+    <!-- <div>
         <button id="btnShowAll" class="btn-filter-all">Show All Nodes</button>
-    </div>
+    </div> -->
     <!-- <div id="nodeSummary" style=" background: #fff; border: 1px solid #ddd; border-left: 5px solid #dc3545; padding: 15px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"> -->
     <div style="margin-left: 10px; color: #666;"> Node Health :
         <!-- <span id="stat-site-list">
@@ -110,14 +110,13 @@
         </thead>
     </table>
 </div>
-
+-->
 <div id="summaryTab" class="tab-content">
     <table id="summaryTable" class="display nowrap" style="width:100%">
         <thead>
             <tr>
-                <th>Site</th>
-                <th>Node</th>
-                <th>NodeID</th>
+                <th style="width: 30%;">Site</th>
+                <th>NodeCount</th>
                 <th>HA</th>
                 <th>SiteAddress</th>
                 <th>City</th>
@@ -125,7 +124,7 @@
         </thead>
     </table>
 </div>
--->
+
 
 <script>
 function updateSummaryFromUI() {
@@ -351,35 +350,41 @@ $(document).ready(function() {
     });
 
    var summaryTable = $('#summaryTable').DataTable({
-        "ajax": "/api/orion/get_custom_properties_data",
+        "ajax": "/api/orion/get_site_customproperties_data",
         // "scrollX": true,           // Allow horizontal scroll
         // "fixedColumns": {
         //     "left": 2              // Keep Site and HA visible while scrolling
         // },
         "columnDefs": [
                 {
-                    "targets": [2], // The index of the columns want to hide nodeid,status,seconds,bilding,city (starting from 0)
+                    //"targets": [2], // The index of the columns want to hide nodeid,status,seconds,bilding,city (starting from 0)
                     "visible": false,     // This hides the column
                     "searchable": true    // Keep this true so you can still search for hidden data!
                 }
             ],        
         "columns": [
-            { "data": "Site" },
-            {
-            "data": "NodeName",
+            { 
+            "data": "Site" ,
             "render": function(data, type, row) {
                 // 'row' contains all the data for this node
                 // row.DetailsUrl is the column from your Orion.Nodes table
-                let url = "https://orion.net.mgmt" + row.DetailsUrl;
-                
-                // If the URL exists, wrap the name in a link
+                let url = "https://orion.net.mgmt/apps/search/?q=" + data;                // If the URL exists, wrap the name in a link
                 if (url) {
                     return `<a href="${url}" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">${data}</a>`;
                 }
                 return data;
             }
+        },
+            {
+                "data": "DownCount",
+                "render": function(data, type, row) {
+                return row.DownCount + " | " + row.TotalNodes; }
             },
-            { "data": "NodeID" }
+            { "data": "HA" },
+            {                
+            "data": "Address",
+            },
+            { "data": "City" }
 
             // Note: You can add all 48 here or use a loop to generate this list
         ],
