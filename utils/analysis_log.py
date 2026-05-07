@@ -38,11 +38,8 @@
 #     before assignment if BGP header lines arrive out of order — guarded
 ##############################################################################
 
-import os
-import sys
-import re
-import json
-import logging
+import os, re, json, sys
+from datetime import datetime
 from collections import defaultdict
 
 # ---------------------------------------------------------------------------
@@ -883,7 +880,22 @@ def log_summary(log, hostname, ip):
 
     return "".join(log_analysis)
 
+# def _normalise_ts(raw_ts: str, log_year: None) -> str:
+#     """Convert any raw syslog timestamp to ISO-8601 for duration calculation."""
 
+#     clean = str(raw_ts).strip().lstrip("%")          # strip HPE leading %
+#     clean = re.sub(r"\s+(PST|PDT|MST|MDT|EST|EDT|UTC|GMT)$", "", clean)  # strip TZ suffix
+#     clean = re.sub(r":\d{3}$", "", clean)             # strip milliseconds :511
+#     clean = re.sub(r":\d{3}\s", " ", clean)           # strip milliseconds mid-string
+
+#     try:
+#         # HPE: "May 5 23:47:31 2026"
+#         if re.search(r"\d{4}$", clean):
+#             return datetime.strptime(clean.strip(), "%b %d %H:%M:%S %Y").strftime("%Y-%m-%dT%H:%M:%S")
+#         # Cisco/Arista: "Apr 30 19:39:40"
+#         return datetime.strptime(f"{clean.strip()} {log_year}", "%b %d %H:%M:%S %Y").strftime("%Y-%m-%dT%H:%M:%S")
+#     except Exception:
+#         return raw_ts  # fall back to raw; duration will show "?" not "U"
 # ---------------------------------------------------------------------------
 # parse_routing_info — convert a routing-state capture to JSON
 # ---------------------------------------------------------------------------
