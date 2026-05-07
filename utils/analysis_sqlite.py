@@ -744,6 +744,8 @@ def process_log_file(db, log_file_path, file_id, log_dir_base):
         logger.error(f"Error parse_routing from '{log_file_path}':\n{error_details}")
         return False
     
+    print(f"Parsed routing info for {log_file_path}: OSPF {len(routing_info['OSPF'])} processes, BGP {len(routing_info['BGP'])} entries", routing_info['BGP'])
+    
     # print(f"Parsed routing info for {log_file_path}: BGP {routing_info['BGP']}")
     if not hostname: hostname = routing_info.get("hostname", None)
     
@@ -763,6 +765,7 @@ def process_log_file(db, log_file_path, file_id, log_dir_base):
         r"%(\w{3}\s+\d+\s+[\d:]+:\d{3}).*?OSPF/6/OSPF_LAST_NBR_DOWN: OSPF (?P<proc>\d+) Last neighbor down event: Router ID: (?P<rid>[\d\.]+) Local address: (?P<loc>[\d\.]+) Remote address: (?P<rem>[\d\.]+) Reason: (?P<reason>[^.]+)"
     )
     arista_ospf_log_regex = mainconfig.OSPF_ADJ_SPECIAL_RE
+    # cisco_bgp_adjchg_regex = mainconfig.CISCO_BGP_ADJCHG
 
     if vendor == 'hpe':
 
@@ -842,8 +845,45 @@ def process_log_file(db, log_file_path, file_id, log_dir_base):
 
     elif vendor in ('cisco', 'arista'):
         
-        # for line in content.splitlines():
-            # match = cisco_ospf_log_regex.search(line) or arista_ospf_log_regex.search(line)
+        for match in mainconfig.CISCO_BGP_ADJCHG.finditer(content):
+            message = match.group(0)  # Capture the entire log line
+            g = match.groupdict()
+            neighbor = g['neighbor']
+            from_state = g['status_mode']
+            to_state = g['action']
+            last_updated_ts = parse_last_updated_ts(g['timestamp'], log_year)
+
+            bgp_changes_list.append({
+                'hostname': hostname,
+                'host_ip': host_ip,
+                'neighbor_address': neighbor,
+                'from_state': from_state,
+                'to_state': to_state,
+                'last_updated_ts': last_updated_ts,
+                'log_file': filename_only,
+                'message': message
+            })
+
+                # 3. Update the main dashboard table ONLY if this log is the newest truth
+            res = db.execute_query('''
+                SELECT MAX(last_updated_ts) as max_ts FROM bgp_peer_status
+                WHERE host_ip = :host_ip AND neighbor_address = :neighbor_address
+            ''', {
+                'host_ip': host_ip,
+                'neighbor_address': neighbor
+            })
+            latest_ts_in_db = res[0]['max_ts'] if res and res[0] else ""
+
+            if not latest_ts_in_db or last_updated_ts >= latest_ts_in_db:
+                bgp_status_list.append({
+                    'hostname': hostname,
+                    'host_ip': host_ip,
+                    'neighbor_address': neighbor,
+                    'state': to_state,
+                    'last_updated_ts': last_updated_ts,
+                    'log_file': filename_only
+                })
+
         for match in arista_ospf_log_regex.finditer(content):
             # 2. SAFETY CHECK: Only proceed if match is NOT None
             if match:

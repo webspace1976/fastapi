@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Orion Monitoring Dashboard - 12h Rotating Shift</title>
+    <script src="/static/js/my_javascript.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
+            margin: 0;
+            padding: 10px;
+        }
+        h1, h2 {
+            color: #343a40;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0;
+        }
+        .container {
+            max-width: 1600px;
+            margin: auto;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .header-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f0f2f5;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+        .shift-info {
+            font-weight: 600;
+            color: #495057;
+        }
+        .summary-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #dee2e6;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: 12px 20px;
+            background: #e9ecef;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .tab-btn:hover { background: #dee2e6; }
+        .tab-btn.active {
+            background: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .tab-iframe {
+            width: 100%;
+            height: 1000px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        .status-active { background: #d4edda; color: #155724; }
+        .status-warning { background: #fff3cd; color: #856404; }
+        .footer-info {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #dee2e6;
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="summary-tabs">
+        <button class="tab-btn" data-tab="login">
+            🔐 Orion Login
+        </button>
+        <!--<button class="tab-btn" data-tab="nodes">
+            🖥️ Nodes Status
+        </button>
+         <button class="tab-btn" data-tab="topology">
+            🗺️ Site Topology
+        </button> -->
+    </div>
+
+    <!-- Login Tab — pre-loaded on page open, default tab -->
+    <div id="tab-login" class="tab-content">
+        <iframe id="login-frame" class="tab-iframe" src="/api/orion/check_form"></iframe>
+    </div>
+
+    <!-- Nodes Status Tab — lazy-loaded on first click -->
+    <div id="tab-nodes" class="tab-content">
+        <div style="margin-bottom: 10px;">
+            <button id="btn-refresh-nodes" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">
+                🔄 Refresh
+            </button>
+        </div>
+        <iframe id="nodes-frame" class="tab-iframe" src="about:blank"></iframe>
+    </div>
+
+    <!-- Site Topology Tab — lazy-loaded on first click -->
+    <div id="tab-topology" class="tab-content">
+        <div style="margin-bottom: 10px;">
+            <button id="btn-refresh-topology" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">
+                🔄 Refresh
+            </button>
+        </div>
+        <iframe id="topology-frame" class="tab-iframe" src="about:blank"></iframe>
+    </div>
+
+    <div class="footer-info">
+        <p style="margin: 0;">
+            📊 <strong>Dashboard Features:</strong> Real-time Orion node status monitoring, site topology visualization, and network health tracking.
+            <br>
+            ⏰ <strong>Shift Coverage:</strong> Designed for continuous 12-hour rotating shift operations — 24/7 network monitoring coverage.
+            <br>
+            Last updated: <span id="lastUpdate">just now</span>
+        </p>
+    </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Tab config — matches template_getdeviceoutput_form.html pattern ───────────
+// Each tab declares its iframe id and the URL to lazy-load on first visit.
+// 'login' is pre-loaded in HTML (src already set), so noLoad:true skips the
+// lazy-load logic for it — but it still participates in tab switching normally.
+const TAB_CONFIG = {
+    login:    { frameId: 'login-frame',    url: '/api/orion/check_form',       noLoad: true },
+    nodes:    { frameId: 'nodes-frame',    url: '/api/orion/orion_analysis'                },
+    topology: { frameId: 'topology-frame', url: '/api/orion/site_topology_page'            },
+};
+
+const loaded = new Set(['login']); // login iframe src is set in HTML already
+
+function showTab(name) {
+    if (!TAB_CONFIG[name]) return;
+
+    // Deactivate all panels and buttons
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+    // Activate the selected panel and its button
+    document.getElementById('tab-' + name).classList.add('active');
+    document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
+
+    // Remember across page refreshes — same pattern as template_getdeviceoutput_form.html
+    localStorage.setItem('orion-tab', name);
+
+    // Lazy-load: set iframe src only on first visit
+    const cfg = TAB_CONFIG[name];
+    if (!cfg.noLoad && !loaded.has(name)) {
+        loaded.add(name);
+        const frame = document.getElementById(cfg.frameId);
+        if (frame) frame.src = cfg.url;
+    }
+}
+
+function reloadTab(name) {
+    const cfg = TAB_CONFIG[name];
+    if (!cfg) return;
+    const frame = document.getElementById(cfg.frameId);
+    // Only reload if the iframe has actually been loaded at least once
+    if (frame && loaded.has(name)) {
+        frame.src = frame.src;
+    }
+}
+
+// Wire tab buttons — no inline onclick, matches template_getdeviceoutput_form.html
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => showTab(btn.dataset.tab));
+});
+
+// Wire refresh buttons
+document.getElementById('btn-refresh-nodes').addEventListener('click', () => reloadTab('nodes'));
+document.getElementById('btn-refresh-topology').addEventListener('click', () => reloadTab('topology'));
+
+// On load: restore last active tab, default to 'login' — same as template file
+window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('orion-tab') || 'login';
+    showTab(saved);
+});
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function updateTime() {
+    const now = new Date();
+    const el  = document.getElementById('lastUpdate');
+    if (el) el.textContent = now.toLocaleTimeString();
+}
+updateTime();
+setInterval(updateTime, 1000);
+</script>
+
+</body>
+</html>

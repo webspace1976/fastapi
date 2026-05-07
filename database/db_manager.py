@@ -1,9 +1,9 @@
 
-import sqlite3, os
+import os
 from typing import List, Dict   # "Python version" quirk. The syntax list[dict] is only valid in Python 3.9+. 
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import sessionmaker
 import mainconfig
 
 logger = mainconfig.setup_module_logger(__name__)
@@ -39,7 +39,7 @@ class DatabaseManager:
         )
 
     def get_session(self):
-        """Returns a new session instance from the pool."""
+        """Returns a new session instance from the pool. Caller must close it."""
         return self.session_factory()
 
     def execute_query(self, sql: str, params: dict = None, debug: bool = False) -> List[Dict]:
@@ -67,7 +67,9 @@ class DatabaseManager:
                 session.rollback()
                 logger.error(f"Database error: {e}")
                 raise
-
+            finally:
+                session.close()  # FIX: always return connection to pool
+                
     def execute_write(self, sql: str, params: dict = None, debug: bool = False):
         """For INSERT, UPDATE, DELETE (Single or list of params)."""
         if debug:
@@ -83,6 +85,8 @@ class DatabaseManager:
                 session.rollback()
                 logger.error(f"Write failed: {e}")
                 raise
+            finally:
+                session.close()  # FIX: always return connection to pool
 
     def execute_many(self, sql: str, params_list: List[Dict], debug: bool = False):
         """Efficiently insert/update multiple rows at once."""
@@ -97,74 +101,81 @@ class DatabaseManager:
                 session.rollback()
                 logger.error(f"Bulk write failed: {e}")
                 raise
+            finally:
+                session.close()  # FIX: always return connection to pool
+
 
     def setup_core_tables(self, debug: bool = False):
-        """Initializes the database schema if tables do not exist."""
-        queries = [
-            # BGP Peer Status
+        """Initializes the routing DB schema (BGP/OSPF tables + indexes)."""
+
+        # FIX: PRAGMA journal_mode=WAL cannot run inside a transaction.
+        # Issue it on a raw connection before the ORM session opens.
+        with self.engine.connect() as raw_conn:
+            raw_conn.execute(text("PRAGMA journal_mode=WAL"))
+
+        # FIX: Removed inline UNIQUE() constraints from bgp_state_changes and
+        # ospf_state_changes — the explicit named indexes below enforce the same
+        # uniqueness. Keeping both creates two duplicate enforcement mechanisms
+        # and wastes index space.
+        ddl_queries = [
+            # BGP Peer Status — current state snapshot
             """CREATE TABLE IF NOT EXISTS bgp_peer_status (
-                hostname TEXT, host_ip TEXT, vpn_instance TEXT, local_router_id TEXT, 
-                local_as_number TEXT, neighbor_address TEXT, remote_router_id TEXT, 
-                remote_as TEXT, up_down_time TEXT, state TEXT, last_updated_ts TEXT, 
+                hostname TEXT, host_ip TEXT, vpn_instance TEXT, local_router_id TEXT,
+                local_as_number TEXT, neighbor_address TEXT, remote_router_id TEXT,
+                remote_as TEXT, up_down_time TEXT, state TEXT, last_updated_ts TEXT,
                 last_snapshot_id TEXT, log_file TEXT,
                 PRIMARY KEY (host_ip, vpn_instance, neighbor_address)
             )""",
 
-            # BGP State Changes
+            # BGP State Changes — event log (uniqueness enforced by idx_bgp_unique_event)
             """CREATE TABLE IF NOT EXISTS bgp_state_changes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                hostname TEXT, host_ip TEXT, vpn_instance TEXT, 
-                neighbor_address TEXT, from_state TEXT, to_state TEXT, 
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                hostname TEXT, host_ip TEXT, vpn_instance TEXT,
+                neighbor_address TEXT, from_state TEXT, to_state TEXT,
                 last_updated_ts TEXT, log_file TEXT, message TEXT,
-                UNIQUE(host_ip, vpn_instance, neighbor_address, last_updated_ts),
                 FOREIGN KEY (host_ip, neighbor_address) REFERENCES bgp_peer_status (host_ip, neighbor_address)
             )""",
 
-            # OSPF Peer Status
+            # OSPF Peer Status — current state snapshot
             """CREATE TABLE IF NOT EXISTS ospf_peer_status (
-                hostname TEXT, host_ip TEXT, process TEXT, process_routerid TEXT, 
-                vrf TEXT, area TEXT, interface TEXT, neighbor_routerid TEXT, 
-                neighbor_address TEXT, state TEXT, mode TEXT, verbose_uptime TEXT, 
-                state_count TEXT, last_down_time TEXT, last_routerid TEXT, 
-                last_local TEXT, last_remote TEXT, last_reason TEXT, 
+                hostname TEXT, host_ip TEXT, process TEXT, process_routerid TEXT,
+                vrf TEXT, area TEXT, interface TEXT, neighbor_routerid TEXT,
+                neighbor_address TEXT, state TEXT, mode TEXT, verbose_uptime TEXT,
+                state_count TEXT, last_down_time TEXT, last_routerid TEXT,
+                last_local TEXT, last_remote TEXT, last_reason TEXT,
                 last_updated_ts TEXT, last_snapshot_id TEXT, log_file TEXT,
                 PRIMARY KEY (host_ip, process, neighbor_address)
             )""",
 
-            # OSPF State Changes
+            # OSPF State Changes — event log (uniqueness enforced by idx_ospf_unique_event)
             """CREATE TABLE IF NOT EXISTS ospf_state_changes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                hostname TEXT, host_ip TEXT, process TEXT, 
-                neighbor_address TEXT, interface TEXT, from_state TEXT, 
+                hostname TEXT, host_ip TEXT, process TEXT,
+                neighbor_address TEXT, interface TEXT, from_state TEXT,
                 to_state TEXT, last_updated_ts TEXT, log_file TEXT, message TEXT,
-                UNIQUE(host_ip, neighbor_address, last_updated_ts),
                 FOREIGN KEY (host_ip, neighbor_address) REFERENCES ospf_peer_status (host_ip, neighbor_address)
             )""",
 
-            # Indexes for performance (especially for the dashboard)
+            # Named unique indexes — single source of truth for uniqueness
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_ospf_unique_event ON ospf_state_changes (host_ip, process, neighbor_address, last_updated_ts)",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_bgp_unique_event ON bgp_state_changes (host_ip, vpn_instance, neighbor_address, last_updated_ts)",
+
             "CREATE TABLE IF NOT EXISTS processed_files (filename TEXT PRIMARY KEY)",
-            
-            # Pro-tip: Enable WAL mode for better concurrency 
-            "PRAGMA journal_mode=WAL"
         ]
-        
-        # if debug:
-        #     # This prints the statement and params to your console/logs
-        #     print(f"--- DEBUG SQL ---\nQuery: {sql}\nParams: {params}\n-----------------")
 
-        with self.get_session() as session:
-            try:
-                for query in queries:
-                    session.execute(text(query))
-                session.commit()
-                logger.info("Database schema validated/created successfully.")
-            except Exception as e:
-                session.rollback()
-                logger.error(f"Failed to setup database: {e}")
-                raise
-
+        session = self.get_session()
+        try:
+            for query in ddl_queries:
+                session.execute(text(query))
+            session.commit()
+            logger.info("Database schema validated/created successfully.")
+        except Exception as e:
+            session.rollback()
+            logger.error("Failed to setup database: %s", e)
+            raise
+        finally:
+            session.close()  # FIX: always return connection to pool
+            
 # Legacy function - not used in the new SQLAlchemy-based implementation, but kept here for reference or potential future use.
 # def get_db_conn(DB_PATH: str):
 #     try:

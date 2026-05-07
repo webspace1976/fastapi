@@ -237,12 +237,14 @@ def get_dynamic_duration(last_change_str):
             dt = datetime.strptime(clean_str, fmt)
             dt = tz.localize(dt)
 
-        # # --- NEW FORMAT C: '2026-04-03T23:11:09' (ISO Style) ---
-        # elif 'T' in clean_str:
-        #     # Handle cases with or without microseconds
-        #     fmt = "%Y-%m-%dT%H:%M:%S.%f" if '.' in clean_str else "%Y-%m-%dT%H:%M:%S"
-        #     dt = datetime.strptime(clean_str, fmt)
-        #     dt = tz.localize(dt)
+        # --- FORMAT D: 'Apr 23 23:38:58' (Short Syslog style - No Year) ---
+        elif len(parts) == 3 and ':' in parts[2] and not parts[-1].isdigit():
+            current_year = now.year
+            clean_str_with_year = f"{current_year} {clean_str}"
+            fmt = "%Y %b %d %H:%M:%S"
+            dt = datetime.strptime(clean_str_with_year, fmt)
+            dt = tz.localize(dt)
+            
         if dt is None:
             return "UNKNOWN", None
             

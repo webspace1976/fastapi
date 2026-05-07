@@ -244,7 +244,7 @@ class NetworkDeviceManager:
                     logger.info(f"Log {log_file_path} synced to SQLite database.")
 
             except Exception as e:
-                logger.error(f"Failed to _analysis_sqlite to database: {e}")
+                logger.error(f"Failed to  _analysis_sqlite.process_log_file to database: {e}")
                 logger.error(traceback.format_exc())
 
 # Utility for file listing (moved from mymodule to be accessible)

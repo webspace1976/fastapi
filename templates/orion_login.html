@@ -2,68 +2,172 @@
 <html>
 <head>
     <title>Orion Login</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+        .login-container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        h1 {
+            color: #007bff;
+            margin-top: 0;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 15px;
+        }
+        .form-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            /*gap: 40px;*/
+            align-items: start;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .form-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.95rem;
+        }
+        .form-group input {
+            padding: 10px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button[type="submit"] {
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button[type="submit"]:hover {
+            background: #0056b3;
+        }
+        .info-section h2 {
+            color: #343a40;
+            font-size: 1.1rem;
+            margin-top: 0;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+        .info-section ul {
+            margin: 0;
+            padding-left: 20px;
+            line-height: 1.8;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        .info-section li {
+            margin-bottom: 8px;
+        }
+        .info-section a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .info-section a:hover {
+            text-decoration: underline;
+        }
+        .support-contact {
+            background: #e7f3ff;
+            padding: 12px;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #004085;
+        }
+        @media (max-width: 768px) {
+            .form-section {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1><b>Orion DashBoard:</b></h1>
-    <form method="post" enctype="multipart/form-data" action="/api/orion/check_output" target="_blank">
+    <div class="login-container">
+        <h1>🔐 Orion Monitoring Portal - Login</h1>
+        
+        <div class="form-section" style="display: flex;">
+            <div style="width: 60%;">
+                <form method="post" enctype="multipart/form-data" action="/api/orion/check_output" target="_blank">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}"> <!-- Add CSRF token -->
+                    <div class="form-group">
+                        <label for="npm_server">Orion Server Address:</label>
+                        <input type="text" name="npm_server" id="npm_server" placeholder="142.71.111.72" required>
+                    </div>
 
-        <div style="display: flex;justify-content: space-around;">
-            <div>
-                <table>
-                    <tr>
-                        <td><label for="npm_server">Orion Server:</label></td>
-                        <td><input type="text" name="npm_server" id="npm_server" placeholder="142.71.111.72" required></td>
-                    </tr>
-                    <tr>
-                        <td><label for="npm_uname">User name:</label></td>
-                        <td><input type="text" name="npm_uname" id="npm_uname" placeholder="phsabc\abc.xyz" required></td>
-                    </tr>
-                    <tr>
-                        <td><label for="npm_passwd">User password:</label></td>
-                        <td><input type="password" name="npm_passwd" id="npm_passwd" required></td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <button type="submit">Submit</button>
-                        </td>
-                        <td>
-                            <a id="orionLink" href="" target="_blank" style="margin-left:10px;">Go to Orion</a>
-                            <a id="last_orion_dashboard" href="../../data/last_orion_dashboard.html" target="_blank" style="margin-left:10px;">Last Orion Dashboard</a>
-                        </td>
-                    </tr>
-                </table>
+                    <div class="form-group">
+                        <label for="npm_uname">Username:</label>
+                        <input type="text" name="npm_uname" id="npm_uname" placeholder="phsabc\abc.xyz" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="npm_passwd">Password:</label>
+                        <input type="password" name="npm_passwd" id="npm_passwd" required>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="submit">🔓 Login to Orion</button>
+                    </div>
+
+                    <input type="hidden" name="redirect_udt" id="redirect_udt" value="">
+                </form>
+
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <a id="last_orion_dashboard" href="../../data/last_orion_dashboard.html" target="_blank" style="color: #007bff; text-decoration: none; font-size: 0.9rem;">
+                        📋 View Last Dashboard
+                    </a>
+                </div>
             </div>
 
-            <div>
-                <h2 style="margin: 0;"> Note and updated on 202604:</h2>
-                <li> Ref: <a href="https://orion.net.mgmt/Orion/F5/F5LTMPoolDetails.aspx?NetObject=F5P:14354" target="_blank">F5 ORION WEB Pool</a></li> 
-                <li> Service List (202512): <br>10.248.217.144  142.71.111.67  <b>142.71.111.72 - Recommend</b></li>
-                <li> Support Orion node and interface status: <b>NOT in UP, Unmanagered, Muted status.</b></li>
-                <li> Support Orion <b>OCI(CST) Netpath, Crowdstrike; PowerOutage, Syslog,</b> data collection and analysis.</li>
-                <li> Integrated with <b>ServiceNow, WebSSH, RingOPS, and PowerOutage</b> as well.</li>
-                <li> If you have trouble to access Orion DashBoard, please contact tao.lin@phsa.ca<i class="cc cc-pd-alt"></i></li>
-                
-                <!-- <br>20250702 Ken: API Servers to use in order:
-                <br>SPAPPORIKWEB4 10.248.217.101 API Server at KDC
-                <br>SPAPPORIKME1 10.248.217.140 Primary Main Polling Engine at KDC
-                <br>SPAPPORIJME2 142.71.111.74  Secondary Main Polling Engine at JPN3 -->
+            <div class="info-section">
+                <h2>📌 Connection Info</h2>
+                <ul>
+                    <li><strong>Recommended Server:</strong> <code>142.71.111.72</code></li>
+                    <li><strong>Alternate Servers:</strong>
+                        <ul>
+                            <li>10.248.217.144</li>
+                            <li>142.71.111.67</li>
+                        </ul>
+                    </li>
+                    <li><strong>Monitoring:</strong> Node & interface status (excluding UP/Unmanaged/Muted)</li>
+                    <li><strong>Features:</strong> OCI Netpath, PowerOutage tracking, Syslog integration</li>
+                    <li><strong>Reference:</strong> <a href="https://orion.net.mgmt/Orion/F5/F5LTMPoolDetails.aspx?NetObject=F5P:14354" target="_blank">F5 ORION WEB Pool</a></li>
+                </ul>
+
+                <div class="support-contact">
+                    <strong>Need Help?</strong> Contact: <a href="mailto:tao.lin@phsa.ca">tao.lin@phsa.ca</a>
+                </div>
             </div>
         </div>
-        <input type="hidden" name="redirect_udt" id="redirect_udt" value="">
-
-    </form>
-
-    <div style="margin-top: 20px;">
-        <main>
-            <iframe id="contentFrame" 
-                    name="contentFrame" 
-                    src="/api/orion/orion_analysis" 
-                    title="orion analysis"
-                    style="width: 100%; height: 800px; border: 1px solid #ddd; border-radius: 8px;">
-            </iframe>
-        </main>
     </div>
 
     <script>
@@ -80,8 +184,10 @@
         }
 
         function updateOrionLink() {
-            const server = document.getElementById('npm_server').value.trim();
+            const serverEl = document.getElementById('npm_server');
             const link = document.getElementById('orionLink');
+            if (!serverEl || !link) return;
+            const server = serverEl.value.trim();
             if (server) {
                 link.href = "https://" + server;
                 link.textContent = "Go to Orion (" + server + ")";
@@ -90,7 +196,11 @@
                 link.textContent = "Go to Orion";
             }
         }
-        window.onload = updateOrionLink;
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', updateOrionLink);
+        } else {
+            updateOrionLink();
+        }
     </script>
 </body>
 </html>

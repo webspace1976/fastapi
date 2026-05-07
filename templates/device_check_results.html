@@ -65,13 +65,16 @@
         }
 
         /* Style the header row to look like a toggle bar */
-        .analysis-output table tr:has(th) {
+        /*.analysis-output table tr:has(th) {
             cursor: pointer;
             background-color: #f4f4f4;
             user-select: none;
             border-bottom: 1px solid #ddd;
         }
-
+         Add this to block selection ONLY on the header text itself 
+        .analysis-output table th {
+            user-select: none;
+        }*/
         /* Add the [+] indicator to the first header cell */
         .table-collapsed tr:has(th) th:first-child::after {
             content: '☰';

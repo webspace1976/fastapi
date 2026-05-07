@@ -37,7 +37,8 @@
 </head>
 
 <div style='display:flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
-    <h2 style='margin:0'><a href='/api/monitor' target="_blank">ENG|KDC CORE BGP&OSPF Peer Tracker</a></h2>
+    <!-- <h2 style='margin:0'><a href='/api/monitor' target="_blank">Peer Tracker</a></h2>
+    <h2 style='margin:0'><a href='/api/monitor/topology' target="_blank">Peer Topology</a></h2> -->
     <div style='text-align: right; margin: 0;'>
         <button class='toggle-btn' onclick='flushStatus()'>Flush DataBase</button>
     </div>
@@ -91,11 +92,157 @@
     <!-- <a style="text-align: right;" href="/logs/core_logs" target="_blank">physical log files</a> -->
 </div>
 
-    {{ html_problem | safe }}
+<div id="problem-peers" class="tab-content">
+    <div class="problem-tabs" style="display:flex; gap: 10px; margin-bottom: 15px;">
+        <button class="tab-btn" data-tab="problem-bgp" onclick="showSubTab('problem-bgp')">Problem BGP <span class="problem-count">{{ problem_bgp|length }}</span></button>
+        <button class="tab-btn" data-tab="problem-ospf" onclick="showSubTab('problem-ospf')">Problem OSPF <span class="problem-count">{{ problem_ospf|length }}</span></button>
+    </div>
 
-    {{ html_bgp | safe }}
+    <div id="problem-bgp" class="subtab-content">
+        <div class="table-container">
+            <table id="problem-bgp-table">
+                <thead>
+                    <tr>
+                        <th>Hostname</th>
+                        <th>Instance</th>
+                        <th>Neighbor</th>
+                        <th>State</th>
+                        <th>Up/Down Time</th>
+                        <th>Last Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if problem_bgp %}
+                        {% for peer in problem_bgp %}
+                            <tr class="status-{{ peer.state|lower|replace(' ', '-') }} problem-peer">
+                                <td>{{ peer.hostname | e }}</td>
+                                <td>{{ peer.vpn_instance | e }}</td>
+                                <td><a href="/api/monitor/history?hostname={{ peer.hostname|urlencode }}&neighbor={{ peer.neighbor_address|urlencode }}&protocol=BGP">{{ peer.neighbor_address | e }}</a></td>
+                                <td>{{ peer.state | e }}</td>
+                                <td>{{ peer.up_down_time | e }}</td>
+                                <td>{{ peer.last_updated_ts | e }}</td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="6" class="no-problems">No BGP problem peers detected.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-    {{ html_ospf | safe }}
+    <div id="problem-ospf" class="subtab-content" style="display:none;">
+        <div class="table-container">
+            <table id="problem-ospf-table">
+                <thead>
+                    <tr>
+                        <th>Hostname</th>
+                        <th>Neighbor</th>
+                        <th>Area</th>
+                        <th>State</th>
+                        <th>Up/Down Time</th>
+                        <th>Last Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if problem_ospf %}
+                        {% for peer in problem_ospf %}
+                            <tr class="status-{{ peer.state|lower|replace(' ', '-') }} problem-peer">
+                                <td>{{ peer.hostname | e }}</td>
+                                <td><a href="/api/monitor/history?hostname={{ peer.hostname|urlencode }}&neighbor={{ peer.neighbor_address|urlencode }}&protocol=OSPF">{{ peer.neighbor_address | e }}</a></td>
+                                <td>{{ peer.area | default('') | e }}</td>
+                                <td>{{ peer.state | e }}</td>
+                                <td>{{ peer.verbose_uptime | e }}</td>
+                                <td>{{ peer.last_updated_ts | e }}</td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="6" class="no-problems">No OSPF problem peers detected.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="all-bgp" class="tab-content" style="display:none;">
+    <div class="table-container">
+        <table id="bgp-table">
+            <thead>
+                <tr class="filter-row">
+                    <th><input type="text" placeholder="Filter Hostname" oninput="filterTable('bgp-table')"></th>
+                    <th><input type="text" placeholder="Filter Instance" oninput="filterTable('bgp-table')"></th>
+                    <th><input type="text" placeholder="Filter Neighbor" oninput="filterTable('bgp-table')"></th>
+                    <th><input type="text" placeholder="Filter Uptime" oninput="filterTable('bgp-table')"></th>
+                    <th><input type="text" placeholder="Filter State" oninput="filterTable('bgp-table')"></th>
+                    <th><input type="text" placeholder="Filter Last Updated" oninput="filterTable('bgp-table')"></th>
+                    <th></th>
+                </tr>
+                <tr>
+                    <th>Hostname</th>
+                    <th>Instance</th>
+                    <th>Neighbor</th>
+                    <th>Up/Down Time</th>
+                    <th>State</th>
+                    <th>Last Updated</th>
+                    <th>Flags</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for peer in bgp_peers %}
+                    <tr class="status-{{ peer.state|lower|replace(' ', '-') }}{% if peer.is_problem %} problem-peer{% endif %}">
+                        <td>{{ peer.hostname | e }}</td>
+                        <td>{{ peer.vpn_instance | e }}</td>
+                        <td><a href="/api/monitor/history?hostname={{ peer.hostname|urlencode }}&neighbor={{ peer.neighbor_address|urlencode }}&protocol=BGP">{{ peer.neighbor_address | e }}</a></td>
+                        <td>{{ peer.up_down_time | e }}</td>
+                        <td>{{ peer.state | e }}</td>
+                        <td>{{ peer.last_updated_ts | e }}</td>
+                        <td>{% if peer.is_flap %}Flap{% endif %}{% if peer.is_problem %}{% if peer.is_flap %}, {% endif %}Problem{% endif %}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="bgp-count" style="margin-top: 8px;">Visible: <span>{{ bgp_peers|length }}</span></div>
+    </div>
+</div>
+
+<div id="all-ospf" class="tab-content" style="display:none;">
+    <div class="table-container">
+        <table id="ospf-table">
+            <thead>
+                <tr class="filter-row">
+                    <th><input type="text" placeholder="Filter Hostname" oninput="filterTable('ospf-table')"></th>
+                    <th><input type="text" placeholder="Filter Neighbor" oninput="filterTable('ospf-table')"></th>
+                    <th><input type="text" placeholder="Filter Area" oninput="filterTable('ospf-table')"></th>
+                    <th><input type="text" placeholder="Filter Uptime" oninput="filterTable('ospf-table')"></th>
+                    <th><input type="text" placeholder="Filter State" oninput="filterTable('ospf-table')"></th>
+                    <th><input type="text" placeholder="Filter Last Updated" oninput="filterTable('ospf-table')"></th>
+                </tr>
+                <tr>
+                    <th>Hostname</th>
+                    <th>Neighbor</th>
+                    <th>Area</th>
+                    <th>Up/Down Time</th>
+                    <th>State</th>
+                    <th>Last Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for peer in ospf_peers %}
+                    <tr class="status-{{ peer.state|lower|replace(' ', '-') }}{% if peer.is_problem %} problem-peer{% endif %}">
+                        <td>{{ peer.hostname | e }}</td>
+                        <td><a href="/api/monitor/history?hostname={{ peer.hostname|urlencode }}&neighbor={{ peer.neighbor_address|urlencode }}&protocol=OSPF">{{ peer.neighbor_address | e }}</a></td>
+                        <td>{{ peer.area | default('') | e }}</td>
+                        <td>{{ peer.verbose_uptime | e }}</td>
+                        <td>{{ peer.state | e }}</td>
+                        <td>{{ peer.last_updated_ts | e }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="ospf-count" style="margin-top: 8px;">Visible: <span>{{ ospf_peers|length }}</span></div>
+    </div>
+</div>
 
 <script>    
 function flushStatus() {

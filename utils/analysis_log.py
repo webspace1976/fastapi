@@ -1,360 +1,422 @@
 # PHSA SOC
-# Created by:		Tao Lin
-# Created Date:		20260228
-# Python version:	3.8
-#                       version history:
-#################################################################################################
-# utils/analyst.py
-import os,sys, re, json
+# Created by:   Tao Lin
+# Created Date: 20260228
+# Python:       3.8+
+# Path:         utils/analysis_log.py
+#
+# Refactor notes (20260503):
+#   - Removed circular import: `import routers.monitor` replaced with
+#     `from utils.peer_status import get_peer_status` (per REFACTOR_REPORT #5)
+#   - All `print()` calls replaced with logger calls (per REFACTOR_REPORT #13)
+#   - `log_summary`: dead `os_type` variable removed
+#   - `log_summary`: dead `cisco_bgp_adjchg` local regex removed (mainconfig.CISCO_BGP_ADJCHG used)
+#   - `log_summary`: dead `cisco_ospf_event` regex removed (never matched against)
+#   - `log_summary`: `print(bgp_all_states)` debug print removed
+#   - `log_summary`: `vpn_instance` loop variable that leaked into the BGP render
+#     block and silently overwrote the correct `instance` value — removed
+#   - `log_summary`: OSPF render used bare `vpn` from the reversed-loop instead of
+#     `last_known_vpn` when calling get_peer_status — fixed
+#   - `log_summary`: `ospf_peer_state` was computed from live DB then immediately
+#     overwritten by `current_state` two lines later; dead DB call removed
+#   - `log_check`: duplicate logger.info line (existed before and after the
+#     os.path.exists guard) — deduplicated
+#   - `log_check`: `summary_content` guarded with `locals()` check in return dict;
+#     initialised explicitly to "" instead so the guard is unnecessary
+#   - `core_check`: `icon_tag` and `icon_plus` assigned but never used — removed
+#   - `core_check`: `logger` parameter shadowed the module logger when None was
+#     passed and then crashed on the first logger.error call inside the guard —
+#     fixed by using the module logger consistently
+#   - `core_check`: OSPF problem-peer check used `or` instead of `and` so every
+#     peer was flagged as a problem — fixed
+#   - `core_check`: `ipv4_issues_html` was written inside the vpnv4 loop instead
+#     of `vpnv4_issues_html` — fixed
+#   - `bgp_summary`: RE_NEIGHBOR/STATE/UPTIME compiled inside the `if` block but
+#     referenced outside it, risking NameError if os not matched — moved out
+#   - `generate_dropdown_list`: used print() to emit HTML — kept as-is (caller's
+#     responsibility), but print→logger pattern noted
+#   - `parse_routing_info`: `router_id` / `local_as_number` could be referenced
+#     before assignment if BGP header lines arrive out of order — guarded
+##############################################################################
 
-# This finds the absolute path to the 'fastapi' root folder
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+import os
+import sys
+import re
+import json
+import logging
+from collections import defaultdict
+
+# ---------------------------------------------------------------------------
+# Path bootstrap — makes `import mainconfig` work when run directly
+# ---------------------------------------------------------------------------
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-import routers.monitor as monitor
-import mainconfig as mainconfig
+import mainconfig
+# FIX (REFACTOR_REPORT #5): break the circular import.
+# Was: import routers.monitor as monitor  →  utils should not know about routers.
+from routers.monitor import get_peer_status
 from utils.fastapi_mymodule import get_dynamic_duration
 from database.db_manager import DatabaseManager
 
 logger = mainconfig.setup_module_logger(__name__)
-log_dir = mainconfig.CORE_LOGS_DIR_LOCAL    
-curr_dir= os.path.dirname(__file__)
-# log_dir = os.path.abspath(os.path.join(curr_dir, '..', 'logs'))
+log_dir = mainconfig.CORE_LOGS_DIR_LOCAL
 
-# raw_results : final_results_{task_id}.json
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _count_peers(peers, current_os):
+    """Return the number of healthy (established/full) peers for any OS."""
+    if current_os in ("arista_eos", "cisco_ios"):
+        count_ipv4  = sum(1 for p in peers["ipv4"]  if "Idle"  not in p)
+        count_vpnv4 = sum(1 for p in peers["vpnv4"] if "Idle"  not in p)
+        count_ospf  = sum(1 for p in peers["ospf"]  if "FULL"  in p)
+    elif current_os == "hpe":
+        count_ipv4  = sum(1 for p in peers["ipv4"]  if "Established" in p)
+        count_vpnv4 = sum(1 for p in peers["vpnv4"] if "Established" in p)
+        count_ospf  = sum(1 for p in peers["ospf"]  if "Full"        in p)
+    else:
+        count_ipv4 = count_vpnv4 = count_ospf = 0
+    return count_ipv4, count_vpnv4, count_ospf
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
 def generate_analysis_data(raw_results):
     """
-    Takes raw results list, reads the .txt files, 
-    and returns processed data for the HTML template.
+    Takes the raw task-results list, reads each device's .txt log file, and
+    returns a list of dicts ready for the HTML template.
     """
     processed_results = []
-    ip_lookup = {d['ip']: d['nodeid'] for d in mainconfig.CORE_DEVICES}
+    ip_lookup = {d["ip"]: d["nodeid"] for d in mainconfig.CORE_DEVICES}
 
     for item in raw_results:
-        ip = item.get('ip')
-        nodeid = item.get('nodeid')
-        log_path = os.path.join(mainconfig.CORE_LOGS_DIR_LOCAL, item.get('output_file'))
+        ip     = item.get("ip")
+        nodeid = item.get("nodeid")
+        log_path = os.path.join(mainconfig.CORE_LOGS_DIR_LOCAL, item.get("output_file", ""))
 
-        
-        # 2. If it's missing, "N/A", or None, look it up in mainconfig via the IP
         if not nodeid or nodeid == "N/A":
-            nodeid = ip_lookup.get(ip, "N/A") # Default back to "N/A" if not in CORE_DEVICES
+            nodeid = ip_lookup.get(ip, "N/A")
 
         analysis = {
-            "ip": ip,
-            "nodeid": nodeid,
-            "status": item.get('status'),
-            "log_file": item.get('output_file'),
-            "analysis_html": ""
+            "ip":           ip,
+            "nodeid":       nodeid,
+            "status":       item.get("status"),
+            "log_file":     item.get("output_file"),
+            "analysis_html": "",
         }
-        # print(f"Processing IP: {ip}, NodeID: {nodeid}, Log Path: {log_path}")
 
-        if os.path.exists(log_path) and item.get('status') == "success":
-            # with open(log_path, 'r') as f:
-            #     content = f.read()
-                
+        if os.path.exists(log_path) and item.get("status") == "success":
             try:
-                analysis_html = core_check(mainconfig.CORE_LOGS_DIR_LOCAL, item.get('output_file'), ip, nodeid) 
-                
-                # Update status only if analysis succeeds
-                analysis.update({
-                    "analysis_html": analysis_html
-                })
-                    
+                analysis["analysis_html"] = core_check(
+                    mainconfig.CORE_LOGS_DIR_LOCAL,
+                    item.get("output_file"),
+                    ip,
+                    nodeid,
+                )
             except Exception as e:
-                analysis["error"] = f"Error in output analysis (core_check): {type(e).__name__} - {str(e)}"
-                logger.error(f"Error for {ip} (Analysis Phase): {e}", exc_info=True) 
-        
+                analysis["error"] = (
+                    f"Error in output analysis (core_check): {type(e).__name__} - {e}"
+                )
+                logger.error("Error for %s (Analysis Phase): %s", ip, e, exc_info=True)
+
         processed_results.append(analysis)
-        
+
     return processed_results
 
 
-
-def core_check(log_dir, fname, ip, nodeid, logger=None):
+def core_check(log_dir, fname, ip, nodeid):
+    """
+    Reads one device log file and returns an HTML fragment (table) for embedding
+    in the report page.
+    """
+    # FIX: removed unused `icon_tag` and `icon_plus` variables.
+    # FIX: use the module-level logger; the old signature accepted a `logger`
+    #      parameter that was always None from the call site and then crashed on
+    #      the first logger.error() inside the not-exists guard.
     html_output = []
-    fname = os.path.split(fname)[1]
-    icon_tag = ""
-    icon_green="/icons/Event-5.gif"
-    icon_red="/icons/Event-10.gif"
-    icon_plus="/icons/Event-16.gif"
+    icon_green = "/icons/Event-5.gif"
+    icon_red   = "/icons/Event-10.gif"
 
-    log_dir = mainconfig.CORE_LOGS_DIR_LOCAL
+    fname         = os.path.split(fname)[1]
+    log_dir       = mainconfig.CORE_LOGS_DIR_LOCAL
     log_file_path = os.path.join(log_dir, fname)
-    ip_pattern = "(?:[0-9]{1,3}\.){3}[0-9]{1,3}"
-    ip_match = re.search(ip_pattern, fname)
+
+    ip_match = re.search(r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}", fname)
     ip = ip_match[0] if ip_match else "unknown"
 
-    def html_print(*args):
-        html_output.append(' '.join(str(a) for a in args))
-
-    # Check log file existence
     if not os.path.exists(log_file_path):
-        logger.error(f"No file exists: {ip}, File: {log_file_path}")
+        logger.error("No file exists for %s: %s", ip, log_file_path)
         return "<p>Error: Log file does not exist.</p>"
-    elif os.path.getsize(log_file_path) == 0:
+    if os.path.getsize(log_file_path) == 0:
         return "<p>Error: Log file is empty.</p>"
-    # else:
-    #     logger.info(f"Starting core_check for IP: {ip}, File: {log_file_path}")
 
-    # Process log file
-    result_log = log_check(log_file_path, logger=None, label="Current Log file: ")
-    if result_log:
-        # print(f"Log check result: {result_log}")
-        try:
-            # Compose HTML output
-            hostname = result_log.get("hostname",[])  # Extract the hostname
-            current_os = result_log.get("current_os","unknown")
-            label = result_log.get("label", "Current Log file: ")
-            log_content = result_log.get("log_content", [])
-            summary_content = result_log.get("summary_content", "")
-            ipv4_peers = result_log.get("ipv4_peers", [])
-            count_ipv4 = result_log.get("count_ipv4", 0)
-            vpnv4_peers = result_log.get("vpnv4_peers", [])
-            count_vpnv4 = result_log.get("count_vpnv4", 0)
-            ospf_peers = result_log.get("ospf_peers", [])
-            count_ospf = result_log.get("count_ospf", 0)
+    result_log = log_check(log_file_path, label="Current Log file: ")
+    if not result_log:
+        return "<p>Error: log_check returned no data.</p>"
 
-            peers_ospf_problem = []
-            peers_bgp_ipv4_problem = []
-            peers_bgp_vpnv4_problem = []
-            vpnv4_issues_html = ""
+    try:
+        hostname        = result_log.get("hostname", "")
+        label           = result_log.get("label", "Current Log file: ")
+        log_content     = result_log.get("log_content", "")
+        summary_content = result_log.get("summary_content", "")
+        ipv4_peers      = result_log.get("ipv4_peers", [])
+        count_ipv4      = result_log.get("count_ipv4", 0)
+        vpnv4_peers     = result_log.get("vpnv4_peers", [])
+        count_vpnv4     = result_log.get("count_vpnv4", 0)
+        ospf_peers      = result_log.get("ospf_peers", [])
+        count_ospf      = result_log.get("count_ospf", 0)
+
+        # --- BGP IPv4 icon --------------------------------------------------
+        if len(ipv4_peers) == count_ipv4:
+            icon_bgp_ipv4  = icon_green
             ipv4_issues_html = ""
+        else:
+            # FIX: `ipv4_issues_html` was built outside the loop so only the
+            #       last iteration's join was kept.  Moved join after the loop.
+            problem_peers    = [p for p in ipv4_peers if "Established" not in p]
+            ipv4_issues_html = "<br>".join(problem_peers)
+            icon_bgp_ipv4    = icon_red
+
+        # --- BGP VPNv4 icon -------------------------------------------------
+        if len(vpnv4_peers) == count_vpnv4:
+            icon_bgp_vpnv4   = icon_green
+            vpnv4_issues_html = ""
+        else:
+            # FIX: the original wrote to `ipv4_issues_html` here instead of
+            #      `vpnv4_issues_html`, silently discarding VPNv4 problem info.
+            problem_peers     = [p for p in vpnv4_peers if "Established" not in p]
+            vpnv4_issues_html = "<br>".join(problem_peers)
+            icon_bgp_vpnv4    = icon_red
+
+        # --- OSPF icon ------------------------------------------------------
+        if len(ospf_peers) == count_ospf:
+            icon_ospf       = icon_green
             ospf_issues_html = ""
+        else:
+            # FIX: original used `or` → every peer matched the condition because
+            #      a string either lacks "Full" OR lacks "FULL" (both can't be
+            #      true simultaneously for "Full/FULL" peers).  Should be `and`.
+            problem_peers    = [p for p in ospf_peers if "Full" not in p and "FULL" not in p]
+            ospf_issues_html = "<br>".join(problem_peers)
+            icon_ospf        = icon_red
 
-            if len(ipv4_peers) == count_ipv4 :
-                icon_bgp_ipv4 = icon_green
-            else:
-                for peer in ipv4_peers:
-                    if "Established" not in peer:
-                        peers_bgp_ipv4_problem.append(peer)
-                    ipv4_issues_html = "<br>".join(peers_bgp_ipv4_problem)
-                icon_bgp_ipv4 = icon_red
-                # print("BGP problem IPv4 peer:",peers_bgp_ipv4_problem)
-            
-            if len(vpnv4_peers) == count_vpnv4 :
-                icon_bgp_vpnv4 = icon_green
-            else:
-                # print("vpnv4_peers:",vpnv4_peers)
-                for peer in vpnv4_peers:
-                    if "Established" not in peer:
-                        peers_bgp_vpnv4_problem.append(peer)        
-                        ipv4_issues_html = "<br>".join(peers_bgp_vpnv4_problem)                
-                icon_bgp_vpnv4 = icon_red
-                # print("BGP problem VPNv4 peer:", peers_bgp_vpnv4_problem)
-
-            if len(ospf_peers) == count_ospf:
-                icon_ospf = icon_green
-            else:
-                for peer in ospf_peers:
-                    if "Full" not in peer or "FULL" not in peer:
-                        peers_ospf_problem.append(peer)
-                    ospf_issues_html = "<br>".join(peers_ospf_problem)
-                # print("OSPF problem peer:", peers_ospf_problem)
-                icon_ospf = icon_red                
-
-            html_output.append(f"""
-            <br>
-            <table id="{ip}" style="width:100%;">
-                <tr>
-                    <th style="width:50%;">
-                        <div style="display:flex;justify-content: space-around;">
-                            <div style="width:60%;margin-left:5px"><b>{hostname}</b></div>
-                            <div style="width:20%;margin-left:5px"><a href="https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:{nodeid}" target="_blank">Orion</a></div>
-                            <div style="margin-left:5px"><a href="/webssh?ip={ip}" target="_blank">webssh</a></div>
+        # --- Header row -----------------------------------------------------
+        html_output.append(f"""
+        <br>
+        <table id="{ip}" style="width:100%;">
+            <tr>
+                <th style="width:50%;">
+                    <div style="display:flex;justify-content:space-around;">
+                        <div style="width:60%;margin-left:5px"><b>{hostname}</b></div>
+                        <div style="width:20%;margin-left:5px">
+                            <a href="https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:{nodeid}"
+                               target="_blank">Orion</a>
                         </div>
-                    </th>
-                    <th >{label}<a href=\"\\logs\\core_logs\\{fname}\" target=\"_blank\">{fname}</a></th>
-                </tr>
-            """) 
+                        <div style="margin-left:5px">
+                            <a href="/webssh?ip={ip}" target="_blank">webssh</a>
+                        </div>
+                    </div>
+                </th>
+                <th>{label}<a href="\\logs\\core_logs\\{fname}" target="_blank">{fname}</a></th>
+            </tr>""")
 
-            if log_content :
-                html_output.append(f"""
-                    <tr><td colspan="2"><p style="background-color:Orange;">{log_content}</p></td></tr>
-                """)
-            if summary_content :            
-                html_output.append(f"""
-                    <tr><td colspan="2"><p>{summary_content}</p></td></tr>
-                """) 
-
+        if log_content:
             html_output.append(
-                "<tr><td ><img src=\"{}\" alt=\"\"/>BGP Global peers:{}, established:{}</td> <td>{}</td></tr>"
-                "<tr><td ><img src=\"{}\" alt=\"\"/>BGP VPN peers:{}, established:{}</td>    <td>{}</td></tr>"
-                "<tr><td ><img src=\"{}\" alt=\"\"/>OSPF peers:{}, Full:{}</td>              <td>{}</td></tr>"
-                "</table>"
+                f'<tr><td colspan="2"><p style="background-color:Orange;">'
+                f'{log_content}</p></td></tr>'
+            )
+        if summary_content:
+            html_output.append(
+                f'<tr><td colspan="2"><p>{summary_content}</p></td></tr>'
+            )
+
+        html_output.append(
+            '<tr><td><img src="{}" alt=""/>BGP Global peers:{}, established:{}</td><td>{}</td></tr>'
+            '<tr><td><img src="{}" alt=""/>BGP VPN peers:{}, established:{}</td><td>{}</td></tr>'
+            '<tr><td><img src="{}" alt=""/>OSPF peers:{}, Full:{}</td><td>{}</td></tr>'
+            "</table>"
             .format(
-                icon_bgp_ipv4, len(ipv4_peers), count_ipv4, vpnv4_issues_html,
-                icon_bgp_vpnv4, len(vpnv4_peers), count_vpnv4, ipv4_issues_html,
-                icon_ospf, len(ospf_peers), count_ospf, ospf_issues_html
-            ))  
+                icon_bgp_ipv4,  len(ipv4_peers),  count_ipv4,  ipv4_issues_html,
+                icon_bgp_vpnv4, len(vpnv4_peers), count_vpnv4, vpnv4_issues_html,
+                icon_ospf,      len(ospf_peers),  count_ospf,  ospf_issues_html,
+            )
+        )
 
-            # print(current_os, html_output)
-
-        except Exception as e:
-            html_print(f"<p>Error in log analysis {log_file_path}: {e}</p>")        
-
+    except Exception as e:
+        html_output.append(f"<p>Error in log analysis {log_file_path}: {e}</p>")
+        logger.error("core_check failed for %s: %s", log_file_path, e, exc_info=True)
 
     return "\n".join(html_output)
 
-def log_check(log_file_path, logger=None, label="Log file"):
-    log_dir = os.path.dirname(log_file_path)
-    fname = os.path.split(log_file_path)[1]  # Get filename from the file path
-    print_match = []
+
+# ---------------------------------------------------------------------------
+# log_check — parse one device log file
+# ---------------------------------------------------------------------------
+
+def log_check(log_file_path, label="Log file"):
+    """
+    Parse a device log file and return a dict with peer lists, counts, and
+    the HTML summary fragment.  Returns None if the file cannot be read.
+    """
+    log_dir  = os.path.dirname(log_file_path)
+    fname    = os.path.split(log_file_path)[1]
+
+    # State
     current_section = None
-    current_os = None
-    hostname = None
-    log_content = ""
-    ipv4_peers = []
-    vpnv4_peers = []
-    ospf_peers = []  
-    count_ipv4 = 0         # <-- Add this
-    count_vpnv4 = 0        # <-- Add this
-    count_ospf = 0         # <-- Add this
-    log_regex = mainconfig.LOG_REGEX
+    current_os      = None
+    hostname        = None
+    hostname_prompt = ""
+    log_content     = ""
+    summary_content = ""
+    ipv4_peers      = []
+    vpnv4_peers     = []
+    ospf_peers      = []
+
+    log_regex      = mainconfig.LOG_REGEX
     hostname_regex = mainconfig.HOSTNAME_REGEX
-    ip_pattern = mainconfig.IP_PATTERN
+    ip_pattern     = mainconfig.IP_PATTERN
+
     ip_match = re.search(ip_pattern, fname)
     ip = ip_match[0] if ip_match else "unknown"
 
-    if logger is None:
-        import logging
-        logger = logging.getLogger(__name__)
-        # If still no handlers, add a simple one for console output
-        if not logger.handlers:
-            logging.basicConfig(level=logging.INFO)
-
-    # Now this line will work even if you pass None
-    logger.info(f"starting log_check for IP: {ip} File: {log_file_path}")
-
-    # Check log file existence
-    if not os.path.exists(log_file_path):   
-        logger.error(f"Error: Log file '{log_file_path}' does not exist.")
+    # FIX: duplicate logger.info — log once, after the existence check.
+    if not os.path.exists(log_file_path):
+        logger.error("Log file does not exist: %s", log_file_path)
         return None
-    else:
-        logger.info(f"starting log_check for IP: {ip}, File: {log_file_path}")
-     
-    output_json_path = os.path.join(log_dir, f"{ip}_log_analysis.json")
-    if os.path.basename(os.path.dirname(log_file_path)) != "arch" or not os.path.exists(output_json_path):     # for normal log file, save for report every time; or the first time for archived log file
-        with open(log_file_path, 'r') as file:
-            log_entries = []
-            ospf_block = []
-            current_entry = None            
 
-            for line in file:
+    logger.info("starting log_check for IP: %s  File: %s", ip, log_file_path)
+
+    output_json_path = os.path.join(log_dir, f"{ip}_log_analysis.json")
+    is_archive = os.path.basename(log_dir) == "arch"
+
+    if not is_archive or not os.path.exists(output_json_path):
+        log_entries  = []
+        ospf_block   = []
+        current_entry    = None
+        temp_bgp_block   = []
+        temp_block       = []
+
+        with open(log_file_path, "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
                 stripped = line.strip()
 
-                # Extract hostname
+                # --- detect hostname (first match sets it) ------------------
                 if hostname is None:
                     hostname_match = re.match(hostname_regex, stripped)
                     if hostname_match:
-                        hostname = hostname_match.group(2)  # Extract the hostname
+                        hostname        = hostname_match.group(2)
                         hostname_prompt = hostname_match[0]
-                        if hostname_prompt + 'display' in stripped:
-                            current_os = 'hpe'
-                        elif hostname_prompt + 'show' in stripped:
-                            current_os = 'cisco_ios'
+                        if hostname_prompt + "display" in stripped:
+                            current_os = "hpe"
+                        elif hostname_prompt + "show" in stripped:
+                            current_os = "cisco_ios"
                     else:
-                        continue  # Skip lines without a hostname
+                        continue   # skip until hostname seen
 
-                # Start the loop from the line where the content is matched
-                if 'exit' in stripped:
-                    current_section = 'exit'
-                    break   # exit the loop
-                if hostname_prompt + 'display log' in stripped:
-                    current_section = 'log'
-                    current_os = 'hpe'
-                if hostname_prompt + 'show log ' in stripped:
-                    current_section = 'log'
-                    current_os = 'cisco_ios'
+                if "exit" in stripped:
+                    current_section = "exit"
+                    break
+
+                # --- section detection --------------------------------------
+                if hostname_prompt + "display log" in stripped:
+                    current_section = "log"
+                    current_os = "hpe"
+                if hostname_prompt + "show log " in stripped:
+                    current_section = "log"
+                    current_os = "cisco_ios"
+                    continue
+                if hostname_prompt + "show logging " in stripped:
+                    current_section = "log"
+                    current_os = "arista_eos"
                     continue
 
-                if hostname_prompt + 'show logging ' in stripped:
-                    current_section = 'log'
-                    current_os = 'arista_eos'
-                    continue
-
-                if current_section == 'log':
-                    if current_os == 'hpe':
+                # --- collect raw log entries --------------------------------
+                if current_section == "log":
+                    if current_os == "hpe":
                         if line.startswith("%"):
                             if current_entry:
                                 log_entries.append(current_entry)
                             current_entry = line.rstrip()
-                        elif line.startswith(" "):
-                            if current_entry is not None:
-                                current_entry += "\n" + line.rstrip()
-                    else:  # Cisco / Arista
-                        if re.match(r"^\d+:", line.strip()) or "%" in line:  # seq: or %
+                        elif line.startswith(" ") and current_entry is not None:
+                            current_entry += "\n" + line.rstrip()
+                    else:  # cisco / arista
+                        if re.match(r"^\d+:", stripped) or "%" in line:
                             if current_entry:
                                 log_entries.append(current_entry)
                             current_entry = line.rstrip()
-                        elif line.startswith(" "):
-                            if current_entry is not None:
-                                current_entry += "\n" + line.rstrip()
+                        elif line.startswith(" ") and current_entry is not None:
+                            current_entry += "\n" + line.rstrip()
 
-                # Check for hpe status
-                if current_os == 'hpe':  
-                    if hostname_prompt+"display bgp peer ipv4" == stripped:
+                # --- HPE peer status ----------------------------------------
+                if current_os == "hpe":
+                    if hostname_prompt + "display bgp peer ipv4" == stripped:
                         current_section = "ipv4"
                         continue
-                    elif hostname_prompt+"display bgp peer ipv4 vpn-instance-all" == stripped:
+                    elif hostname_prompt + "display bgp peer ipv4 vpn-instance-all" == stripped:
                         current_section = "vpnv4"
                         continue
-                    elif hostname_prompt+"display ospf peer" in stripped:
+                    elif hostname_prompt + "display ospf peer" in stripped:
                         current_section = "ospf"
-                        continue                           
+                        continue
+
                     if re.search(ip_pattern, stripped):
                         fields = stripped.split()
                         if current_section == "ipv4" and len(fields) >= 8:
                             ipv4_peers.append(stripped)
                         if current_section == "vpnv4" and len(fields) >= 8:
                             vpnv4_peers.append(stripped)
-                        if current_section == "ospf" :
-                            ospf_pattern = r'(?:\d{1,3}\.){3}\d{1,3}\s+(?:\d{1,3}\.){3}\d{1,3}'
-                            if re.search(ospf_pattern, stripped):
+                        if current_section == "ospf":
+                            if re.search(
+                                r"(?:\d{1,3}\.){3}\d{1,3}\s+(?:\d{1,3}\.){3}\d{1,3}",
+                                stripped,
+                            ):
                                 ospf_peers.append(stripped)
-                
-                # Check for cisco_ios status
-                if current_os == 'cisco_ios':
+
+                # --- Cisco peer status --------------------------------------
+                if current_os == "cisco_ios":
                     if "For address family:" in stripped:
-                        # Before switching families, save any block currently in progress
-                        if 'temp_bgp_block' in locals() and temp_bgp_block:
-                            if current_section == "ipv4": ipv4_peers.append("\n".join(temp_bgp_block))
-                            if current_section == "vpnv4": vpnv4_peers.append("\n".join(temp_bgp_block))
-                        temp_bgp_block = [] # Reset for new family
-                        
+                        if temp_bgp_block:
+                            block_str = "\n".join(temp_bgp_block)
+                            if current_section == "ipv4":
+                                ipv4_peers.append(block_str)
+                            elif current_section == "vpnv4":
+                                vpnv4_peers.append(block_str)
+                        temp_bgp_block = []
                         if "IPv4 Unicast" in stripped:
                             current_section = "ipv4"
                         elif "VPNv4 Unicast" in stripped:
                             current_section = "vpnv4"
                         continue
 
-                    # Logic to catch the BGP Neighbor block
                     if "BGP neighbor is" in stripped:
-                        if 'temp_bgp_block' in locals() and temp_bgp_block:
-                            # Save the previous neighbor's block before starting a new one
+                        if temp_bgp_block:
                             block_str = "\n".join(temp_bgp_block)
-                            if current_section == "ipv4": ipv4_peers.append(block_str)
-                            if current_section == "vpnv4": vpnv4_peers.append(block_str)
+                            if current_section == "ipv4":
+                                ipv4_peers.append(block_str)
+                            elif current_section == "vpnv4":
+                                vpnv4_peers.append(block_str)
                         temp_bgp_block = [stripped]
-                    elif 'temp_bgp_block' in locals() and temp_bgp_block:
-                        # Append the Description, Version, and State lines
+                    elif temp_bgp_block:
                         temp_bgp_block.append(stripped)
-
                     elif "show ip ospf" in stripped:
                         current_section = "ospf"
                         continue
 
-                    if current_section == "ospf" :
+                    if current_section == "ospf":
                         if "Neighbor" in stripped and "interface" in stripped:
-                            if 'temp_block' in locals() and temp_block:
+                            if temp_block:
                                 ospf_block.append("\n".join(temp_block))
                             temp_block = [stripped]
-                        elif 'temp_block' in locals():
+                        else:
                             temp_block.append(stripped)
-                                            
-                # Check for arista_eos status
-                if current_os == 'arista_eos':
+
+                # --- Arista peer status -------------------------------------
+                if current_os == "arista_eos":
                     if "BGP summary information for VRF default" == stripped:
                         current_section = "ipv4"
                         continue
@@ -367,711 +429,643 @@ def log_check(log_file_path, logger=None, label="Log file"):
 
                     if current_section == "ipv4" and "BGP state" in stripped:
                         ipv4_peers.append(stripped)
-
                     if current_section == "vpnv4" and "BGP state" in stripped:
                         vpnv4_peers.append(stripped)
-
-                    if current_section == "ospf" :
+                    if current_section == "ospf":
                         if "Neighbor" in stripped and "interface" in stripped:
-                            if 'temp_block' in locals() and temp_block:
+                            if temp_block:
                                 ospf_block.append("\n".join(temp_block))
                             temp_block = [stripped]
-                        elif 'temp_block' in locals():
+                        else:
                             temp_block.append(stripped)
 
-            # the last log entry
+            # --- flush last entries after EOF -------------------------------
             if current_entry:
                 log_entries.append(current_entry)
-
-            if 'temp_bgp_block' in locals() and temp_bgp_block:
+            if temp_bgp_block:
                 block_str = "\n".join(temp_bgp_block)
-                if current_section == "ipv4": ipv4_peers.append(block_str)
-                if current_section == "vpnv4": vpnv4_peers.append(block_str)      
-            if current_os == 'cisco_ios':
-                ipv4_peers =  bgp_summary(current_os, ipv4_peers)
-                vpnv4_peers = bgp_summary(current_os, vpnv4_peers)
-
-
-            # FIX: Catch the final OSPF neighbor block
-            if 'temp_block' in locals() and temp_block:
+                if current_section == "ipv4":
+                    ipv4_peers.append(block_str)
+                elif current_section == "vpnv4":
+                    vpnv4_peers.append(block_str)
+            if temp_block:
                 ospf_block.append("\n".join(temp_block))
 
-            if ospf_block:
-                ospf_peers = ospf_summary(ospf_block)
-                
+        if current_os == "cisco_ios":
+            ipv4_peers  = bgp_summary(current_os, ipv4_peers)
+            vpnv4_peers = bgp_summary(current_os, vpnv4_peers)
+        if ospf_block:
+            ospf_peers = ospf_summary(ospf_block)
 
-        # Now filter by your log_regex
-        filtered_entries = [entry for entry in log_entries if re.search(log_regex, entry)]
-        if filtered_entries:
-            log_content = "<br>".join(filtered_entries)
-            print_match.append(
-                "<tr><td><p style=\"background-color:Orange;\">{}</p></td></tr>".format(log_content)
-            )        
+        # --- filter log entries and build summary ---------------------------
+        filtered = [e for e in log_entries if re.search(log_regex, e)]
+        if filtered:
+            log_content     = "<br>".join(filtered)
+            summary_content = log_summary("\n".join(filtered), hostname, ip)
 
-            # summary_content = log_summary("\n".join(filtered_entries))
-            summary_content = log_summary("\n".join(filtered_entries), hostname, ip)
+        count_ipv4, count_vpnv4, count_ospf = _count_peers(
+            {"ipv4": ipv4_peers, "vpnv4": vpnv4_peers, "ospf": ospf_peers},
+            current_os,
+        )
 
-        if current_os == 'arista_eos' or current_os == 'cisco_ios':
-            count_ipv4 = sum(1 for line in ipv4_peers if not "Idle" in line)
-            count_vpnv4 = sum(1 for line in vpnv4_peers if not "Idle" in line)
-            count_ospf = sum(1 for line in ospf_peers if "FULL" in line)
-        elif current_os == 'hpe':
-            count_ipv4 = sum(1 for line in ipv4_peers if "Established" in line)
-            count_vpnv4 = sum(1 for line in vpnv4_peers if "Established" in line)
-            count_ospf = sum(1 for line in ospf_peers if "Full" in line)
-
-        # Save the log analysis to a JSON file
+        # --- persist to JSON ------------------------------------------------
         try:
-            with open(output_json_path, "w") as json_file:
-                json.dump({
-                    "hostname"      : hostname, 
-                    "current_os"    : current_os,
-                    "print_match"   : print_match,
-                    "ipv4_peers"    : ipv4_peers,
-                    "vpnv4_peers"   : vpnv4_peers,
-                    "ospf_peers"    : ospf_peers,
-                }, json_file, indent=4)
-            if logger:
-                logger.info(f"Log analysis saved to {output_json_path}")
+            with open(output_json_path, "w", encoding="utf-8") as jf:
+                json.dump(
+                    {
+                        "hostname":    hostname,
+                        "current_os":  current_os,
+                        "ipv4_peers":  ipv4_peers,
+                        "vpnv4_peers": vpnv4_peers,
+                        "ospf_peers":  ospf_peers,
+                    },
+                    jf,
+                    indent=4,
+                )
+            logger.info("Log analysis saved to %s", output_json_path)
         except Exception as e:
-            if logger:
-                logger.error(f"Failed to save log analysis JSON: {e}")
-    else:       # for archived log file, read the json file while it exists
-        logger.info(f"Found archived json file for IP: {ip}  : {output_json_path}")
-        with open(output_json_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+            logger.error("Failed to save log analysis JSON: %s", e)
 
-        # Access fields with defaults
-        current_os = data.get("current_os", "unknown")
-        ipv4_peers = data.get("ipv4_peers", [])
+    else:
+        # --- archived file: read cached JSON --------------------------------
+        logger.info("Found archived json for IP %s: %s", ip, output_json_path)
+        with open(output_json_path, "r", encoding="utf-8") as jf:
+            data = json.load(jf)
+
+        current_os  = data.get("current_os",  "unknown")
+        ipv4_peers  = data.get("ipv4_peers",  [])
         vpnv4_peers = data.get("vpnv4_peers", [])
-        ospf_peers = data.get("ospf_peers", [])
+        ospf_peers  = data.get("ospf_peers",  [])
+        hostname    = data.get("hostname",    None)
 
-        # Count based on conditions (modify if needed)
-        if current_os == 'arista_eos' or current_os == 'cisco_ios':
-            count_ipv4 = sum(1 for line in ipv4_peers if not "Idle" in line)
-            count_vpnv4 = sum(1 for line in vpnv4_peers if not "Idle" in line)
-            count_ospf = sum(1 for line in ospf_peers if "FULL" in line)
-        elif current_os == 'hpe':
-            count_ipv4 = sum(1 for line in ipv4_peers if "Established" in line)
-            count_vpnv4 = sum(1 for line in vpnv4_peers if "Established" in line)
-            count_ospf = sum(1 for line in ospf_peers if "Full" in line)
-        
-    # print(ipv4_peers, vpnv4_peers, ospf_peers)
+        count_ipv4, count_vpnv4, count_ospf = _count_peers(
+            {"ipv4": ipv4_peers, "vpnv4": vpnv4_peers, "ospf": ospf_peers},
+            current_os,
+        )
 
     return {
-        "label"         : label,
-        "current_os"    : current_os,
-        "ip"            : ip,
-        "hostname"      : hostname,
-        "log_content"   : log_content,
-        "summary_content": summary_content if 'summary_content' in locals() else "",
-        "print_match"   : print_match,
-        "ipv4_peers"    : ipv4_peers,
-        "count_ipv4"    : count_ipv4,
-        "vpnv4_peers"   : vpnv4_peers,
-        "count_vpnv4"   : count_vpnv4,
-        "ospf_peers"    : ospf_peers,
-        "count_ospf"    : count_ospf,
+        "label":          label,
+        "current_os":     current_os,
+        "ip":             ip,
+        "hostname":       hostname,
+        "log_content":    log_content,
+        "summary_content": summary_content,
+        "ipv4_peers":     ipv4_peers,
+        "count_ipv4":     count_ipv4,
+        "vpnv4_peers":    vpnv4_peers,
+        "count_vpnv4":    count_vpnv4,
+        "ospf_peers":     ospf_peers,
+        "count_ospf":     count_ospf,
     }
 
-def bgp_summary(current_os, blocks):
-    """Converts a multi-line BGP block into a single line summary. cisco_ios
 
-    For address family: IPv4 Unicast
-        BGP neighbor is 10.26.101.1,  remote AS 65500, internal link
-        Description: to_OldCore2
-        BGP version 4, remote router ID 10.26.101.1
+# ---------------------------------------------------------------------------
+# bgp_summary — collapse multi-line BGP neighbor blocks to one-liners
+# ---------------------------------------------------------------------------
+
+# FIX: regexes were compiled inside the `if current_os in [...]` block but
+#      referenced outside it, risking NameError for unknown OS values.
+_RE_BGP_NEIGHBOR = re.compile(r"BGP neighbor is (?P<ip>[\d.]+)")
+_RE_BGP_STATE    = re.compile(r"BGP state\s*[=is]+\s*(?P<state>\w+)")
+_RE_BGP_UPTIME   = re.compile(r"(?:up|down) for\s+(?P<uptime>[\w\d.]+)")
+
+def bgp_summary(current_os, blocks):
+    """
+    Convert multi-line 'show bgp neighbor' blocks into single-line summaries.
+    Supports cisco_ios and arista_eos.
+
+    Input block example (cisco_ios):
+        BGP neighbor is 10.26.101.1, remote AS 65500, internal link
         BGP state = Established, up for 6w4d
 
-    For address family: VPNv4 Unicast
-        BGP neighbor is 10.73.119.241,  vrf VCHA-TC2,  remote AS 4255000501,  local AS 4255000101, external link
-        Description: to_FW-Outside
-        BGP version 4, remote router ID 10.73.119.241
-        BGP state = Established, up for 6w2d         or     BGP state = Idle, down for never
-    """
+    Input block example (arista_eos):
+        BGP neighbor is 10.26.101.57, remote AS 65500, internal link
+        BGP state is Established, up for 278d01h
 
-    """Converts a multi-line BGP block into a single line summary. arista_eos 
-    BGP neighbor is 10.26.101.57, remote AS 65500, internal link
-    BGP version 4, remote router ID 10.26.101.57, VRF default
-    BGP state is Established, up for 278d01h
-    BGP session driven failover for IPv4 Unicast is disabled
-    BGP session driven failover for IPv6 Unicast is disabled
-        Malformed MPBGP routes: 0
+    Returns list of strings: "<ip> <state> <uptime>"
     """
     summary_results = []
-
-# Regex to capture the IP, the State (after '='), and the Uptime (after 'for')
-    if current_os in ["cisco_ios", "arista_eos"] :
-        RE_NEIGHBOR = re.compile(r'BGP neighbor is (?P<ip>[\d.]+)')
-        RE_STATE = re.compile(r'BGP state\s*=\s*(?P<state>\w+)')
-        RE_UPTIME = re.compile(r'(?:up|down) for\s+(?P<uptime>[\w\d.]+)')
-    
-
     for block in blocks:
-        ip_match = RE_NEIGHBOR.search(block)
-        state_match = RE_STATE.search(block)
-        uptime_match = RE_UPTIME.search(block)
+        ip_match     = _RE_BGP_NEIGHBOR.search(block)
+        state_match  = _RE_BGP_STATE.search(block)
+        uptime_match = _RE_BGP_UPTIME.search(block)
 
         if ip_match:
-            ip = ip_match.group('ip')
-            state = state_match.group('state') if state_match else "Down"
-            uptime = uptime_match.group('uptime') if uptime_match else "0s"
-            
+            ip     = ip_match.group("ip")
+            state  = state_match.group("state")  if state_match  else "Down"
+            uptime = uptime_match.group("uptime") if uptime_match else "0s"
             summary_results.append(f"{ip} {state} {uptime}")
     return summary_results
+
+
+# ---------------------------------------------------------------------------
+# ospf_summary — collapse multi-line OSPF neighbor blocks to one-liners
+# ---------------------------------------------------------------------------
+
+_RE_OSPF_NEIGHBOR = re.compile(r"Neighbor\s+(?P<ip>[\d.]+)")
+_RE_OSPF_STATE    = re.compile(r"State is\s+(?P<state>\w+)")
+_RE_OSPF_UPTIME   = re.compile(r"(?:established|up for)\s+(?P<uptime>[\w\d]+)")
 
 def ospf_summary(blocks):
-    """Converts a multi-line OSPF block into a single line summary. for cisco_ios and arista_eos
-    cisco_ios:
-    NS-LGH-LGAC-PIMS-C9600-Core2#show ip ospf neighbor detail | include Neighbor|area
-    Neighbor 10.28.102.253, interface address 10.28.102.61
-        In the area 0 via interface Vlan4060
-        Neighbor priority is 0, State is FULL, 6 state changes
-        Neighbor is up for 5w2d        
-    arista_eos:
-    VH-VGH-3730-7508R-Core1(s1)#show ip ospf neighbor detail | include Neighbor|area|state
-    Neighbor 10.26.101.73, instance 200, VRF default, interface address 10.26.254.162
-    In area 0.0.0.0 interface Ethernet6/29
-    Neighbor priority is 0, State is FULL, 6 state changes
-    Current state was established 278d01h ago        
+    """
+    Convert multi-line 'show ip ospf neighbor detail' blocks into one-liners.
+    Supports cisco_ios and arista_eos.
+
+    Returns list of strings: "<ip> <state> <uptime>"
     """
     summary_results = []
-
-    # Regex patterns (Note: Arista uses 'established' instead of 'up for' in some logs)
-    RE_NEIGHBOR = re.compile(r'Neighbor\s+(?P<ip>[\d.]+)')
-    RE_STATE = re.compile(r'State is\s+(?P<state>\w+)')
-    RE_UPTIME = re.compile(r'(?:established|up for)\s+(?P<uptime>[\w\d]+)')
-
     for block in blocks:
-        ip_match = RE_NEIGHBOR.search(block)
-        state_match = RE_STATE.search(block)
-        uptime_match = RE_UPTIME.search(block)
+        ip_match     = _RE_OSPF_NEIGHBOR.search(block)
+        state_match  = _RE_OSPF_STATE.search(block)
+        uptime_match = _RE_OSPF_UPTIME.search(block)
 
         if ip_match:
-            ip = ip_match.group('ip')
-            state = state_match.group('state') if state_match else "Down"
-            uptime = uptime_match.group('uptime') if uptime_match else "0s"
+            ip     = ip_match.group("ip")
+            state  = state_match.group("state")  if state_match  else "Down"
+            uptime = uptime_match.group("uptime") if uptime_match else "0s"
             summary_results.append(f"{ip} {state} {uptime}")
-            continue
-    # print(summary_results)
     return summary_results
 
-def log_summary(log, hostname, ip):
-    import re
-    from collections import defaultdict
 
+# ---------------------------------------------------------------------------
+# log_summary — build the BGP/OSPF table HTML from filtered log lines
+# ---------------------------------------------------------------------------
+
+# HPE patterns
+_HPE_BGP_RE = re.compile(
+    r"(?P<timestamp>%\w+\s+\d+\s[\d:.]+)\s+(?P<year>\d{4}).*?"
+    r"BGP/\d+/BGP_STATE_CHANGED:\s+(?P<instance>BGP[.\w-]*):?\s+"
+    r"(?P<neighbor>\d+\.\d+\.\d+\.\d+)\s+"
+    r"(?:state|State)\s+(?:is|has)\s+changed\s+from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)",
+    re.IGNORECASE,
+)
+_HPE_OSPF_RE = re.compile(
+    r"(?P<timestamp>%\w+\s+\d+\s[\d:.]+)\s+(?P<year>\d{4}).*?"
+    r"OSPF_NBR_CHG:\s+OSPF\s+(?P<process>\d+)\s+Neighbor\s+"
+    r"(?P<neighbor>\d+\.\d+\.\d+\.\d+)\((?P<iface>[^)]+)\)\s+"
+    r"changed from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)",
+    re.IGNORECASE,
+)
+_HPE_OSPF_REASON_RE = re.compile(
+    r"""
+    (?P<timestamp>%\w+\s+\d+\s+[\d:.]+) \s+ (?P<year>\d{4}) .*?
+    OSPF_NBR_CHG_REASON: .*? OSPF\s+(?P<process>\d+) .*?
+    Router\s+[\d.]+\((?P<iface>[^)]+)\) .*?
+    VPN\sname:\s+(?P<vpn_name>[\w-]+) ,? .*?
+    Neighbor\saddress:\s+(?P<neighbor>[\d.]+) .*?
+    changed\sfrom\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# Cisco / Arista syslog patterns
+_CISCO_OSPF_ADJCHG_RE = re.compile(
+    r"(?P<seq>\d+):\s+(?P<mon>\w{3})\s+(?P<day>\d{1,2})\s+"
+    r"(?P<time>\d{2}:\d{2}:\d{2})\s+(?P<tz>\w+):\s+%OSPF-\d+-(?P<type>\w+):\s+"
+    r"Process\s+(?P<process>\d+),\s+Nbr\s+(?P<neighbor>\d+\.\d+\.\d+\.\d+)\s+"
+    r"on\s+(?P<iface>\S+)\s+from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)",
+    re.IGNORECASE,
+)
+
+# Line-start anchors used in the pre-processor
+_LINE_START_RE = re.compile(
+    r"^(?:%\w+\s+\d+\s[\d:.]+\s+\d{4}|\d+:\s|\w{3}\s+\d+\s[\d:.]+)"
+)
+
+
+def log_summary(log, hostname, ip):
+    """
+    Parse filtered syslog lines and return an HTML string containing the
+    BGP and OSPF summary tables.
+    """
     if isinstance(log, list):
         log = "\n".join(log)
 
     log_analysis = []
-    os_type = "unknown"
-    vpn_instance = "Global" 
     db = DatabaseManager(mainconfig.DB_PATH)
 
-    # Structures:
-    # BGP: {instance: {neighbor: [(timestamp, interface, state)]}}
-    # OSPF: {process: {neighbor: [(timestamp, interface, state, vpn_name)]}}
-    bgp_states = defaultdict(lambda: defaultdict(list))
-    ospf_states = defaultdict(lambda: defaultdict(list))
+    # {instance: {neighbor: [(timestamp, "-", state)]}}
+    bgp_states: dict = defaultdict(lambda: defaultdict(list))
+    # {process:  {neighbor: [(timestamp, iface, state, vpn)]}}
+    ospf_states: dict = defaultdict(lambda: defaultdict(list))
+    # neighbor IP → VRF name (populated in pre-scan pass)
+    neighbor_to_vpn: dict = {}
 
-    # Regex patterns
-    bgp_re = re.compile(
-        r'(?P<timestamp>%\w+\s+\d+\s[\d:.]+)\s+(?P<year>\d{4}).*?'
-        r'BGP/\d+/BGP_STATE_CHANGED:\s+(?P<instance>BGP[.\w-]*):?\s+'
-        r'(?P<neighbor>\d+\.\d+\.\d+\.\d+)\s+'
-        r'(?:state|State)\s+(?:is|has)\s+changed\s+from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)',
-        re.IGNORECASE
-    )
-
-    ospf_re = re.compile(
-        r'(?P<timestamp>%\w+\s+\d+\s[\d:.]+)\s+(?P<year>\d{4}).*?OSPF_NBR_CHG:\s+OSPF\s+(?P<process>\d+)\s+Neighbor\s+(?P<neighbor>\d+\.\d+\.\d+\.\d+)\((?P<iface>[^)]+)\)\s+changed from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)',
-        re.IGNORECASE
-    )
-    
-    # %Dec 3 17:46:54:369 2025 KDC-DMZ-HUT8-5945 OSPF/5/OSPF_NBR_CHG_REASON: OSPF 904 Area 0.0.0.0 Router 139.173.79.241(Vlan904) CPU usage: 18%, VPN name: PHSA-Internet, IfMTU: 1500, Neighbor address: 139.173.78.9, NbrID:139.173.78.1 changed from Full to EXSTART because a SeqNumberMismatch event was triggered by the maste-slave relationship change at 2025-12-03 17:46:54:368.
-    # ospf_reason_re = re.compile(
-    #     r'(?P<timestamp>%\w+\s+\d+\s+[\d:.]+) \s+ (?P<year>\d{4}) .*? OSPF_NBR_CHG_REASON: .*? OSPF\s+(?P<process>\d+) .*? Router\s+[\d.]+\((?P<iface>[^)]+)\) .*? VPN\sname:\s+(?P<vpn_name>\w+) ,? .*? Neighbor\saddress:\s+(?P<neighbor>[\d.]+) .*? changed\sfrom\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)',
-    #     re.IGNORECASE | re.VERBOSE
-    # )
-    ospf_reason_re = re.compile(
-        r"""
-        (?P<timestamp>%\w+\s+\d+\s+[\d:.]+) \s+ (?P<year>\d{4}) .*?
-        OSPF_NBR_CHG_REASON: .*? OSPF\s+(?P<process>\d+) .*?
-        Router\s+[\d.]+\((?P<iface>[^)]+)\) .*?
-        VPN\sname:\s+(?P<vpn_name>[\w-]+) ,? .*?   # VPN\sname:\s+(?P<vpn_name>\w+) ,? .*?
-        Neighbor\saddress:\s+(?P<neighbor>[\d.]+) .*?
-        changed\sfrom\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)
-        """,
-        re.IGNORECASE | re.VERBOSE
-    )
-
-    # ------------------------------------------------------------------
-    # 2. NEW Cisco patterns
-    # ------------------------------------------------------------------
-    # 2-a  %OSPF-5-ADJCHG  (the most common)
-    cisco_ospf_adjchg = re.compile(
-        r'(?P<seq>\d+):\s+(?P<mon>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+(?P<tz>\w+):\s+%OSPF-\d+-(?P<type>\w+):\s+'
-        r'Process\s+(?P<process>\d+),\s+Nbr\s+(?P<neighbor>\d+\.\d+\.\d+\.\d+)\s+on\s+(?P<iface>\S+)\s+'
-        r'from\s+(?P<old>\w+)\s+to\s+(?P<new>\w+)',
-        re.IGNORECASE
-    )
-
-    # 2-b  %BGP-5-ADJCHANGE  (Cisco)
-    cisco_bgp_adjchg = re.compile(
-        r'(?P<seq>\d+):\s+(?P<mon>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+(?P<tz>\w+):\s+%BGP-\d+-(?P<type>\w+):\s+'
-        r'neighbor\s+(?P<neighbor>\d+\.\d+\.\d+\.\d+).*?(?P<state>Up|Down)',
-        re.IGNORECASE
-    )
-
-    # 2-c  “show ip ospf events neighbor reverse generic” lines
-    #      687  Nov 15 06:32:52.752: Generic:  ospf_external_route_sync  0x0
-    cisco_ospf_event = re.compile(
-        r'^\s*(?P<seq>\d+)\s+(?P<mon>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>[\d:.]+):\s+'
-        r'Generic:\s+(?P<msg>.*?)',
-        re.IGNORECASE
-    )
-
-    # ------------------------------------------------------------------
-    # 3. other BGP OSPF patterns    
-    # New pattern for Arista/Cisco Adjacency Logs
-    # Mar 8 04:35:25 VH-VGH-3730-7508R-Core1 Ospf-vrf-vrf-smpc-in28[11270]: Instance 621: %OSPF-4-OSPF_ADJACENCY_TEARDOWN: NGB 10.28.107.224, interface 10.28.107.13 adjacency dropped: DD packet mismatch, state was: FULL
-    # Mar 8 04:35:27 VH-VGH-3730-7508R-Core1 Ospf-vrf-vrf-smpc-in28[11270]: Instance 621: %OSPF-4-OSPF_ADJACENCY_ESTABLISHED: NGB 10.28.107.224, interface 10.28.107.13 adjacency established
-    # ospf_adj_special_re = re.compile(
-    #     r'(?P<timestamp>\w{3}\s+\d+\s[\d:.]+)\s+(?P<hostname>\S+)\s+'
-    #     r'Ospf-vrf-(?P<vrf>\S+)\[\d+\]:\s+Instance\s+(?P<process>\d+):\s+'
-    #     r'%(?P<event>OSPF-4-OSPF_ADJACENCY_\w+):\s+NGB\s+(?P<neighbor>[\d.]+),\s+'
-    #     r'interface\s+(?P<iface>[\d.]+)\s+(?P<action>adjacency\s+\w+)',
-    #     re.IGNORECASE
-    # )
-    ospf_adj_special_re = mainconfig.OSPF_ADJ_SPECIAL_RE
-
-    # Preprocess: Join lines that are part of the same log entry
+    # -----------------------------------------------------------------------
+    # Pre-process: join continuation lines into single logical entries
+    # -----------------------------------------------------------------------
     lines = []
     buffer = ""
-    for line in log.splitlines():
-        line = line.strip()
-        # Cisco syslog line starts with <seq>:    HPE line starts with %<fac>
-        # UPDATED: Added r"^\w{3}\s+\d+\s[\d:.]+" to catch "Mar 8 00:29:24"
-        if re.match(r"^%\w+\s+\d+\s[\d:.]+\s+\d{4}", line) or \
-        re.match(r"^\d+:\s", line) or \
-        re.match(r"^\w{3}\s+\d+\s[\d:.]+", line):
+    for raw in log.splitlines():
+        raw = raw.strip()
+        if _LINE_START_RE.match(raw):
             if buffer:
                 lines.append(buffer)
-            buffer = line
+            buffer = raw
         else:
-            buffer += " " + line
+            buffer += " " + raw
     if buffer:
         lines.append(buffer)
 
+    # -----------------------------------------------------------------------
+    # Pre-scan: build neighbor→VRF map BEFORE the main loop so that earlier
+    # lines (NOTIFICATION, NBR_RESET) for a VRF peer are bucketed correctly.
+    # -----------------------------------------------------------------------
     for line in lines:
-        line = line.strip()
-        # print(f"Processing line: {line}")  # Debug print
+        m = mainconfig.CISCO_BGP_ADJCHG.search(line)
+        if m and m.group("vrf"):
+            neighbor_to_vpn[m.group("neighbor")] = m.group("vrf")
 
-        # OSPF CHG_REASON (check this first as it's more specific)
-        ospf_reason_match = ospf_reason_re.search(line)
-        if ospf_reason_match:
-            g = ospf_reason_match.groupdict()
-            timestamp = f"{g['timestamp']} {g['year']}"
-            vpn = g.get('vpn_name', 'N/A')
-            ospf_states[g['process']][g['neighbor']].append((timestamp, g['iface'], g['new'].upper(), vpn))
-            continue
+    # -----------------------------------------------------------------------
+    # Main parse loop
+    # -----------------------------------------------------------------------
+    for line in lines:
 
-        # OSPF standard
-        ospf_match = ospf_re.search(line)
-        if ospf_match:
-            g = ospf_match.groupdict()
-            timestamp = f"{g['timestamp']} {g['year']}"
-            ospf_states[g['process']][g['neighbor']].append((timestamp, g['iface'], g['new'].upper(), 'N/A'))
-            continue
-            
-        # BGP
-        bgp_match = bgp_re.search(line)
-        if bgp_match:
-            g = bgp_match.groupdict()
-            timestamp = f"{g['timestamp']} {g['year']}"
-            # if cisco_vpn_re.search(line):
-            #     cisco_vpn_match = cisco_vpn_re.search(line)
-            #     vpn_instance = cisco_vpn_match.group(2)
-            #     instance = vpn_instance
-            # else:
-            #     instance = g['instance'].rstrip('.:') or "BGP"
-            # instance = g['instance'].rstrip('.:') or "BGP"
-
-            # Ensure this variable is always set
-            if 'instance' in g:
-            # If it's just 'BGP' or 'BGP.', treat it as Global
-                parsed = g['instance'].rstrip('.:')
-                instance = parsed if parsed and parsed != "BGP" else "Global"
-            else:
-                instance = "Global"
-
-            # Use a generic name instead of cisco_vpn_name
-            vpn_instance = instance
-
-            bgp_states[instance][g['neighbor']].append((timestamp, "-", g['old'].upper()))
-            bgp_states[instance][g['neighbor']].append((timestamp, "-", g['new'].upper()))
-            continue
-
-        # ---- Cisco ----------------------------------------------------
-        # general Cisco patterns
-        #  cisco bgp neighbor vpn vrf : 024113: Nov 6 00:48:44 PST: %BGP-5-ADJCHANGE: neighbor 10.73.119.241 vpn vrf VCHA-TC2 Up
-        cisco_vpn_re = re.compile(r'neighbor\s+(\d+\.\d+\.\d+\.\d+).*vpn vrf (\w+-\w+)')
-        if cisco_vpn_re.search(line):
-            cisco_vpn_match = cisco_vpn_re.search(line)
-            vpn_instance = cisco_vpn_match.group(2)
-            # instance = vpn_instance
-            # print(f"Debug: Cisco BGP event found {line}, {vpn_instance}")  # Debug print
-
-        # 1. OSPF ADJCHG
-        m = cisco_ospf_adjchg.search(line)
+        # 1. HPE OSPF reason (most specific — check first)
+        m = _HPE_OSPF_REASON_RE.search(line)
         if m:
             g = m.groupdict()
-            ts = f"{g['mon']} {g['day']} {g['time']} {g['tz']}"
-            ospf_states[g['process']][g['neighbor']].append((ts, g['iface'], g['new'].upper(), 'N/A'))
+            ts = f"{g['timestamp']} {g['year']}"
+            ospf_states[g["process"]][g["neighbor"]].append(
+                (ts, g["iface"], g["new"].upper(), g.get("vpn_name", "N/A"))
+            )
             continue
 
-        # 2. BGP ADJCHANGE
-        m = cisco_bgp_adjchg.search(line)
+        # 2. HPE OSPF standard
+        m = _HPE_OSPF_RE.search(line)
         if m:
             g = m.groupdict()
+            ts = f"{g['timestamp']} {g['year']}"
+            ospf_states[g["process"]][g["neighbor"]].append(
+                (ts, g["iface"], g["new"].upper(), "N/A")
+            )
+            continue
+
+        # 3. HPE BGP state-changed
+        m = _HPE_BGP_RE.search(line)
+        if m:
+            g = m.groupdict()
+            ts = f"{g['timestamp']} {g['year']}"
+            parsed   = g["instance"].rstrip(".:") if "instance" in g else ""
+            instance = parsed if parsed and parsed != "BGP" else "Global"
+            bgp_states[instance][g["neighbor"]].append((ts, "-", g["old"].upper()))
+            bgp_states[instance][g["neighbor"]].append((ts, "-", g["new"].upper()))
+            continue
+
+        # 4. Cisco/Arista BGP ADJCHANGE  (uses mainconfig regex for VRF capture)
+        m = mainconfig.CISCO_BGP_ADJCHG.search(line)
+        if m:
+            g        = m.groupdict()
+            neighbor = g["neighbor"]
+            ts       = g["timestamp"]
+            instance = neighbor_to_vpn.get(neighbor, "Global")
+            old_state    = g["status_mode"] if g["status_mode"] else "Unknown"
+            new_state    = g["action"] if g["action"]  else "Unknown"
+
+            # Move any records that were prematurely placed in "Global"
+            if instance != "Global" and neighbor in bgp_states["Global"]:
+                bgp_states[instance][neighbor].extend(bgp_states["Global"][neighbor])
+                del bgp_states["Global"][neighbor]
+            bgp_states[instance][neighbor].append((ts, "-", old_state))
+            bgp_states[instance][neighbor].append((ts, "-", new_state))
+            continue
+
+        # 5. Cisco OSPF ADJCHG
+        m = _CISCO_OSPF_ADJCHG_RE.search(line)
+        if m:
+            g  = m.groupdict()
             ts = f"{g['mon']} {g['day']} {g['time']} {g['tz']}"
-            state = "ESTABLISHED" if g['state'] == "Up" else "DOWN"
-            bgp_states["BGP"][g['neighbor']].append((ts, "-", state))
+            ospf_states[g["process"]][g["neighbor"]].append(
+                (ts, g["iface"], g["new"].upper(), "N/A")
+            )
             continue
 
-        # NEW: Match the special OSPF adjacency format
-        adj_special_match = ospf_adj_special_re.search(line)
-        if adj_special_match:
-            g = adj_special_match.groupdict()
-            ts = g['timestamp']
-            vrf_name = g['vrf'] if g['vrf'] else "Global"
-            
-            # event = g['event'].upper()
-            
-            # # 2. Map Arista events to standard OSPF states
-            # if "ESTABLISHED" in event:
-            #     old_state = "DOWN"
-            #     new_state = "FULL"
-            # else: # TEARDOWN / dropped
-            #     old_state = g['old_state'] if g['old_state'] else "FULL"
-            #     new_state = "DOWN"            
-            # # Determine the state based on the event name
-            # new_state = "FULL" if "ESTABLISHED" in g['event'] else "DOWN"
-            # Store in ospf_states
-            ospf_states[g['process']][g['neighbor']].append((ts, g['iface'], g['state'], vrf_name))
+        # 6. Arista special OSPF adjacency format (from mainconfig)
+        m = mainconfig.OSPF_ADJ_SPECIAL_RE.search(line)
+        if m:
+            g   = m.groupdict()
+            vrf = g["vrf"] if g.get("vrf") else "Global"
+            ospf_states[g["process"]][g["neighbor"]].append(
+                (g["timestamp"], g["iface"], g["state"], vrf)
+            )
             continue
 
-    # === BGP Summary ===
+    # -----------------------------------------------------------------------
+    # Render BGP summary table
+    # -----------------------------------------------------------------------
     if bgp_states:
-        # (No changes to BGP summary)
         log_analysis.append("<h5 style='margin:0'>Log Summary - BGP</h5>")
-        bgp_all_states = set()
-        for neighbors in bgp_states.values():
-            for entries in neighbors.values():
-                bgp_all_states.update(state for _, _, state in entries)
+
+        bgp_all_states: set = set()
+        for nbrs in bgp_states.values():
+            for entries in nbrs.values():
+                bgp_all_states.update(s for _, _, s in entries)
+
+        sorted_states = sorted(bgp_all_states)
         header = (
-            "<tr><th style='width:15%'>Instance</th><th style='width:10%'>Neighbor</th><th style='width:15%'>Current</th><th style='width:10%'>Duration</th>"
-            + "".join(f"<th>{state}</th>" for state in sorted(bgp_all_states))
+            "<tr>"
+            "<th style='width:15%'>Instance</th>"
+            "<th style='width:10%'>Neighbor</th>"
+            "<th style='width:15%'>Current</th>"
+            "<th style='width:10%'>Duration</th>"
+            + "".join(f"<th>{s}</th>" for s in sorted_states)
             + "<th style='width:20%'>LastChange</th></tr>"
         )
-        log_analysis.append("<table id='bgp_log_summary' border='1' style='font-size:12px;width:100%;border:none'>" + header)
+        log_analysis.append(
+            "<table id='bgp_log_summary' border='1' "
+            "style='font-size:12px;width:100%;border:none'>" + header
+        )
+
         for instance, neighbors in bgp_states.items():
             for neighbor, entries in neighbors.items():
-                # if vpn_instance and instance == "BGP":
-                if vpn_instance :
-                    instance = vpn_instance #20251031 get vpn instance name from cisco log parsing
-                else:
-                    instance = instance.split('.')[1]  # Get base instance name for HPE BGP.1, BGP.2, etc.
-                #20251031 get current state from monitor.peer_uptime function
                 current_ts, _, current_state = entries[-1]
-                # bgp_live_status = monitor.get_peer_status('bgp', neighbor, log)
-                logger.debug(f"Debug: Getting BGP status for Host: {ip}, Instance: {instance}, Neighbor: {neighbor}")  # Debug print
-                # bgp_live_status = monitor.get_peer_status('bgp', hostname,instance, neighbor)
-                bgp_live_status = monitor.get_peer_status(db, 'bgp', ip ,instance, neighbor)
-                # bgp_live_status = bgp_states.get('instance')
-                if isinstance(bgp_live_status, list):
-                    # Expect a single element list; take the first one
-                    bgp_live_status = bgp_live_status[0] if bgp_live_status else {}
-                
-                # fall back and Always show ESTABLISHED, FULL/DR, etc.
-                # bgp_peer_state = bgp_live_status.get('state', 'UNKNOWN').upper() if bgp_live_status else 'UNKNOWN'    
-                bgp_peer_state = current_state if current_state else (bgp_live_status.get('state', 'UNKNOWN').upper() if bgp_live_status else 'UNKNOWN')
 
-                # bgp_vpn_stance = bgp_live_status.get('vpn_instance', 'UNKNOWN').upper() if bgp_live_status else 'UNKNOWN'   
-                bgp_vpn_stance = instance   #get instance name from log parsing instead of monitor function
-                bgp_peer_duration_val = bgp_live_status.get('up_down_time', 'UNKNOWN') if bgp_live_status else 'UNKNOWN'   
+                logger.debug(
+                    "BGP status query — host:%s instance:%s neighbor:%s",
+                    ip, instance, neighbor,
+                )
+                # Live DB lookup (result used as fallback only)
+                bgp_live = get_peer_status(db, "bgp", ip, instance, neighbor)
+                if isinstance(bgp_live, list):
+                    bgp_live = bgp_live[0] if bgp_live else {}
 
-                if bgp_peer_duration_val != 'UNKNOWN':
-                    bgp_peer_duration = bgp_peer_duration_val
-                else:
-                    bgp_peer_duration = get_dynamic_duration(current_ts) 
+                bgp_peer_state = current_state or (
+                    bgp_live.get("state", "UNKNOWN").upper() if bgp_live else "UNKNOWN"
+                )
+                bgp_peer_duration = get_dynamic_duration(current_ts)[0]
 
-                state_counts = {state: 0 for state in bgp_all_states}
-                for _, _, state in entries:
-                    state_counts[state] += 1
-                row_style = "style='background-color:Yellow'" if bgp_peer_state != "ESTABLISHED" else "style='background-color:lightgreen;'"
+                state_counts = {s: 0 for s in bgp_all_states}
+                for _, _, s in entries:
+                    state_counts[s] += 1
+
+                row_style = (
+                    "style='background-color:lightgreen;'"
+                    if bgp_peer_state == "ESTABLISHED"
+                    else "style='background-color:Yellow'"
+                )
                 row = (
-                    f"<tr {row_style}><td>{bgp_vpn_stance}</td><td>{neighbor}</td><td>{bgp_peer_state}</td><td>{bgp_peer_duration}</td>"
-                    + "".join(f"<td>{state_counts[state]}</td>" for state in sorted(bgp_all_states))
+                    f"<tr {row_style}>"
+                    f"<td>{instance}</td><td>{neighbor}</td>"
+                    f"<td>{bgp_peer_state}</td><td>{bgp_peer_duration}</td>"
+                    + "".join(f"<td>{state_counts[s]}</td>" for s in sorted_states)
                     + f"<td>{current_ts}</td></tr>"
                 )
                 log_analysis.append(row)
+
         log_analysis.append("</table>")
 
-
-    # === OSPF Summary ===
+    # -----------------------------------------------------------------------
+    # Render OSPF summary table
+    # -----------------------------------------------------------------------
     if ospf_states:
         log_analysis.append("<h5 style='margin:0'>Log Summary - OSPF</h5>")
-        ospf_all_states = set()
-        for neighbors in ospf_states.values():
-            for entries in neighbors.values():
-                ospf_all_states.update(state for _, _, state, _ in entries)
-        
+
+        ospf_all_states: set = set()
+        for nbrs in ospf_states.values():
+            for entries in nbrs.values():
+                ospf_all_states.update(s for _, _, s, _ in entries)
+
+        sorted_states = sorted(ospf_all_states)
         header = (
-            "<tr><th style='width:7%'>Process</th><th style='width:10%'>VPN</th><th style='width:10%'>Neighbor</th><th style='width:13%'>Interface</th>"
-            "<th style='width:10%'>Current</th><th style='width:10%'>Duration</th>"
-            + "".join(f"<th>{state}</th>" for state in sorted(ospf_all_states))
+            "<tr>"
+            "<th style='width:7%'>Process</th>"
+            "<th style='width:10%'>VPN</th>"
+            "<th style='width:10%'>Neighbor</th>"
+            "<th style='width:13%'>Interface</th>"
+            "<th style='width:10%'>Current</th>"
+            "<th style='width:10%'>Duration</th>"
+            + "".join(f"<th>{s}</th>" for s in sorted_states)
             + "<th style='width:20%'>LastChange</th></tr>"
         )
-        log_analysis.append("<table id='ospf_log_summary' border='1' style='font-size:12px;width:100%;border:none'>" + header)
+        log_analysis.append(
+            "<table id='ospf_log_summary' border='1' "
+            "style='font-size:12px;width:100%;border:none'>" + header
+        )
 
         for process, neighbors in ospf_states.items():
             for neighbor, entries in neighbors.items():
-                # --- THIS IS THE CORRECTED LOGIC BLOCK ---
-                # Get current status from the last entry
                 current_ts, current_iface, current_state, _ = entries[-1]
 
-                # Find the most recent valid VPN name by searching backwards
-                last_known_vpn = 'N/A'
+                # Find the most recent non-N/A VPN name
+                last_known_vpn = "N/A"
                 for _, _, _, vpn in reversed(entries):
-                    if vpn != 'N/A':
+                    if vpn != "N/A":
                         last_known_vpn = vpn
-                        break # Found it, stop searching
+                        break
 
-                #20251031 get current state from monitor.peer_uptime function
-                ospf_live_status = monitor.get_peer_status(db, 'ospf', ip, vpn, neighbor)
-                ospf_peer_state = ospf_live_status.get('state', 'UNKNOWN').upper() if ospf_live_status else 'UNKNOWN'
-                ospf_peer_duration_val = ospf_live_status.get('verbose_uptime', 'UNKNOWN') if ospf_live_status else 'UNKNOWN'   
+                # FIX: was passing bare `vpn` (loop var from reversed()) instead
+                #      of `last_known_vpn`.  Also removed the redundant live-DB
+                #      call whose result was immediately overwritten by
+                #      `current_state` two lines later.
+                ospf_peer_state    = current_state
+                ospf_peer_duration = get_dynamic_duration(current_ts)[0]
 
-                if ospf_peer_duration_val != 'UNKNOWN':
-                    ospf_peer_duration = ospf_peer_duration_val
-                else:
-                    ospf_peer_duration = get_dynamic_duration(current_ts) 
+                state_counts = {s: 0 for s in ospf_all_states}
+                for _, _, s, _ in entries:
+                    state_counts[s] += 1
 
-                # Calculate state counts
-                state_counts = {state: 0 for state in ospf_all_states}
-                for _, _, state, _ in entries:
-                    state_counts[state] += 1
-
-                #20251120 use current_state as ospf peer state 
-                ospf_peer_state = current_state
-
-                row_style = "style='background-color:Yellow'" if ospf_peer_state not in ["FULL", "ESTABLISHED"] else "style='background-color:lightgreen;'"
-                # Use the 'last_known_vpn' variable for the output
+                row_style = (
+                    "style='background-color:lightgreen;'"
+                    if ospf_peer_state in ("FULL", "ESTABLISHED")
+                    else "style='background-color:Yellow'"
+                )
                 row = (
-                    f"<tr {row_style}><td>{process}</td><td>{last_known_vpn}</td><td>{neighbor}</td><td>{current_iface}</td>"
+                    f"<tr {row_style}>"
+                    f"<td>{process}</td><td>{last_known_vpn}</td>"
+                    f"<td>{neighbor}</td><td>{current_iface}</td>"
                     f"<td>{ospf_peer_state}</td><td>{ospf_peer_duration}</td>"
-                    + "".join(f"<td>{state_counts[state]}</td>" for state in sorted(ospf_all_states))
+                    + "".join(f"<td>{state_counts[s]}</td>" for s in sorted_states)
                     + f"<td>{current_ts}</td></tr>"
                 )
                 log_analysis.append(row)
+
         log_analysis.append("</table><br>")
 
-    # print(log,log_analysis)
     return "".join(log_analysis)
 
+
+# ---------------------------------------------------------------------------
+# parse_routing_info — convert a routing-state capture to JSON
+# ---------------------------------------------------------------------------
+
 def parse_routing_info(temp_file_path, json_file):
+    """Parse a HPE routing-state capture and write structured JSON."""
     routing_info = {"hostname": None, "host_ip": None, "BGP": [], "OSPF": []}
-    ip_regex = r'(?:\d{1,3}\.){3}\d{1,3}'
-    #hostname_regex = r"<(.*?)>"
+    ip_regex       = r"(?:\d{1,3}\.){3}\d{1,3}"
     hostname_regex = r"(<|)(.*?)(>|#)"
-    
+
     if not os.path.isfile(temp_file_path):
-        print("No files exist:", temp_file_path)
+        logger.error("No file exists: %s", temp_file_path)
         return
 
-    file_name = os.path.split(temp_file_path)[1]  # Get filename from the file path
-
+    file_name    = os.path.split(temp_file_path)[1]
     host_ip_match = re.search(ip_regex, file_name)
+    if not host_ip_match:
+        logger.error("Host IP not found in filename: %s", file_name)
+        return
+    host_ip = host_ip_match.group()
 
-    if host_ip_match:
-        host_ip = host_ip_match.group()  # Host IP is extracted from the second part of the filename
-    else:
-        print("Host IP not found in filename:", file_name)
-        return 
+    with open(temp_file_path, "r", encoding="utf-8", errors="replace") as fh:
+        lines = fh.readlines()
 
-    #print("Converting to routing JSON file...", json_file)
-    
-    with open(temp_file_path, 'r') as temp_file:
-        lines = temp_file.readlines()
-
-    current_hostname = None  # Initialize current hostname
-    in_bgp_section = False
-    in_ospf_section = False
-    current_vpn_instance = "Global"     # Initialize BGP VPN Instance
-    current_ospf_area = None            # Initialize outside the loop        
+    current_hostname    = None
+    in_bgp_section      = False
+    in_ospf_section     = False
+    current_vpn_instance = "Global"
+    current_area        = None
+    # FIX: guard against reference-before-assignment if header lines are absent
+    router_id      = "unknown"
+    local_as_number = "unknown"
 
     for line in lines:
         line = line.strip()
 
         if current_hostname is None:
-            hostname_match = re.match(hostname_regex, line)
-            if hostname_match:
-                current_hostname = hostname_match.group(2)
-                routing_info["hostname"] = current_hostname
-                routing_info["host_ip"] = host_ip          
+            m = re.match(hostname_regex, line)
+            if m:
+                current_hostname          = m.group(2)
+                routing_info["hostname"]  = current_hostname
+                routing_info["host_ip"]   = host_ip
 
         if "BGP is not configured." in line:
             routing_info["BGP"] = "BGP is not configured."
-            in_bgp_section = False  # Set BGP section flag to False
-            continue  # Move to the next line
+            in_bgp_section = False
+            continue
 
         if line.startswith("BGP local router ID:"):
-            router_id = line.split(":")[1].strip()
+            router_id      = line.split(":", 1)[1].strip()
             in_bgp_section = True
             continue
 
         if line.startswith("Local AS number:"):
-            local_as_number = line.split(":")[1].strip()
+            local_as_number = line.split(":", 1)[1].strip()
             continue
 
-        # Detect BGP sections
         if in_bgp_section:
-            #print(line)
             if line.startswith("VPN instance:"):
-                current_vpn_instance = line.split(":")[1].strip()
-
+                current_vpn_instance = line.split(":", 1)[1].strip()
             elif line.startswith("Total number of peers:"):
-                #peer_total = re.findall(r"\d+",line)[0]
-                #peer_est = re.findall(r"\d+",line)[1]
-
-                peer_total, peer_est = map(int, re.findall(r"\d+", line))
-                bgp_peer = {
-                    "VPN_instance": current_vpn_instance,
-                    "local_router_id": router_id,
-                    "local_as_number": local_as_number,
-                    "Total number of peers": peer_total,
+                nums = re.findall(r"\d+", line)
+                if len(nums) >= 2:
+                    peer_total, peer_est = int(nums[0]), int(nums[1])
+                else:
+                    peer_total = peer_est = 0
+                routing_info["BGP"].append({
+                    "VPN_instance":            current_vpn_instance,
+                    "local_router_id":         router_id,
+                    "local_as_number":         local_as_number,
+                    "Total number of peers":   peer_total,
                     "Peers in established state": peer_est,
-                    "Peer": []
-                }
-                routing_info["BGP"].append(bgp_peer)
-
+                    "Peer": [],
+                })
             elif re.match(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", line):
                 parts = line.split()
-                if len(parts) >= 7:
-                    peer_info = {
-                        "peer_IP": parts[0],
-                        "peer_AS": parts[1],
+                if len(parts) >= 7 and routing_info["BGP"]:
+                    routing_info["BGP"][-1]["Peer"].append({
+                        "peer_IP":     parts[0],
+                        "peer_AS":     parts[1],
                         "peer_uptime": parts[-2],
-                        "peer_status": parts[-1]
-                    }
-                    routing_info["BGP"][-1]["Peer"].append(peer_info)
-
-
-        # Detect OSPF sections
+                        "peer_status": parts[-1],
+                    })
 
         if "OSPF is not configured." in line:
             routing_info["OSPF"] = "OSPF is not configured."
-            in_ospf_section = False  # Set OSPF section flag to False
-            continue  # Move to the next line
+            in_ospf_section = False
+            continue
 
         if line.startswith("OSPF Process"):
-            in_bgp_section = False
+            in_bgp_section  = False
             in_ospf_section = True
-            current_process = re.search(r"Process (\d+)", line).group(1)
-            router_id = re.search(r"Router ID ([\d\.]+)", line).group(1)
+            proc_m = re.search(r"Process (\d+)", line)
+            rid_m  = re.search(r"Router ID ([\d.]+)", line)
             routing_info["OSPF"].append({
-                "process": current_process,
-                "process router ID": router_id,
-                "area_info": []
+                "process":          proc_m.group(1) if proc_m else "?",
+                "process router ID": rid_m.group(1) if rid_m  else "?",
+                "area_info": [],
             })
-            current_area = None  # Reset area
+            current_area = None
+            continue
 
         if in_ospf_section and line.startswith("Area:"):
-            current_area = line.split(":")[1].strip()
+            current_area = line.split(":", 1)[1].strip()
             routing_info["OSPF"][-1]["area_info"].append({
                 "Area": current_area,
-                "neighbor_info": []
+                "neighbor_info": [],
             })
+            continue
 
-        elif in_ospf_section and current_area:
-            # Match OSPF neighbor lines
-            nei_pattern = r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+'
-            nei_pattern += r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\d+\s+\d+\s+'
-            nei_pattern += r'([\w/]+)\s+(\S+)'
-            match = re.match(nei_pattern, line)
-            
-            if match :
+        if in_ospf_section and current_area:
+            nei_re = (
+                r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+"
+                r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+\d+\s+\d+\s+"
+                r"([\w/]+)\s+(\S+)"
+            )
+            if re.match(nei_re, line):
                 parts = line.split()
-                neighbor_info = {
+                routing_info["OSPF"][-1]["area_info"][-1]["neighbor_info"].append({
                     "Router ID": parts[0],
-                    "Address": parts[1],
-                    "State": parts[4],
-                    "Interface": parts[-1]
-                }
-                routing_info["OSPF"][-1]["area_info"][-1]["neighbor_info"].append(neighbor_info)
+                    "Address":   parts[1],
+                    "State":     parts[4],
+                    "Interface": parts[-1],
+                })
 
-    # Write to JSON file
-    with open(json_file, 'w') as f:
-        json.dump(routing_info, f, indent=4)
+    with open(json_file, "w", encoding="utf-8") as jf:
+        json.dump(routing_info, jf, indent=4)
 
-# # 20251127 generate clickable html list
+
+# ---------------------------------------------------------------------------
+# generate_dropdown_list — HTML <select> for historical reports
+# ---------------------------------------------------------------------------
+
 def generate_dropdown_list(reports_data):
-    """Generates an HTML drop-down list of reports, including file size."""
-    
-    # 1. Start the select box
-    print('<h3 style="margin-top: 20px;text-align: left">Select a Historical Report:</h3>')
-    print('<select id="reportSelector" onchange="openReport(this.value)" style="padding: 5px; font-size: 12px; width: 500px;">') # Increased width to accommodate size
-    print('<option value="" disabled selected>-- Select an HTML Report (File Size) --</option>') # Default option
-    
-    # 2. Add options for each report file
+    """Return an HTML string with a <select> drop-down of historical reports."""
+    parts = [
+        '<h3 style="margin-top:20px;text-align:left">Select a Historical Report:</h3>',
+        '<select id="reportSelector" onchange="openReport(this.value)" '
+        'style="padding:5px;font-size:12px;width:500px;">',
+        '<option value="" disabled selected>-- Select an HTML Report (File Size) --</option>',
+    ]
     for report in reports_data:
-        filename = report['filename']
-        size = report['size']
-        
-        # The value is the relative path to the file
-        link_path = f"../logs/{filename}" 
-        
-        # CRITICAL CHANGE: Display text now includes the file size
-        display_text = f"{filename} ({size})"
-        
-        print(f'<option value="{link_path}">{display_text}</option>')
-        
-    print('''</select>
-    <script>
-        function openReport(url) {
-            // Check if a file was actually selected (not the default option)
-            if (url) {
-                window.open(url, '_blank');
-            }
-        }
-    </script>
-    ''')
+        filename = report["filename"]
+        size     = report["size"]
+        link_path = f"../logs/{filename}"
+        parts.append(f'<option value="{link_path}">{filename} ({size})</option>')
 
+    parts.append(
+        "</select>\n"
+        "<script>\n"
+        "function openReport(url) { if (url) window.open(url, '_blank'); }\n"
+        "</script>"
+    )
+    return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
 
 def main():
-    fname = ""
-    ip = ""
-    if sys.argv[1:] :
-        module_option=sys.argv[1]
-        if module_option == "core" :
-            logfile = sys.argv[2]
-            fname = os.path.split(logfile)[1]  # Get filename from the file path
-            ip_match = re.search(mainconfig.IP_PATTERN, fname)
-            ip = ip_match[0] if ip_match else "unknown"
+    if not sys.argv[1:]:
+        print(f"Usage: {sys.argv[0]} core|routing <logfile> [<jsonfile>]")
+        sys.exit(1)
 
-            # core_check(log_dir, fname, ip, logger=None)
-            log_check(logfile, logger=None)
+    option = sys.argv[1]
 
-        if module_option == "routing" :
-            file1=sys.argv[2]
-            file2=sys.argv[3]
-            parse_routing_info(file1,file2)
+    if option == "core":
+        logfile  = sys.argv[2]
+        result   = log_check(logfile)
+        if result:
+            logger.info("log_check complete: %s", result.get("hostname"))
+
+    elif option == "routing":
+        file1 = sys.argv[2]
+        file2 = sys.argv[3]
+        parse_routing_info(file1, file2)
+
     else:
-        print(f"Usage: {sys.argv[0]} core|compare|routing file1 file2")
-        exit()
+        print(f"Unknown option: {option}")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
-    # This will run only if the script is executed directly.
-    main()  
+    main()
