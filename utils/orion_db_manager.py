@@ -39,19 +39,6 @@ class OrionDatabaseManager:
         # 1.3. Create Index - FIX: Ensure spaces around the parenthesis
         self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_nodeid ON [Orion.Nodes] (NodeID)')
 
-        # 1.4  Trigger to update NodesCustomProperties when Nodes table is updated
-        # self.cursor.execute('''DROP TRIGGER IF EXISTS update_cp_status;''')
-        # self.cursor.execute('''
-        #     CREATE TRIGGER update_cp_status
-        #     AFTER INSERT ON [Orion.Nodes]
-        #     BEGIN
-        #         UPDATE [Orion.NodesCustomProperties]
-        #         SET Status = NEW.Status,
-        #             StatusDescription = NEW.StatusDescription
-        #         WHERE NodeID = NEW.NodeID;
-        #         END;
-        # ''')
-
         # 1.4 Create View for Node Full Status
         self.cursor.execute("PRAGMA foreign_keys = ON")
         self.cursor.execute(''' 
@@ -80,8 +67,7 @@ class OrionDatabaseManager:
 
         # 2. Orion.SitesCustomProperties Table
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS [Orion.SitesCustomProperties]
-            (Site TEXT, Address TEXT, City Text,
-            TotalNodes TEXT, DownCount TEXT,
+            (Site TEXT, Address TEXT, City Text, TotalNodes TEXT, DownCount TEXT, HA TEXT,
             PRIMARY KEY (Site, Address))''') # Use both to define a unique row
                                          
         # 3. Orion.NPM.Interfaces Table
@@ -108,6 +94,10 @@ class OrionDatabaseManager:
             LayerType TEXT,
             LastUpdate TEXT,
             PRIMARY KEY (SourceNodeID, TargetNodeID, SourceInterface))''')
+        
+        # 20260506 ── Schema migrations (idempotent — safe to run on every startup) ── one time run to add missing columns to existing tables without affecting current data
+        # self._add_column_if_missing("[Orion.SitesCustomProperties]", "HA", "TEXT")
+
 
         self.conn.commit()
 
@@ -238,21 +228,23 @@ class OrionDatabaseManager:
             logger.error(f"SQL Upsert Failed: {e} | Query: {query} | alert Data: {row}")
 
     def upsert_sites_properties(self, prop_data):
-        data_rows = "Site , Address, City, TotalNodes , DownCount "
+        data_rows = "Site , HA, Address, City, TotalNodes , DownCount "
         placeholders = ', '.join(['?'] * len(data_rows.split(', ')))        
     # Updated to handle composite conflict on (Site, Address)
         query = f'''INSERT INTO [Orion.SitesCustomProperties] ({data_rows}) 
              VALUES ({placeholders})
              ON CONFLICT(Site, Address) DO UPDATE SET 
                 City=excluded.City,
+                HA=excluded.HA,
                 TotalNodes=excluded.TotalNodes, 
                 DownCount=excluded.DownCount''' # Updates City if Site/Address matches
         
         try:
             for row in prop_data:
                 values = (
-                    str(row.get('Site', '')),
-                    str(row.get('Address', '')),
+                    str(row.get('Site', '')).strip(),      # ← strip
+                    str(row.get('HA', '')).strip(),
+                    str(row.get('Address', '')).strip(),   # ← strip (part of PK)
                     str(row.get('City', '')),
                     str(row.get('TotalNodes', '')),
                     str(row.get('DownCount', '')),
@@ -263,6 +255,15 @@ class OrionDatabaseManager:
         except Exception as e:
             self.conn.rollback()
             logger.error(f"SQL upsert_custom_properties Failed: {e} | Query: {query} | nodes Data: {row}")
+
+    def _add_column_if_missing(self, table, column, col_type="TEXT"):
+        """Adds a column to an existing table if it doesn't already exist."""
+        self.cursor.execute(f"PRAGMA table_info({table})")
+        existing = [row[1] for row in self.cursor.fetchall()]
+        if column not in existing:
+            self.cursor.execute(f"ALTER TABLE {table} ADD COLUMN [{column}] {col_type}")
+            self.conn.commit()
+            logger.info(f"Migration: added column [{column}] to {table}")
 
     def upsert_nodes_properties(self, nodes_data):
         if not nodes_data:

@@ -155,15 +155,17 @@ def generate_node_table(session):
     site_data = results_site.get("results", [])
     for row_site in site_data:  # FIX: reuse .get() result, don't double-fetch with ['results']
         site_name = row_site.get('Site', '').strip()
+        site_ha = row_site.get('HA', '').strip()
         site_address = row_site.get('Address', '').strip()
         site_city = row_site.get('City', '').strip()
         nodedown_list.append({
             'Site': site_name,
+            'HA': site_ha,
             'Address': site_address,
             'City': site_city,
             'DownCount': row_site.get('DownCount'),
             'TotalNodes': row_site.get('TotalNodes'),
-            'FullDisplay': f"{site_name}, {site_address}, {site_city}, {row_site.get('DownCount')}/{row_site.get('TotalNodes')}"
+            'FullDisplay': f"{site_ha} - {site_name}, {site_address}, {site_city}, {row_site.get('DownCount')}/{row_site.get('TotalNodes')}"
         })
         if row_site.get('DownCount') and row_site.get('DownCount') == row_site.get('TotalNodes'):
             # Store as a dictionary for precise matching later
@@ -171,7 +173,7 @@ def generate_node_table(session):
                 'Site': site_name,
                 'Address': site_address,
                 'City': site_city,
-                'FullDisplay': f"{site_name}, {site_address}, {site_city}, {row_site.get('DownCount')}/{row_site.get('TotalNodes')}"
+                'FullDisplay': f"{site_ha} - {site_name}, {site_address}, {site_city}, {row_site.get('DownCount')}/{row_site.get('TotalNodes')}"
             })
         # 20260224 
             
@@ -223,7 +225,7 @@ def generate_node_table(session):
             node_name = str(row.get('NodeName') or '').strip()
             node_address = str(row.get('Address') or 'None').strip()
             raw_site_name = str(row.get('Site') or 'Unknown').strip()
-            
+            site_ha = str(row.get('HA') or 'Unknown').strip()
             # 1. Find the match in the sitedown_list using a prefix match
             # We check if the item in the list starts with the specific site name
             # site_down_match = next((item for item in sitedown_list if item.startswith(f"{raw_site_name},")), None)
@@ -866,14 +868,6 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
         orion_status = check_orion_status(session)
         last_execution_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Generate dynamic tables
-        # node_table = generate_node_table(session)
-        # interface_table = generate_interface_table(session)
-        # # event_table = generate_event_table(session)
-        # alert_table = generate_alert_table(session)
-        # netpath_table = generate_netpath_table(session)
-        # apipoller_table = generate_apipoller_table(session)
-        # syslog_table = generate_syslog(session)
 
         # Wrap each call so one failure doesn't stop the others
         node_table = safe_generate(generate_node_table, session)

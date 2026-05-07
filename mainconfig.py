@@ -187,6 +187,7 @@ swis_sitedown= 'SELECT SUM(1) as value, Site FROM (SELECT nodeid,DisplayName,CP.
 swis_site='''
 SELECT 
     ISNULL(CP.CustomProperties.Site, 'Unknown') AS Site, 
+    ISNULL(CP.CustomProperties.HA, 'Unknown') AS HA,
     ISNULL(CP.CustomProperties.Address, 'None') AS Address,
     MAX(ISNULL(CP.CustomProperties.City, 'None')) AS City,
     COUNT(nodeid) AS TotalNodes,
@@ -194,6 +195,7 @@ SELECT
 FROM Orion.Nodes CP
 GROUP BY 
     ISNULL(CP.CustomProperties.Site, 'Unknown'), 
+    ISNULL(CP.CustomProperties.HA, 'Unknown'),
     ISNULL(CP.CustomProperties.Address, 'None')
 ORDER BY DownCount DESC
 '''
