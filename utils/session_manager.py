@@ -150,6 +150,27 @@ def get_deterministic_session_id(npm_server: str, username: str) -> str:
     raw_str = f"{username.lower().strip()}_{npm_server.lower().strip()}"
     return hashlib.sha256(raw_str.encode()).hexdigest()
 
+
+def get_any_active_client():
+    """Returns the first live SwisClient from ACTIVE_SESSIONS, or None.
+
+    ACTIVE_SESSIONS holds {session_id: SwisClient} populated by
+    OrionSession.get_client(). This helper lets any endpoint grab a live
+    SWIS connection without knowing the current session_id.
+
+    Used by on-demand operations like topo/refresh that need a SWIS query
+    outside the normal dashboard request cycle.
+    """
+    for session_id, client in list(ACTIVE_SESSIONS.items()):
+        try:
+            client.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
+            return client
+        except Exception:
+            # Stale entry — evict so it doesn't block the next attempt
+            logger.warning("get_any_active_client: session %s is stale, evicting.", session_id[:8])
+            ACTIVE_SESSIONS.pop(session_id, None)
+    return None
+
 def log_user_activity(session_id, username, npm_server, ip_address, action="login"):
     new_entry = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

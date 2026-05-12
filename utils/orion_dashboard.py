@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 # Local imports
 import utils.fastapi_mymodule as mymodule
 import mainconfig as mainconfig
+import config.orion_config as orion_config
 from utils.session_manager import OrionSession, update_session_audit
 from utils.orion_db_manager import sync_orion_data
 from utils.orion_db_manager import OrionDatabaseManager
@@ -22,17 +23,17 @@ logger = mainconfig.setup_module_logger(__name__)
 curr_dir= os.path.dirname(__file__)
 log_dir=os.path.abspath(os.path.join(curr_dir, '..', 'logs'))
 data_dir=os.path.abspath(os.path.join(curr_dir, '..', 'data'))
-icon_dir = mainconfig.ICONS_DIR
-session_dir = mainconfig.SESSION_DIR  # Directory to store session files
+icon_dir = orion_config.ICONS_DIR
+session_dir = orion_config.SESSION_DIR  # Directory to store session files
 SESSION_LOG_FILE = os.path.join(session_dir, "orion_session_log.json")
 
-DB_ORION_PATH = mainconfig.DB_ORION_PATH
+DB_ORION_PATH = orion_config.DB_ORION_PATH
 
 templates = Jinja2Templates(directory="templates")
 
 from sqlalchemy import create_engine as _create_engine
 _orion_read_engine = _create_engine(
-    f"sqlite:///{mainconfig.DB_ORION_PATH}",
+    f"sqlite:///{orion_config.DB_ORION_PATH}",
     connect_args={"check_same_thread": False}
 )
 
@@ -45,23 +46,23 @@ for directory in [log_dir, data_dir, session_dir]:
 #   golbal var    
 sitedown_list=[]    
 detailsurl=""
-orion_prefix = str(mainconfig.orion_prefix)
-swis_site = mainconfig.swis_site
-swis_sitedown = mainconfig.swis_sitedown
-swis_nodedown2 = mainconfig.swis_nodedown2
-swis_interfacdown = mainconfig.swis_interfacdown
-swis_bgp = mainconfig.swis_bgp
-swis_ospf = mainconfig.swis_ospf
-swis_nodestatistic = mainconfig.swis_nodestatistic
-swis_ncp = mainconfig.swis_ncp
-swis_alert = mainconfig.swis_alert
-swis_event = mainconfig.swis_event
-swis_apipoller = mainconfig.swis_apipoller
-swis_netpath = mainconfig.swis_netpath
-swis_endpoint = mainconfig.swis_endpoint
-swis_nodesevent = mainconfig.swis_nodesevent
-swis_nodes_eventhistory = mainconfig.swis_nodes_eventhistory
-swis_nodeduration = mainconfig.swis_nodeduration
+orion_prefix = str(orion_config.orion_prefix)
+swis_site = orion_config.swis_site
+swis_sitedown = orion_config.swis_sitedown
+swis_nodedown2 = orion_config.swis_nodedown2
+swis_interfacdown = orion_config.swis_interfacdown
+swis_bgp = orion_config.swis_bgp
+swis_ospf = orion_config.swis_ospf
+swis_nodestatistic = orion_config.swis_nodestatistic
+swis_ncp = orion_config.swis_ncp
+swis_alert = orion_config.swis_alert
+swis_event = orion_config.swis_event
+swis_apipoller = orion_config.swis_apipoller
+swis_netpath = orion_config.swis_netpath
+swis_endpoint = orion_config.swis_endpoint
+swis_nodesevent = orion_config.swis_nodesevent
+swis_nodes_eventhistory = orion_config.swis_nodes_eventhistory
+swis_nodeduration = orion_config.swis_nodeduration
 
 def cleanup_session(session_file):
     if os.path.exists(session_file):
@@ -135,7 +136,7 @@ def generate_node_table(session):
 
     # --- UPDATED: Load Active Power Outages with URLs ---
     power_lookup = {} # Use a dictionary to store SiteName: SourceURL
-    debug_path = os.path.join(mainconfig.DATA_DIR, "debug_active_poweroutages.json")
+    debug_path = os.path.join(orion_config.DATA_DIR, "debug_active_poweroutages.json")
     
     if os.path.exists(debug_path):
         try:
@@ -181,7 +182,7 @@ def generate_node_table(session):
     logger.debug(f"Debug: sitedown_list: {sitedown_list}")
     # 20250106 update site down logic to check from site table
 
-    query_sitetopology = mainconfig.swis_sitetopology
+    query_sitetopology = orion_config.swis_sitetopology
     results_sitetopology = session.query(query_sitetopology)
     results_sitetopology_data = results_sitetopology.get("results", [])
 
@@ -680,7 +681,7 @@ def generate_apipoller_table(session):
 
 # 20260318 move to api module: no need to save syslog to file anymore, directly save to DB in generate_syslog function and display through table, also added link toggle for syslog table
 def generate_syslog(session):
-    query = mainconfig.swis_syslog
+    query = orion_config.swis_syslog
     results = session.query(query)
 
     # Debug: log the raw SWIS response type and first item so we can see
@@ -703,7 +704,7 @@ def generate_syslog(session):
 
         node_id_to_find = str(row['NodeID'])
         # Find the device dictionary that matches the nodeid
-        device = next((item for item in mainconfig.CORE_DEVICES if item["nodeid"] == node_id_to_find), None)
+        device = next((item for item in orion_config.CORE_DEVICES if item["nodeid"] == node_id_to_find), None)
         if device:
             host_name = device['name']
             host_ip = device['ip']
@@ -766,11 +767,11 @@ def generate_syslog(session):
 def sync_historical_tracing(session):
     query = swis_nodesevent
     results = session.query(query)
-    db_conn = OrionDatabaseManager(mainconfig.DB_ORION_PATH)
+    db_conn = OrionDatabaseManager(orion_config.DB_ORION_PATH)
     db_conn.connect()
 
     nodes_history = {}
-    # db_manager = OrionDatabaseManager(mainconfig.DB_ORION_PATH)    
+    # db_manager = OrionDatabaseManager(orion_config.DB_ORION_PATH)    
     for row in results.get("results", []): 
         node_id = row['NodeID']
         event_type = row['EventType']
@@ -897,7 +898,7 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
 
     # 20251226 Create a dictionary of data for the DB manager
 
-        db_manager = OrionDatabaseManager(mainconfig.DB_ORION_PATH)
+        db_manager = OrionDatabaseManager(orion_config.DB_ORION_PATH)
         db_manager.connect()       # FIX: must connect before setup_tables or cursor use
         db_manager.setup_tables()  # idempotent — safe to call every refresh
 
@@ -917,9 +918,9 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
             count = _tmp_conn.execute(_sa_text(
                 "SELECT COUNT(*) FROM [Orion.NodesCustomProperties]"
             )).scalar()
-        if count == 0:
+        if count != 8835:   # run full load if count doesn't match expected (orion 2026-05-10)
             logger.debug("Performing Initial Full Load...")
-            swis_result = session.query(mainconfig.swis_ncp)
+            swis_result = session.query(orion_config.swis_ncp)
             if swis_result and swis_result.get("results"):
                 data_for_db["NodesCustomProperties"] = swis_result.get("results")
 

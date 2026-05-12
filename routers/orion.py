@@ -16,6 +16,7 @@ from typing import Any
 import utils.fastapi_mymodule as mymodule
 import utils.orion_dashboard as orion_dashboard
 import mainconfig as mainconfig
+import config.orion_config as orion_config
 # from mainpydantic import OrionCheckRequest, OrionResponse
 from utils.session_manager import OrionSession, update_session_audit
 from utils.orion_db_manager import sync_orion_data
@@ -473,6 +474,251 @@ async def get_topology_data(site: str = None):
     except Exception as e:
         logger.error("Failed to fetch topology data: %s", e)
         return {"data": [], "error": str(e)}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TWO-LEVEL TOPOLOGY API  +  ON-DEMAND REFRESH
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/topo/filters")
+async def get_topo_filters():
+    """Dynamic HA list + site-per-HA map for dropdowns. Called once on page load."""
+    try:
+        with _orion_read_engine.connect() as conn:
+            ha_df = pd.read_sql_query("""
+                SELECT HA,
+                       COUNT(DISTINCT Site) AS site_count,
+                       COUNT(*)             AS node_count
+                FROM [Orion.NodesCustomProperties]
+                WHERE HA IS NOT NULL AND HA != ''
+                GROUP BY HA ORDER BY node_count DESC
+            """, conn)
+            site_df = pd.read_sql_query("""
+                SELECT ncp.HA, ncp.Site, scp.City,
+                       CAST(scp.TotalNodes AS INTEGER) AS total_nodes,
+                       CAST(scp.DownCount  AS INTEGER) AS down_count
+                FROM [Orion.SitesCustomProperties] scp
+                JOIN  [Orion.NodesCustomProperties] ncp ON scp.Site = ncp.Site
+                WHERE ncp.HA IS NOT NULL AND ncp.HA != ''
+                  AND ncp.Site IS NOT NULL AND ncp.Site != ''
+                GROUP BY ncp.HA, ncp.Site
+                ORDER BY ncp.HA, ncp.Site
+            """, conn)
+        sites_by_ha = {}
+        for _, r in site_df.iterrows():
+            ha = r["HA"]
+            if ha not in sites_by_ha:
+                sites_by_ha[ha] = []
+            sites_by_ha[ha].append({
+                "site": r["Site"], "city": r["City"] or "",
+                "total_nodes": int(r["total_nodes"] or 0),
+                "down_count":  int(r["down_count"]  or 0),
+            })
+        return {"ha_list": ha_df.fillna("").to_dict(orient="records"), "sites_by_ha": sites_by_ha}
+    except Exception as e:
+        logger.error("topo/filters: %s", e)
+        return {"ha_list": [], "sites_by_ha": {}, "error": str(e)}
+
+
+@router.get("/topo/ha")
+async def get_topo_level1(ha: str):
+    """Level 1 — sites as nodes, inter-site L2 links collapsed to site-pair edges."""
+    if not ha:
+        raise HTTPException(status_code=400, detail="ha required")
+    try:
+        with _orion_read_engine.connect() as conn:
+            site_df = pd.read_sql_query("""
+                SELECT scp.Site, scp.City, scp.Address,
+                       CAST(scp.TotalNodes AS INTEGER) AS total_nodes,
+                       CAST(scp.DownCount  AS INTEGER) AS down_count, ncp.HA
+                FROM [Orion.SitesCustomProperties] scp
+                JOIN  [Orion.NodesCustomProperties] ncp ON scp.Site = ncp.Site
+                WHERE ncp.HA = :ha AND scp.Site IS NOT NULL AND scp.Site != ''
+                GROUP BY scp.Site ORDER BY scp.Site
+            """, conn, params={"ha": ha})
+            # FIX: join via NodeID, compare NCP.Site on both sides for accurate cross-site detection
+            edge_df = pd.read_sql_query("""
+                SELECT src.Site AS SrcSite, tgt.Site AS TgtSite,
+                       src.HA AS SrcHA, tgt.HA AS TgtHA, COUNT(*) AS link_count
+                FROM [Orion.Topology] t
+                JOIN  [Orion.NodesCustomProperties] src ON t.SourceNodeID = src.NodeID
+                JOIN  [Orion.NodesCustomProperties] tgt ON t.TargetNodeID = tgt.NodeID
+                WHERE t.LayerType = 'L2'
+                  AND src.Site != tgt.Site
+                  AND src.Site IS NOT NULL AND tgt.Site IS NOT NULL
+                  AND (src.HA = :ha OR tgt.HA = :ha)
+                GROUP BY src.Site, tgt.Site ORDER BY link_count DESC
+            """, conn, params={"ha": ha})
+        site_ids = set(site_df["Site"].tolist())
+        nodes = []
+        for _, r in site_df.iterrows():
+            dn = int(r["down_count"] or 0)
+            nodes.append({
+                "id": f"site:{r['Site']}", "label": r["Site"], "type": "site",
+                "ha": r["HA"], "city": r["City"] or "", "address": r["Address"] or "",
+                "total_nodes": int(r["total_nodes"] or 0), "down_count": dn, "has_down": dn > 0,
+            })
+        seen, edges = set(), []
+        for _, r in edge_df.iterrows():
+            key = tuple(sorted([r["SrcSite"], r["TgtSite"]]))
+            if key in seen: continue
+            seen.add(key)
+            cross_ha = r["SrcHA"] != r["TgtHA"]
+            edges.append({
+                "id": f"e:{r['SrcSite']}|{r['TgtSite']}",
+                "source": f"site:{r['SrcSite']}", "target": f"site:{r['TgtSite']}",
+                "link_count": int(r["link_count"]), "cross_ha": cross_ha,
+                "color": "#f97316" if cross_ha else "#14b8a6",
+            })
+        return {"level": 1, "ha": ha, "nodes": nodes, "edges": edges,
+                "summary": {"sites": len(nodes), "edges": len(edges)}}
+    except Exception as e:
+        logger.error("topo/ha: %s", e)
+        return {"nodes": [], "edges": [], "error": str(e)}
+
+
+@router.get("/topo/site")
+async def get_topo_level2(site: str):
+    """Level 2 — devices inside one site as nodes with L2 direct connections.
+    Core device (Switch/Firewall/Router by DeviceType, or 'CORE' in name) is
+    returned with is_core=True so the frontend can pin it to the centre."""
+    if not site:
+        raise HTTPException(status_code=400, detail="site required")
+    CORE_TYPES = {"Switch", "Firewall", "Router", "Telus CE"}
+    try:
+        with _orion_read_engine.connect() as conn:
+            node_df = pd.read_sql_query("""
+                SELECT ncp.NodeID, ncp.NodeName, ncp.IPaddress,
+                       ncp.HA, ncp.Closet, ncp.Floor, ncp.Building,
+                       ncp.DeviceType, ncp.SiteType, ncp.Status,
+                       ncp.StatusDescription, ncp.DetailsUrl
+                FROM [Orion.NodesCustomProperties] ncp
+                WHERE ncp.Site = :site
+                ORDER BY ncp.Closet, ncp.Floor, ncp.NodeName
+            """, conn, params={"site": site})
+            # FIX: join via NodeID, use NCP.Site on both ends for cross-site accuracy
+            edge_df = pd.read_sql_query("""
+                SELECT t.SourceNodeID, t.SourceNodeName,
+                       t.TargetNodeID, t.TargetNodeName,
+                       t.SourceInterface, t.TargetInterface,
+                       src_ncp.Site AS SrcSite,
+                       tgt_ncp.Site AS TgtSite,
+                       t.LayerType
+                FROM [Orion.Topology] t
+                LEFT JOIN [Orion.NodesCustomProperties] src_ncp ON t.SourceNodeID = src_ncp.NodeID
+                LEFT JOIN [Orion.NodesCustomProperties] tgt_ncp ON t.TargetNodeID = tgt_ncp.NodeID
+                WHERE t.LayerType = 'L2'
+                  AND (src_ncp.Site = :site OR tgt_ncp.Site = :site)
+            """, conn, params={"site": site})
+        node_ids = set(str(r["NodeID"]) for _, r in node_df.iterrows())
+        nodes = []
+        for _, r in node_df.iterrows():
+            nid = str(r["NodeID"])
+            try: is_up = int(str(r.get("Status") or "1")) == 1
+            except: is_up = True
+            dtype = r["DeviceType"] or ""
+            name_upper = (r["NodeName"] or "").upper()
+            # Core detection: Switch/Firewall/Router/Telus CE type OR 'CORE' in name
+            is_core = dtype in CORE_TYPES or "CORE" in name_upper
+            nodes.append({
+                "id": f"node:{nid}", "label": r["NodeName"] or nid,
+                "type": "device", "is_core": is_core,
+                "ha": r["HA"] or "", "closet": r["Closet"] or "",
+                "floor": r["Floor"] or "", "building": r["Building"] or "",
+                "device_type": dtype, "ip": r["IPaddress"] or "",
+                "details_url": r["DetailsUrl"] or "",
+                "status_desc": r["StatusDescription"] or "",
+                "is_up": is_up, "in_site": True,
+            })
+        seen_edges, edges = set(), []
+        for _, r in edge_df.iterrows():
+            src_id = f"node:{r['SourceNodeID']}"
+            tgt_id = f"node:{r['TargetNodeID']}"
+            if src_id == tgt_id: continue
+            key = tuple(sorted([src_id, tgt_id]))
+            if key in seen_edges: continue
+            seen_edges.add(key)
+            # NCP-derived site comparison — accurate even when Topology.SourceSite is wrong
+            cross_site = (r.get("SrcSite") or "") != (r.get("TgtSite") or "")
+            for side_id, side_name, in_site_flag in [
+                (src_id, r["SourceNodeName"], str(r["SourceNodeID"]) in node_ids),
+                (tgt_id, r["TargetNodeName"], str(r["TargetNodeID"]) in node_ids),
+            ]:
+                if side_id not in {n["id"] for n in nodes}:
+                    nodes.append({
+                        "id": side_id, "label": side_name or side_id,
+                        "type": "device", "is_core": False,
+                        "in_site": False, "is_up": True,
+                        "ha": "", "closet": "", "floor": "", "building": "",
+                        "device_type": "", "ip": "", "details_url": "",
+                        "status_desc": "",
+                    })
+                    node_ids.add(side_id.replace("node:", ""))
+            src_if = str(r.get("SourceInterface") or "").replace("None","").strip()
+            tgt_if = str(r.get("TargetInterface") or "").replace("None","").strip()
+            src_port = src_if.split(" · ")[0] if " · " in src_if else src_if
+            tgt_port = tgt_if.split(" · ")[0] if " · " in tgt_if else tgt_if
+            lbl = f"{src_port}↔{tgt_port}" if (src_port and tgt_port) else (src_port or tgt_port or "")
+            edges.append({
+                "id": f"e:{src_id}-{tgt_id}", "source": src_id, "target": tgt_id,
+                "label": lbl, "source_interface": src_if, "target_interface": tgt_if,
+                "cross_site": cross_site,
+                "color": "#f97316" if cross_site else "#22c55e",
+            })
+        in_site_nodes = [n for n in nodes if n.get("in_site", True)]
+        return {
+            "level": 2, "site": site, "nodes": nodes, "edges": edges,
+            "summary": {
+                "devices_in_site":  len(in_site_nodes),
+                "external_nodes":   len([n for n in nodes if not n.get("in_site", True)]),
+                "total_edges":      len(edges),
+                "cross_site_edges": sum(1 for e in edges if e.get("cross_site")),
+            },
+        }
+    except Exception as e:
+        logger.error("topo/site: %s", e)
+        return {"nodes": [], "edges": [], "error": str(e)}
+
+
+@router.post("/topo/refresh")
+async def topo_refresh_now():
+    """On-demand topology refresh — pulls fresh SWIS data into the local DB
+    without waiting for the next scheduled sync.
+
+    Uses get_any_active_client() from session_manager which reads the
+    ACTIVE_SESSIONS dict (populated when any user logs into the dashboard).
+    Only fetches topology + NCP — not the full dashboard payload.
+    """
+    try:
+        from utils.session_manager import get_any_active_client
+        from utils.orion_db_manager import sync_orion_data
+        from sqlalchemy import text as _sa_text
+
+        client = get_any_active_client()
+        if not client:
+            return {"ok": False, "error": "No active Orion session — log into the dashboard first."}
+
+        # Pull only the two tables needed for topology rendering
+        topo_result = client.query(orion_config.swis_sitetopology)
+        ncp_result  = client.query(orion_config.swis_ncp)
+
+        data_for_db = {
+            "sites_topology":        [r for r in (topo_result  or {}).get("results", []) if isinstance(r, dict)],
+            "NodesCustomProperties": [r for r in (ncp_result   or {}).get("results", []) if isinstance(r, dict)],
+        }
+
+        sync_orion_data(data_for_db)
+
+        with _orion_read_engine.connect() as conn:
+            node_count = conn.execute(_sa_text("SELECT COUNT(*) FROM [Orion.NodesCustomProperties]")).scalar()
+            topo_count = conn.execute(_sa_text("SELECT COUNT(*) FROM [Orion.Topology]")).scalar()
+
+        logger.info("topo/refresh: synced %d NCP nodes, %d topology edges", node_count, topo_count)
+        return {"ok": True, "nodes": node_count, "topology_edges": topo_count}
+
+    except Exception as e:
+        logger.error("topo/refresh: %s", e)
+        return {"ok": False, "error": str(e)}
 
 
 @router.get("/get_PeerTracking")

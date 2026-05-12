@@ -1,498 +1,473 @@
-<link rel="stylesheet" type="text/css" href="/static/css/jquery.dataTables-1.13.6.min.css">
-<link rel="stylesheet" type="text/css" href="/static/css/fixedColumns.dataTables-4.3.0.min.css">
-<link rel="stylesheet" type="text/css" href="/static/css/buttons.dataTables-2.4.1.min.css">
-
+{% extends "base.html" %}
+{% block title %}L2 Site Topology{% endblock %}
+{% block content %}
 <style>
-    #nodeStatusTab { padding: 20px; background: #fff; border-radius: 8px; }
-    /* Fix table sizing for many columns */
-    th, td { font-size: 11px !important; padding: 8px !important; }
-    .dataTables_scrollHeadInner, .display { width: 100% !important; }
-    .status-up { color: #28a745; font-weight: bold; }
-    .status-down { color: #dc3545; font-weight: bold; }
-    .btn-filter-down { background-color: #dc3545; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    .btn-filter-all { background-color: #6c757d; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; }
-    .btn-filter-down:hover { background-color: #a71d2a; }
-
-    .tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
-    .tab-link { padding: 10px 20px; cursor: pointer; border: none; background: none; font-weight: bold; color: #666; }
-    .tab-link.active { color: #007bff; border-bottom: 3px solid #007bff; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-</style>
-<script src="/static/js/my_javascript.js"></script>
-<script src="/static/js/jquery-3.6.1.min.js"></script>
-<script src="/static/js/ajax3.10.1.min.js"></script>
-<script src="/static/js/jquery.dataTables-1.13.6.min.js"></script>
-<script src="/static/js/dataTables.fixedColumns-4.3.1.min.js"></script>
-<script src="/static/js/dataTables.buttons-2.4.1.min.js"></script>
-<script src="/static/js/buttons.html5-2.4.1.min.js"></script>
-<script type="text/javascript" src="/static/js/vis-network-10.0.2.min.js"></script>
-
-<div class="tabs">
-    <button class="tab-link active" onclick="openTab(event, 'nodeStatusTab')">🖥️ Node Status</button>
-     <!-- <button class="tab-link" onclick="openTab(event, 'topologyTab')">🕸️ Site Topology</button> -->
-    <button class="tab-link" onclick="openTab(event, 'summaryTab')">Summary</button> 
-</div>
-
-<div id="nodeStatusTab" class="tab-content active">
-    <table id="nodeTable" class="display nowrap" style="width:100%">
-
-<div style="display: flex; font-size: 22px; margin: 0px;">
-    <div>
-        <button id="btnShowDown" class="btn-filter-down">⚠️ Down Nodes</button>
-    </div>
-    <!-- <div>
-        <button id="btnShowAll" class="btn-filter-all">Show All Nodes</button>
-    </div> -->
-    <!-- <div id="nodeSummary" style=" background: #fff; border: 1px solid #ddd; border-left: 5px solid #dc3545; padding: 15px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"> -->
-    <div style="margin-left: 10px; color: #666;"> Node Health :
-        <!-- <span id="stat-site-list">
-            Dynamically filled with site counts
-        </span> -->
-    </div>
-    <div style=" margin: 0;">
-        <span style="color: #dc3545; font-weight: bold;"><span id="stat-down">0</span><small style="color: #dc3545;"> Down</small></span>  | 
-        <span id="stat-total">0</span> <small style="color: #999;"> Total</small>
-    </div>
-    <!-- <button id="btnSyncNow" style="background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-left: 20px;">
-        🔄 Sync Orion Data
-    </button> -->
-    <span id="syncMsg" style="margin-left: 10px; font-weight: bold;"></span>
-</div>
-        <thead>
-            <tr>
-                <th>NodeName</th>
-                <th>NodeID</th>
-                <th>Status</th>
-                <th>Duration</th>
-                <th>UP|Down Time</th>
-                <th>Seconds</th>
-                <th>StatusDescription</th>
-                <th>Site</th>
-                <th>SiteType</th>
-            </tr>
-        </thead>
-    </table>
-</div>
-
-<div id="topologyTab" class="tab-content">
-    <div style="margin:0; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-        <label><strong>Site Searching:</strong></label>
-        <input type="text" id="topoSiteFilter" placeholder="Enter Site Name..." style="padding: 5px; width: 250px;">
-        
-        <button onclick="refreshMap()" class="btn-filter-all">🔍 Generate Map</button>
-        
-        <button onclick="resetMap()" class="btn-filter-all" style="background-color: #e9ecef; color: #333; border: 1px solid #ccc;">✖ Clear</button>
-
-        <select id="layoutSelect" onchange="refreshMap()" style="padding: 5px; margin-left: 10px;">
-            <option value="tree">Tree (Hierarchical)</option>
-            <option value="mesh">Mesh (Force-Directed)</option>
-        </select>
-
-    </div>
-</div>
-<!--
-    <div id="networkMap" style="display: none; height: 300px; width: 100%; border: 1px solid #ddd; background: #fff; margin-bottom: 20px; border-radius: 8px;"></div>
-
-    <table id="topoTable" class="display nowrap" style="width:100%">
-        <thead>
-            <tr>
-                <th>Source Site</th>
-                <th>Source Node</th>
-                <th>Source NodeID</th>
-                <th>Source Interface</th>
-                <th>Target Site</th>
-                <th>Target Node</th>
-                <th>Target NodeID</th>
-                <th>Target Interface</th>
-                <th>LayerType</th>
-            </tr>
-        </thead>
-    </table>
-</div>
--->
-<div id="summaryTab" class="tab-content">
-    <table id="summaryTable" class="display nowrap" style="width:100%">
-        <thead>
-            <tr>
-                <th style="width: 30%;">Site</th>
-                <th>NodeCount</th>
-                <th>HA</th>
-                <th>SiteAddress</th>
-                <th>City</th>
-            </tr>
-        </thead>
-    </table>
-</div>
-
-
-<script>
-function updateSummaryFromUI() {
-    // 1. Get the DataTable API instance
-    var table = $('#nodeTable').DataTable();
-    
-    // 2. Grab all rows currently in the table
-    var allData = table.rows().data();
-    
-    let totalNodes = 0;
-    let downNodes = 0;
-    let siteMap = {};
-
-    allData.each(function(row) {
-        totalNodes++;
-        
-        // Count Down Status
-        // if (row.Status && row.Status.toLowerCase().includes('down')) {
-        if (row.Status == 2 || row.Status == 12) {
-            downNodes++;
-        }
-        
-        // Group by Site Prefix (PHSA, FHA, VCH, etc.)
-        if (row.Site) {
-            let prefix = row.Site.split('-')[0].trim();
-            siteMap[prefix] = (siteMap[prefix] || 0) + 1;
-        }
-    });
-
-    // 3. Update the UI Elements
-    $('#stat-total').text(totalNodes);
-    $('#stat-down').text(downNodes);
-
-    let siteHtml = '';
-    // Sort sites by count descending
-    Object.entries(siteMap).sort((a,b) => b[1] - a[1]).forEach(([name, count]) => {
-        siteHtml += `<span style="background:#e9ecef; padding:3px 10px; border-radius:12px; border: 1px solid #dee2e6;">
-                        <strong>${name}:</strong> ${count}
-                     </span>`;
-    });
-    $('#stat-site-list').html(siteHtml);
+:root{
+  /*--bg:#0f1117;
+  --panel:#1a1f2e;
+  --txt:#cbd5e1;
+  */
+  --border:#2d3448;
+  
+  --muted:#64748b;--accent:#3b82f6;--up:#22c55e;--down:#ef4444;--cross:#f97316;--teal:#14b8a6;--r:7px
 }
+*{box-sizing:border-box;margin:0;padding:0}
 
-    // 1. Your existing 'table' (orionTable) initialization remains here...
-$(document).ready(function() {
-    // 1. Initialize the table and store it in a variable
-    var nodeTable = $('#nodeTable').DataTable({
-        "ajax": "/api/orion/get_custom_properties_data",
-        "scrollX": true,           // Allow horizontal scroll
-        "fixedColumns": {
-            "left": 2              // Keep Site and HA visible while scrolling
-        },
-        "columnDefs": [
-                {
-                    "targets": [1,2,5], // The index of the columns want to hide nodeid,status,seconds,bilding,city (starting from 0)
-                    "visible": false,     // This hides the column
-                    "searchable": true    // Keep this true so you can still search for hidden data!
-                }
-            ],        
-        "columns": [
-            { 
-            "data": "NodeName",
-            "render": function(data, type, row) {
-                // 'row' contains all the data for this node
-                // row.DetailsUrl is the column from your Orion.Nodes table
-                let url = "https://orion.net.mgmt" + row.DetailsUrl;
-                
-                // If the URL exists, wrap the name in a link
-                if (url) {
-                    return `<a href="${url}" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">${data}</a>`;
-                }
-                return data;
-            }
-            },
-            { "data": "NodeID" },
-            { "data": "Status" },
-            { "data": "Duration" },
-            { "data": "DownTime", 
-            "render": function(data, type, row) {
-                if (!data) return "N/A";
-                
-                // This takes the first 19 characters: "2026-01-02T13:21:09"
-                // It cuts off the .6400000
-                return data.substring(0, 19).replace('T', ' '); 
-            } },
-            { "data": "Seconds" },
-            { 
-                "data": "StatusDescription",
-                "render": function(data) {
-                    let cls = data.includes('Up') ? 'status-up' : 'status-down';
-                    return `<span class="${cls}">${data}</span>`;
-                }
-            },
-            { "data": "Site" },
-            { "data": "SiteType" }
-            // Note: You can add all 48 here or use a loop to generate this list
-        ],
-        // "dom": 'Bfrtip',           // Enable Buttons, Filtering, Processing, Table, Info, Pagination
-        // "buttons": [
-        //     'copyHtml5',
-        //     'excelHtml5',          // Very useful for 48-column data analysis
-        //     'csvHtml5'
-        // ],
-        "order": [[5, "asc"]],  // Default sort by StatusDescription descending
-        "pageLength": 50,
-        "language": {
-            "search": "Global Search (Site/Node):",
-            "loadingRecords": "Fetching from SQLite cache..."
-        }
-    });
+body{background:var(--bg);color:var(--txt);font-family:"Segoe UI",system-ui,sans-serif;font-size:13px}
+#bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
+#bar label{color:var(--muted);font-size:11px;white-space:nowrap}
+#bar select{
+  /*background:#0f1117;*/
+  color:var(--txt);border:1px solid var(--border);border-radius:5px;padding:5px 10px;font-size:12px
+}
+#haSelect{min-width:170px}
+#siteSelect{min-width:220px;max-width:320px}
+.btn{padding:5px 13px;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;transition:opacity .15s}
+.btn:hover{opacity:.8}
+.b-primary{background:var(--accent);color:#fff}
+.b-sm{background:var(--border);color:var(--txt);padding:4px 10px;font-size:11px}
+.b-back{
+  /*background:#1e3a5f;*/
+  color:#93c5fd;display:none}
+#lvlBadge{
+  font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;background:#312e81;color:#a5b4fc;white-space:nowrap}
+#statusBar{font-size:11px;color:var(--muted);margin-left:auto}
 
-    // Sync Button Logic
-    $('#btnSyncNow').on('click', function() {
-        let btn = $(this);
-        btn.prop('disabled', true).text('⏳ Syncing...');
-        $('#syncMsg').text('Updating SQLite Cache...').css('color', 'black');
+#wrap{
+  display:flex;
+  height:calc(80vh - 100px)}
 
-        $.post("/api/orion/sync_now", function(response) {
-            if(response.status === "success") {
-                $('#syncMsg').text('✅ Success!').css('color', 'green');
-                table.ajax.reload(); // Refresh the table display
-            } else {
-                $('#syncMsg').text('❌ ' + response.message).css('color', 'red');
-            }
-            btn.prop('disabled', false).text('🔄 Sync Orion Data');
-        });
-    });    
+#cy-wrap{
+  flex:1 1 0;
+  position:relative;
+  /*background:#0a0d14;*/
+  border-right:1px solid var(--border)
+}
+#cy{width:100%;height:100%}
+#overlay{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  /*background:rgba(10,13,20,.92);*/
+  gap:10px;z-index:10}
+#overlay.hidden{display:none}
+.spin{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#leg{position:absolute;bottom:12px;left:12px;background:rgba(26,31,46,.93);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;display:none;flex-direction:column;gap:5px;font-size:11px;z-index:5}
+.li{display:flex;align-items:center;gap:7px}
+.ld{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.ll{width:22px;height:2px;flex-shrink:0}
+#detail{width:300px;flex-shrink:0;overflow-y:auto;background:var(--panel);padding:14px;display:flex;flex-direction:column;gap:8px}
+#detail h3{font-size:12px;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:5px;margin-bottom:2px}
+.kr{display:flex;gap:6px;font-size:11px;padding:2px 0}
+.kk{color:var(--muted);min-width:86px;flex-shrink:0}
+.kv{color:var(--txt);word-break:break-all}
+.badge{display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700}
+.b-up{background:#14532d;color:#4ade80}.b-dn{background:#7f1d1d;color:#fca5a5}
+.b-ha{background:#1e3a5f;color:#93c5fd}.b-cr{background:#431407;color:#fb923c}
+.b-ext{background:#292524;color:#a8a29e}
+.b-refresh{background:#064e3b;color:#6ee7b7;padding:4px 11px;font-size:11px;border:none;border-radius:5px;cursor:pointer;font-weight:600}
+.b-refresh:hover{opacity:.8}
+.b-refresh.syncing{opacity:.5;cursor:wait}
+#detail-ph{color:var(--muted);font-size:12px;text-align:center;margin-top:40px;line-height:1.8}
+#stats{display:flex;gap:16px;padding:5px 14px;background:var(--panel);border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+#stats strong{color:var(--txt)}
+#tbl-sec{border-top:1px solid var(--border);max-height:300px;overflow-y:auto;display:none}
+#tbl-sec h4{padding:7px 14px;font-size:12px;color:var(--accent);background:var(--panel);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+#tblQ{margin-left:auto;background:#0f1117;color:var(--txt);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;width:190px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead th{background:var(--panel);color:var(--muted);padding:5px 10px;text-align:left;position:sticky;top:32px;font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr:hover{background:rgba(255,255,255,.03)}
+tbody td{padding:4px 10px;border-bottom:1px solid #151a27}
+.su{color:var(--up)}.sd{color:var(--down)}
+a.nl{color:var(--accent);text-decoration:none}
+a.nl:hover{text-decoration:underline}
+</style>
 
-    // 2. Button Logic: Filter for 'Down' and 'unreachable' nodes (Status = 2 or 12)
-    nodeTable.column(2).search('2', true, false).draw();
-    $('#btnShowAll').on('click', function() {
-        nodeTable.column(2).search('', true, false).draw();
-    });
+<div id="bar">
+  <span id="lvlBadge">L1 · HA View</span>
+  <label>HA</label>
+  <select id="haSelect"><option value="">— loading… —</option></select>
+  <label>Site</label>
+  <select id="siteSelect" disabled><option value="">— select HA first —</option></select>
+  <button class="btn b-primary" id="btnLoad">Load</button>
+  <button class="btn b-back"   id="btnBack">← HA View</button>
+  <button class="btn b-sm"     id="btnFit">⊞ Fit</button>
+  <button class="btn b-refresh" id="btnRefresh" title="Pull fresh data from Orion SWIS now">⟳ Sync Orion</button>
+  <button class="btn b-sm"     id="btnClear">✕</button>
+  <span id="statusBar">Loading filters…</span>
+</div>
 
-    // Your "Show Down" button logic remains the same
-    $('#btnShowDown').on('click', function() {
-        nodeTable.column(2).search('^(2|12)$', true, false).draw();
-    });  
+<div id="wrap">
+  <div id="cy-wrap">
+    <div id="cy"></div>
+    <div id="overlay" class="hidden">
+      <div class="spin"></div>
+      <span style="color:var(--muted);font-size:12px" id="overlayMsg">Loading…</span>
+    </div>
+    <div id="leg"></div>
+  </div>
+  <div id="detail"><div id="detail-ph">Select an HA → click Load.<br><br>Click a site node to see details.<br>Double-click to drill into devices.</div></div>
+</div>
 
-    /* This will reload the table data from the DB every 60 seconds
-    setInterval(function() {
-        console.log("Checking SQLite for status changes...");
-        // 'null, false' means: don't reset the paging or current search filter
-        table.ajax.reload(null, false); 
-    }, 60000);        
-    */
+<div id="stats">
+  Nodes <strong id="sN">—</strong>&nbsp;
+  Edges <strong id="sE">—</strong>&nbsp;
+  <span id="sExtra"></span>
+</div>
 
-    // 2. Initialize the Topology Table
+<div id="tbl-sec">
+  <h4>Reference <span id="tblCnt" style="color:var(--muted);font-weight:400"></span>
+    <input id="tblQ" type="search" placeholder="Filter…">
+  </h4>
+  <table><thead id="tblHead"></thead><tbody id="tblBody"></tbody></table>
+</div>
 
-    var topoTable = $('#topoTable').DataTable({
-        "ajax": {
-            "url": "/api/orion/topology", // New API endpoint
-            "dataSrc": "data"
-        },
-        "columnDefs": [
-        {
-            "targets": [2,6], // The index of the columns want to hide nodeid,from 0
-            "visible": false,     // This hides the column
-            "searchable": true    // Keep this true so you can still search for hidden data!
-        }
-        ],
-        "columns": [
-            { "data": "SourceSite" },
-            { 
-            "data": "SourceNodeName" ,
-            "render": function(data, type, row) {
-                // 'row' contains all the data for this node
-                // row.DetailsUrl is the column from your Orion.Nodes table
-                let url = "https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:" + row.SourceNodeID;
-                
-                // If the URL exists, wrap the name in a link
-                if (url) {
-                    return `<a href="${url}" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">${data}</a>`;
-                }
-                return data;
-            }},
-            { "data": "SourceNodeID" },
-            { "data": "SourceInterface" },
-            { "data": "TargetSite" },
-            { 
-                "data": "TargetNodeName",
-                "render": function(data, type, row) {
-                // 'row' contains all the data for this node
-                // row.DetailsUrl is the column from your Orion.Nodes table
-                    let url = "https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:" + row.TargetNodeID;
-                
-                // If the URL exists, wrap the name in a link
-                    if (url) {
-                        return `<a href="${url}" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">${data}</a>`;
-                    }
-                    return data;
-            }},
-            { "data": "TargetNodeID" },
-            { "data": "TargetInterface" },
-            { "data": "LayerType" },
-            // { "data": "LayerType", "render": function(d) { return d == '2' ? 'Physical' : 'Logical'; } }
-        ],
-        "pageLength": 25
-    });
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const ORION = 'https://orion.net.mgmt';
+let LEVEL = 0, SITES_BY_HA = {}, CUR_HA = '', CUR_SITE = '';
 
-    // Link the Site Filter for Topology
-    $('#topoSiteFilter').on('keyup', function() {
-        topoTable.search(this.value).draw();
-    // If the user clears the box manually, hide the map automatically
-        if ($(this).val().length === 0) {
-            $('#networkMap').slideUp();
-        }
-    });
-
-    // 3. Initialize Orion Node Status Table for Summary Updates
-    // var orionTable = $('#nodeTable').DataTable({ ... })
-    // NEW: Listen for the "xhr" event (when data comes back from Python)
-    nodeTable.on('xhr', function() {
-        // Use a tiny timeout to ensure the table has processed the data
-        setTimeout(updateSummaryFromUI, 200);
-    });
-    
-    // Optional: Update summary when the user searches/filters the table
-    nodeTable.on('search.dt', function() {
-        // If you want the summary to reflect ONLY filtered results, 
-        // change 'table.rows().data()' to 'table.rows({search:"applied"}).data()' in the function above.
-        updateSummaryFromUI();
-    });
-
-   var summaryTable = $('#summaryTable').DataTable({
-        "ajax": "/api/orion/get_site_customproperties_data",
-        // "scrollX": true,           // Allow horizontal scroll
-        // "fixedColumns": {
-        //     "left": 2              // Keep Site and HA visible while scrolling
-        // },
-        "columnDefs": [
-                {
-                    //"targets": [2], // The index of the columns want to hide nodeid,status,seconds,bilding,city (starting from 0)
-                    "visible": false,     // This hides the column
-                    "searchable": true    // Keep this true so you can still search for hidden data!
-                }
-            ],        
-        "columns": [
-            { 
-            "data": "Site" ,
-            "render": function(data, type, row) {
-                // 'row' contains all the data for this node
-                // row.DetailsUrl is the column from your Orion.Nodes table
-                let url = "https://orion.net.mgmt/apps/search/?q=" + data;                // If the URL exists, wrap the name in a link
-                if (url) {
-                    return `<a href="${url}" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">${data}</a>`;
-                }
-                return data;
-            }
-        },
-            {
-                "data": "DownCount",
-                "render": function(data, type, row) {
-                return row.DownCount + " | " + row.TotalNodes; }
-            },
-            { "data": "HA" },
-            {                
-            "data": "Address",
-            },
-            { "data": "City" }
-
-            // Note: You can add all 48 here or use a loop to generate this list
-        ],
-        "pageLength": 50,
-        /*"language": {
-            "search": "Node | Site Search:",
-            "loadingRecords": "Fetching from SQLite cache..."
-        }*/
-
-    });
-    
-
-
+const cy = cytoscape({
+  container: $('cy'),
+  style: [
+    { selector: 'node[type="site"]', style: {
+        label:'data(label)','font-size':10,'text-wrap':'wrap','text-max-width':130,
+        'text-valign':'center','text-halign':'center',color:'#e2e8f0',
+        'background-color':'#1e3a5f','border-width':1.5,'border-color':'#3b82f6',
+        shape:'round-rectangle','min-width':60,'min-height':24,padding:'10px','text-margin-x':4,
+    }},
+    { selector:'node[type="site"][?has_down]',style:{'border-color':'#ef4444','border-width':2.5}},
+    { selector:'node[type="device"]',style:{
+        label:'data(short)','font-size':8,'text-wrap':'wrap','text-max-width':110,
+        'text-valign':'center','text-halign':'center',color:'#cbd5e1',
+        'background-color':'#1e3a5f','border-width':1.5,'border-color':'#3b82f6',
+        shape:'ellipse',width:80,height:28,
+    }},
+    { selector:'node[type="device"][?down]',style:{'background-color':'#450a0a','border-color':'#ef4444',color:'#fca5a5'}},
+    { selector:'node[?external]',style:{'background-color':'#1c1917','border-color':'#57534e',color:'#a8a29e','border-style':'dashed'}},
+    { selector:'node.sel',style:{'border-color':'#f59e0b','border-width':3,'z-index':10}},
+    { selector:'.dim',style:{opacity:0.1}},
+    { selector:'edge',style:{
+        width:2,'line-color':'data(color)','curve-style':'unbundled-bezier',
+        'control-point-distances':[0],'control-point-weights':[0.5],
+        label:'',opacity:0.7,
+    }},
+    { selector:'edge[?thick]',style:{width:'mapData(weight,1,300,2,8)'}},
+    { selector:'edge.hov',style:{
+        label:'data(lbl)','font-size':8,color:'#94a3b8','text-rotation':'autorotate',
+        'text-margin-y':-5,width:3,opacity:1,'z-index':5,
+    }},
+  ],
+  layout:{name:'grid',animate:false},
+  minZoom:0.05,maxZoom:4,
 });
 
-function openTab(evt, tabName) {
-    $(".tab-content").removeClass("active");
-    $(".tab-link").removeClass("active");
-    $("#" + tabName).addClass("active");
-    $(evt.currentTarget).addClass("active");
-    
-    // If user clicks the Topology tab, load the map
-    if (tabName === 'topologyTab') {
-        const currentSearch = $('#topoSiteFilter').val(); // Only load if text exists
-        loadNetworkMap(currentSearch);
-    }
-
-    $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
-}
-
-function loadNetworkMap(siteName) {
-    const mapDiv = $('#networkMap');
-
-    // If search is empty, hide the map and exit
-    if (!siteName || siteName.trim() === "") {
-        mapDiv.slideUp(); 
-        return;
-    }
-
-    $.getJSON("/api/orion/map_data", { site: siteName }, function(data) {
-        if (data.nodes && data.nodes.length > 0) {
-            // Show the map container with a smooth animation
-            $('#networkMap').slideDown(400, function() {
-            // vis.js needs the div to be visible before it can calculate sizes
-                var layoutType = $('#layoutSelect').val();
-                var container = document.getElementById('networkMap');
-                var directionValue = 'LR'; // 'UD' for Top-to-Bottom, 'LR' for Left-to-Right
-                var options = {
-                    layout: {
-                        hierarchical: {
-                            enabled: true,
-                            direction: directionValue,  // UD, DU, LR, RL
-                            sortMethod: 'hubsize',      // Automatically puts Core switches at the start, better for tree
-                            // sortMethod: 'directed'  // Better for network flow
-                            levelSeparation: 250,       // Distance between layers
-                            nodeSpacing:50,           // Distance between nodes in same layer
-                            treeSpacing: 120,
-                            blockShifting: true,
-                            edgeMinimization: true,
-                            parentCentralization: true,
-                        }
-                    },
-                    physics: { enabled: false }, // Must be false for Tree
-                    nodes: { shape: 'box', margin: 10 },
-                    edges: {
-                        smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.5 },
-                        arrows: { to: { enabled: true } }
-                    },
-                    interaction: {
-                        hover: true,
-                        navigationButtons: true, // Adds +/- zoom buttons to the UI
-                        keyboard: true
-                    }
-                };
-               // Create the network
-                if (layoutType === 'mesh') {
-                      options.layout = { hierarchical: false };
-                      options.physics = { enabled: true, stabilization: true };
-                }
-            new vis.Network(container, data, options); 
-            });
-        } else {
-            mapDiv.slideUp();
-            alert("No topology data found for: " + siteName);
-        }
+// ── Load dynamic filters ──────────────────────────────────────────────────────
+async function loadFilters(){
+  try {
+    const d = await fetch('/api/orion/topo/filters').then(r=>r.json());
+    SITES_BY_HA = d.sites_by_ha || {};
+    const el = $('haSelect');
+    el.innerHTML = '<option value="">— select HA —</option>';
+    (d.ha_list||[]).forEach(h => {
+      const o = document.createElement('option');
+      o.value = h.HA;
+      o.textContent = `${h.HA}  (${h.site_count} sites · ${h.node_count} nodes)`;
+      el.appendChild(o);
     });
+    setStatus('Select an HA and click Load.');
+  } catch(e){ setStatus('Filter load error: '+e.message); }
 }
 
-function refreshMap() {
-    const siteSearch = $('#topoSiteFilter').val();
-    loadNetworkMap(siteSearch);
+function populateSites(ha){
+  const sites = SITES_BY_HA[ha] || [];
+  const el = $('siteSelect');
+  el.innerHTML = '<option value="">— All sites (HA view) —</option>';
+  sites.sort((a,b)=>a.site.localeCompare(b.site)).forEach(s=>{
+    const o = document.createElement('option');
+    o.value = s.site;
+    const dn = s.down_count>0 ? ` ⚠ ${s.down_count}↓` : '';
+    o.textContent = `${s.site}${s.city?' · '+s.city:''}${dn}`;
+    if(s.down_count>0) o.style.color='#f87171';
+    el.appendChild(o);
+  });
+  el.disabled = false;
 }
 
-function resetMap() {
-    console.log("Resetting map and search filter...");
-    
-    // 1. Clear the input field
-    $('#topoSiteFilter').val('');
-    
-    // 2. Clear the DataTable search if you want the table to show everything again
-    if ($.fn.DataTable.isDataTable('#topoTable')) {
-        $('#topoTable').DataTable().search('').draw();
+// ── Load & render ─────────────────────────────────────────────────────────────
+async function load(){
+  const ha = $('haSelect').value, site = $('siteSelect').value;
+  if(!ha){ setStatus('Select an HA first.'); return; }
+  site ? await doLevel2(site,ha) : await doLevel1(ha);
+}
+
+async function doLevel1(ha){
+  CUR_HA=ha; CUR_SITE=''; LEVEL=1;
+  showOv('Building HA view…');
+  try{
+    const d = await fetch(`/api/orion/topo/ha?ha=${enc(ha)}`).then(r=>r.json());
+    cy.elements().remove();
+    cy.add((d.nodes||[]).map(n=>({data:{
+      id:`site:${n.label}`,label:n.label,type:'site',
+      ha:n.ha,city:n.city||'',address:n.address||'',
+      total_nodes:n.total_nodes,down_count:n.down_count,has_down:n.has_down||null,
+    }})));
+    cy.add((d.edges||[]).map(e=>({data:{
+      id:e.id,source:e.source,target:e.target,color:e.color,
+      lbl:`${e.link_count} L2 links`,weight:e.link_count,thick:true,
+    }})));
+    runLayout((d.nodes||[]).length, false);
+    $('lvlBadge').textContent=`L1 · ${ha}`;
+    $('sN').textContent=(d.nodes||[]).length;
+    $('sE').textContent=(d.edges||[]).length;
+    $('sExtra').innerHTML=`Cross-HA <strong>${(d.edges||[]).filter(e=>e.cross_ha).length}</strong>`;
+    $('btnBack').style.display='none';
+    setLeg1(); renderTbl1(d.nodes||[]);
+    setStatus(`${(d.nodes||[]).length} sites loaded. Click a site or double-click to drill in.`);
+    $('detail').innerHTML='<div id="detail-ph">Click a site node.<br>Double-click to drill into devices.</div>';
+  } catch(e){ setStatus('Error: '+e.message); showOv(false); }
+}
+
+async function doLevel2(site,ha){
+  CUR_SITE=site; LEVEL=2;
+  showOv(`Loading ${site}…`);
+  try{
+    const d = await fetch(`/api/orion/topo/site?site=${enc(site)}`).then(r=>r.json());
+    cy.elements().remove();
+    cy.add((d.nodes||[]).map(n=>({data:{
+      id:n.id,short:sn(n.label),full:n.label,type:'device',
+      ha:n.ha||'',closet:n.closet||'',floor:n.floor||'',dtype:n.device_type||'',
+      ip:n.ip||'',url:n.details_url||'',sdesc:n.status_desc||'',
+      down:(!n.is_up)||null, external:(!n.in_site)||null,
+      is_core:n.is_core||null,
+    }})));
+    cy.add((d.edges||[]).map(e=>({data:{
+      id:e.id,source:e.source,target:e.target,color:e.color,
+      lbl:e.label||'',si:e.source_interface||'',ti:e.target_interface||'',
+      cross:e.cross_site||null,
+    }})));
+    runLayout((d.nodes||[]).length, true);
+    const s=d.summary||{};
+    $('lvlBadge').textContent=`L2 · ${site}`;
+    $('sN').textContent=(d.nodes||[]).length;
+    $('sE').textContent=(d.edges||[]).length;
+    $('sExtra').innerHTML=`In-site <strong>${s.devices_in_site??'—'}</strong> · External <strong>${s.external_nodes??'—'}</strong> · Cross-site links <strong>${s.cross_site_edges??'—'}</strong>`;
+    $('btnBack').style.display='';
+    setLeg2(); renderTbl2(d.nodes||[]);
+    setStatus(`${s.devices_in_site??''} devices · ${s.cross_site_edges??''} cross-site links.`);
+    $('detail').innerHTML='<div id="detail-ph">Click a device node.</div>';
+  } catch(e){ setStatus('Error: '+e.message); showOv(false); }
+}
+
+function runLayout(n, isSiteView){
+  // Level 2 site view: pin core nodes to centre, peripherals laid out around them
+  if(isSiteView){
+    const cores = cy.nodes('[?is_core]');
+    const W = $('cy-wrap').clientWidth  || 800;
+    const H = $('cy-wrap').clientHeight || 600;
+    if(cores.length > 0){
+      // Lock core nodes at centre — one or two cores stacked slightly
+      cores.forEach((n,i) => {
+        n.position({x: W/2 + (i*40 - cores.length*20), y: H/2});
+        n.lock();
+      });
+      // Lay peripherals out with preset core positions fixed
+      const layout = cy.layout({
+        name:'cose', animate:false, padding:60,
+        nodeRepulsion:()=>70000, nodeOverlap:20,
+        idealEdgeLength:()=>100, edgeElasticity:()=>45,
+        gravity:0.3, numIter:1000, randomize:false,
+      });
+      layout.on('layoutstop',()=>{
+        cy.nodes().unlock();   // unlock so user can drag
+        cy.fit(cy.elements(),50);
+        showOv(false); $('leg').style.display='flex';
+      });
+      layout.run();
+      return;
     }
-    
-    // 3. Slide the map container up and empty it
-    $('#networkMap').slideUp(400, function() {
-        $(this).html(''); // Remove the canvas/map data to free memory
-    });
+  }
+  // Level 1 or fallback
+  const layout = cy.layout(n>150?{
+    name:'grid', animate:false, padding:50, rows:Math.ceil(Math.sqrt(n)),
+  }:{
+    name:'cose', animate:false, padding:60,
+    nodeRepulsion:()=>80000, nodeOverlap:20,
+    idealEdgeLength:()=>n>50?80:120, edgeElasticity:()=>45,
+    gravity:0.25, numIter:1200, randomize:false,
+  });
+  layout.on('layoutstop',()=>{cy.fit(cy.elements(),50);showOv(false);$('leg').style.display='flex';});
+  layout.run();
 }
 
+// ── Interactions ──────────────────────────────────────────────────────────────
+cy.on('tap','node[type="site"]',e=>{
+  cy.elements().removeClass('sel dim');
+  e.target.addClass('sel');
+  cy.elements().not(e.target.closedNeighborhood()).addClass('dim');
+  const d=e.target.data();
+  const dn=d.down_count>0?`<span class="badge b-dn">${d.down_count} down</span>`:'<span class="badge b-up">All up</span>';
+  $('detail').innerHTML=`<h3>🏢 ${d.label}</h3>
+    ${r('HA',`<span class="badge b-ha">${d.ha}</span>`)}
+    ${r('City',d.city||'—')}${r('Nodes',`${d.total_nodes??'—'} total · ${dn}`)}
+    ${r('Connected to',`${e.target.neighborhood('node').length} sites`)}
+    <div style="margin-top:10px">
+      <button class="btn b-primary" style="width:100%;font-size:11px"
+        onclick="drill('${d.label.replace(/'/g,"\\'")}')">🔍 Drill into devices →</button>
+    </div>
+    <h3 style="margin-top:10px">Neighbours (${e.target.neighborhood('node').length})</h3>
+    ${e.target.neighborhood('node').map(n=>`<div class="kr"><span class="kv">${n.data('label')}</span></div>`).join('')}`;
+});
+
+cy.on('tap','node[type="device"]',e=>{
+  cy.elements().removeClass('sel dim');
+  e.target.addClass('sel');
+  cy.elements().not(e.target.closedNeighborhood()).addClass('dim');
+  const d=e.target.data();
+  const lnk=d.url?`<a class="nl" href="${ORION}${d.url}" target="_blank">Open in Orion ↗</a>`:'—';
+  $('detail').innerHTML=`<h3>📦 ${d.full}${d.external?'<span class="badge b-ext" style="margin-left:6px">External</span>':''}</h3>
+    ${r('Status',d.down?'<span class="badge b-dn">DOWN</span>':'<span class="badge b-up">UP</span>')}
+    ${r('HA',d.ha?`<span class="badge b-ha">${d.ha}</span>`:'—')}
+    ${r('Closet',d.closet||'—')}${r('Floor',d.floor||'—')}
+    ${r('Type',d.dtype||'—')}${r('IP',d.ip||'—')}
+    ${d.sdesc?r('State',d.sdesc):''}${r('Orion',lnk)}
+    <h3 style="margin-top:10px">Connected (${e.target.neighborhood('node').length})</h3>
+    ${e.target.neighborhood('node').map(n=>`<div class="kr"><span class="kv">${sn(n.data('full')||n.data('label'))}</span></div>`).join('')}`;
+});
+
+cy.on('tap','edge',e=>{
+  cy.elements().removeClass('sel dim');
+  const d=e.target.data();
+  $('detail').innerHTML = d.thick
+    ? `<h3>🔗 Inter-Site Link</h3>${r('L2 links',d.weight)}`
+    : `<h3>🔗 L2 Link</h3>
+       ${r('Type',d.cross?'<span class="badge b-cr">Cross-site</span>':'<span class="badge b-up">Same-site</span>')}
+       ${r('Src port',d.si||'—')}${r('Tgt port',d.ti||'—')}`;
+});
+
+cy.on('tap',ev=>{
+  if(ev.target!==cy) return;
+  cy.elements().removeClass('sel dim');
+  $('detail').innerHTML='<div id="detail-ph">Click a node or edge.</div>';
+});
+
+cy.on('dblclick','node[type="site"]',e=>drill(e.target.data('label')));
+cy.on('mouseover','edge',e=>e.target.addClass('hov'));
+cy.on('mouseout', 'edge',e=>e.target.removeClass('hov'));
+
+function drill(site){ $('siteSelect').value=site; doLevel2(site,CUR_HA); }
+function r(k,v){ return `<div class="kr"><span class="kk">${k}</span><span class="kv">${v}</span></div>`; }
+
+// ── Tables ────────────────────────────────────────────────────────────────────
+function renderTbl1(nodes){
+  $('tblHead').innerHTML='<tr><th>Site</th><th>City</th><th>HA</th><th>Nodes</th><th>Down</th></tr>';
+  const tb=$('tblBody'); tb.innerHTML='';
+  nodes.forEach(n=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${n.label}</td><td>${n.city||'—'}</td><td>${n.ha||'—'}</td>
+      <td>${n.total_nodes??'—'}</td><td class="${n.down_count>0?'sd':'su'}">${n.down_count??0}</td>`;
+    tr.style.cursor='pointer'; tr.title='Click to drill';
+    tr.onclick=()=>drill(n.label);
+    tb.appendChild(tr);
+  });
+  $('tblCnt').textContent=`${nodes.length} sites`;
+  $('tbl-sec').style.display='block';
+}
+
+function renderTbl2(nodes){
+  $('tblHead').innerHTML='<tr><th>Node</th><th>HA</th><th>Closet</th><th>Floor</th><th>Type</th><th>IP</th><th>Status</th></tr>';
+  const tb=$('tblBody'); tb.innerHTML='';
+  nodes.filter(n=>n.in_site!==false).forEach(n=>{
+    const up=n.is_up!==false;
+    const nm=n.details_url?`<a class="nl" href="${ORION}${n.details_url}" target="_blank">${n.label}</a>`:n.label;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${nm}</td><td>${n.ha||'—'}</td><td>${n.closet||'—'}</td>
+      <td>${n.floor||'—'}</td><td>${n.device_type||'—'}</td>
+      <td>${n.ip||'—'}</td><td class="${up?'su':'sd'}">${up?'↑ Up':'↓ Down'}</td>`;
+    tb.appendChild(tr);
+  });
+  $('tblCnt').textContent=`${nodes.filter(n=>n.in_site!==false).length} devices`;
+  $('tbl-sec').style.display='block';
+}
+
+$('tblQ').addEventListener('input',function(){
+  const q=this.value.toLowerCase(); let v=0;
+  $('tblBody').querySelectorAll('tr').forEach(tr=>{
+    const ok=tr.textContent.toLowerCase().includes(q);
+    tr.style.display=ok?'':'none'; if(ok) v++;
+  });
+  $('tblCnt').textContent=`${v} rows`;
+});
+
+// ── Legends ───────────────────────────────────────────────────────────────────
+function setLeg1(){
+  $('leg').innerHTML=`
+    <div class="li"><div class="ld" style="background:#1e3a5f;border:1.5px solid #3b82f6"></div>Site — all up</div>
+    <div class="li"><div class="ld" style="background:#1e3a5f;border:2.5px solid #ef4444"></div>Site — has down nodes</div>
+    <div class="li"><div class="ll" style="background:#14b8a6"></div>Same-HA inter-site L2</div>
+    <div class="li"><div class="ll" style="background:#f97316"></div>Cross-HA inter-site L2</div>`;
+  $('leg').style.display='flex';
+}
+function setLeg2(){
+  $('leg').innerHTML=`
+    <div class="li"><div class="ld" style="background:#1e3a5f;border:1.5px solid #3b82f6"></div>Device (up)</div>
+    <div class="li"><div class="ld" style="background:#450a0a;border:1.5px solid #ef4444"></div>Device (down)</div>
+    <div class="li"><div class="ld" style="background:#1c1917;border:1.5px dashed #57534e"></div>External device</div>
+    <div class="li"><div class="ll" style="background:#22c55e"></div>Same-site L2</div>
+    <div class="li"><div class="ll" style="background:#f97316"></div>Cross-site L2</div>`;
+  $('leg').style.display='flex';
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function sn(n){
+  if(!n) return '—';
+  n=n.replace(/\.(vch|phsa|hssbc|fha|vcha)\.ca$/i,'').replace(/\.(vch|phsa|hssbc|org|ca)$/i,'');
+  return n.length>22?n.slice(0,20)+'…':n;
+}
+function enc(s){ return encodeURIComponent(s); }
+function setStatus(m){ $('statusBar').textContent=m; }
+function showOv(msg){
+  const o=$('overlay');
+  if(msg){$('overlayMsg').textContent=msg;o.classList.remove('hidden');}
+  else{o.classList.add('hidden');}
+}
+
+// ── Toolbar ───────────────────────────────────────────────────────────────────
+$('btnRefresh').addEventListener('click', async function(){
+  this.textContent='⟳ Syncing…'; this.classList.add('syncing');
+  setStatus('Pulling fresh data from Orion SWIS…');
+  try{
+    const r = await fetch('/api/orion/topo/refresh',{method:'POST'}).then(r=>r.json());
+    if(r.ok){
+      setStatus(`Sync complete — ${r.nodes} nodes · ${r.topology_edges} topology edges in DB.`);
+      // Reload current view
+      if(LEVEL===1) doLevel1(CUR_HA);
+      else if(LEVEL===2) doLevel2(CUR_SITE, CUR_HA);
+    } else {
+      setStatus('Sync error: '+(r.error||'unknown'));
+    }
+  } catch(e){ setStatus('Sync failed: '+e.message); }
+  this.textContent='⟳ Sync Orion'; this.classList.remove('syncing');
+});
+
+$('haSelect').addEventListener('change',function(){
+  this.value ? populateSites(this.value)
+             : ($('siteSelect').innerHTML='<option value="">— select HA first —</option>', $('siteSelect').disabled=true);
+});
+$('btnLoad').addEventListener('click',load);
+$('btnBack').addEventListener('click',()=>doLevel1(CUR_HA));
+$('btnFit').addEventListener('click',()=>cy.fit(cy.elements(),50));
+$('btnClear').addEventListener('click',()=>{
+  cy.elements().remove();
+  $('leg').style.display='none'; $('tbl-sec').style.display='none';
+  $('tblBody').innerHTML=''; $('btnBack').style.display='none';
+  $('lvlBadge').textContent='L1 · HA View';
+  ['sN','sE'].forEach(id=>$(id).textContent='—'); $('sExtra').innerHTML='';
+  $('detail').innerHTML='<div id="detail-ph">Select an HA → click Load.</div>';
+  setStatus('Cleared.'); LEVEL=0;
+});
+
+loadFilters();
 </script>
+{% endblock %}
