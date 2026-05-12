@@ -1,7 +1,42 @@
+# Python
 venv/
+venv_38_backup/
 __pycache__/
 *.pyc
+*.pyo
 .env
-.git
+
+# Git
+.git/
+.gitignore
+
+# VS Code / dev tools
+.vscode/
+.devcontainer/
+
+# Runtime data (mounted as volumes — don't bake into image)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/*.json
+data/*.html
 logs/
-data/orion_sessions/*
+
+# Backup / copy / temp files
+*- Copy.py
+* - Copy*
+*[Copy]*
+temp/
+scripts-backup/
+test.json
+test_*.json
+*.bat
+
+# Dated backup files
+*-202604*.py
+*_202604*.py
+
+# Notes
+fastapi_note.txt
+SETUP.md
+REFACTOR_REPORT.md
