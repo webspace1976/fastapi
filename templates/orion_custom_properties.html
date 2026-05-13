@@ -12,7 +12,6 @@
   --muted:#64748b;--accent:#3b82f6;--up:#22c55e;--down:#ef4444;--cross:#f97316;--teal:#14b8a6;--r:7px
 }
 *{box-sizing:border-box;margin:0;padding:0}
-
 body{background:var(--bg);color:var(--txt);font-family:"Segoe UI",system-ui,sans-serif;font-size:13px}
 #bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
 #bar label{color:var(--muted);font-size:11px;white-space:nowrap}
@@ -63,7 +62,7 @@ body{background:var(--bg);color:var(--txt);font-family:"Segoe UI",system-ui,sans
 .badge{display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700}
 .b-up{background:#14532d;color:#4ade80}.b-dn{background:#7f1d1d;color:#fca5a5}
 .b-ha{background:#1e3a5f;color:#93c5fd}.b-cr{background:#431407;color:#fb923c}
-/*.b-ext{background:#292524;color:#a8a29e}*/
+.b-ext{background:#292524;color:#a8a29e}
 .b-refresh{background:#064e3b;color:#6ee7b7;padding:4px 11px;font-size:11px;border:none;border-radius:5px;cursor:pointer;font-weight:600}
 .b-refresh:hover{opacity:.8}
 .b-refresh.syncing{opacity:.5;cursor:wait}
@@ -154,6 +153,7 @@ const cy = cytoscape({
         label:'',opacity:0.7,
     }},
     { selector:'edge[?thick]',style:{width:'mapData(weight,1,300,2,8)'}},
+    { selector:'edge[?port_down]',style:{'line-style':'dashed','line-dash-pattern':[8,4],width:2.5,opacity:1}},
     { selector:'edge.hov',style:{
         label:'data(lbl)','font-size':8,color:'#94a3b8','text-rotation':'autorotate',
         'text-margin-y':-5,width:3,opacity:1,'z-index':5,
@@ -246,6 +246,7 @@ async function doLevel2(site,ha){
       id:e.id,source:e.source,target:e.target,color:e.color,
       lbl:e.label||'',si:e.source_interface||'',ti:e.target_interface||'',
       cross:e.cross_site||null,
+      port_down:e.port_down||null,port_down_since:e.port_down_since||'',port_url:e.details_url||'',
     }})));
     runLayout((d.nodes||[]).length, true);
     const s=d.summary||{};
@@ -343,6 +344,8 @@ cy.on('tap','edge',e=>{
     ? `<h3>🔗 Inter-Site Link</h3>${r('L2 links',d.weight)}`
     : `<h3>🔗 L2 Link</h3>
        ${r('Type',d.cross?'<span class="badge b-cr">Cross-site</span>':'<span class="badge b-up">Same-site</span>')}
+       ${r('Port',d.port_down?`<span class="badge b-dn">DOWN since ${d.port_down_since||'?'}</span>`:'<span class="badge b-up">Up</span>')}
+       ${d.port_url?r('Interface',`<a class="nl" href="${ORION}${d.port_url}" target="_blank">View in Orion ↗</a>`):''}
        ${r('Src port',d.si||'—')}${r('Tgt port',d.ti||'—')}`;
 });
 
@@ -414,7 +417,8 @@ function setLeg2(){
     <div class="li"><div class="ld" style="background:#1e3a5f;border:1.5px solid #3b82f6"></div>Device (up)</div>
     <div class="li"><div class="ld" style="background:#450a0a;border:1.5px solid #ef4444"></div>Device (down)</div>
     <div class="li"><div class="ld" style="background:#1c1917;border:1.5px dashed #57534e"></div>External device</div>
-    <div class="li"><div class="ll" style="background:#22c55e"></div>Same-site L2</div>
+    <div class="li"><div class="ll" style="background:#22c55e"></div>Same-site L2 (port up)</div>
+    <div class="li"><div class="ll" style="background:#ef4444;border-top:2px dashed #ef4444"></div>Port DOWN</div>
     <div class="li"><div class="ll" style="background:#f97316"></div>Cross-site L2</div>`;
   $('leg').style.display='flex';
 }

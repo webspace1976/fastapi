@@ -72,8 +72,8 @@ class OrionDatabaseManager:
                                          
         # 3. Orion.NPM.Interfaces Table
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS [Orion.NPM.Interfaces]
-            (DetailsUrl TEXT, IPAddress TEXT, NodeName TEXT, SiteType TEXT, Duration TEXT, DownTime TEXT, 
-             PRIMARY KEY (NodeName))''')
+            (NodeID TEXT, InterfaceID TEXT, Status TEXT, StatusDescription TEXT, DetailsUrl TEXT, IPAddress TEXT, NodeName TEXT, SiteType TEXT, Duration TEXT, DownTime TEXT,  seconds INTEGER,
+             PRIMARY KEY (InterfaceID))''')
 
         # 4. Orion.AlertObjects Table
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS [Orion.AlertObjects]
@@ -97,7 +97,12 @@ class OrionDatabaseManager:
         
         # 20260506 ── Schema migrations (idempotent — safe to run on every startup) ── one time run to add missing columns to existing tables without affecting current data
         # self._add_column_if_missing("[Orion.SitesCustomProperties]", "HA", "TEXT")
-
+        # Correct individual migrations for each missing column
+        # self._add_column_if_missing("[Orion.NPM.Interfaces]", "NodeID", "TEXT")
+        # self._add_column_if_missing("[Orion.NPM.Interfaces]", "InterfaceID", "TEXT")
+        # self._add_column_if_missing("[Orion.NPM.Interfaces]", "Status", "TEXT")
+        # self._add_column_if_missing("[Orion.NPM.Interfaces]", "StatusDescription", "TEXT")
+        # self._add_column_if_missing("[Orion.NPM.Interfaces]", "Seconds", "INTEGER")
 
         self.conn.commit()
 
@@ -164,31 +169,45 @@ class OrionDatabaseManager:
             logger.error(f"SQL Upsert Failed: {e} | Query: {query} | nodes Data: {row}")
 
     def upsert_interface(self, interface_data):
-        """Inserts or updates a record in Orion.NPM.Interfaces."""
-        data_rows = "NodeName, IPAddress ,  DetailsUrl , SiteType , Duration, DownTime "
+        """Inserts or updates a record in Orion.NPM.Interfaces with correct column mapping."""
+        # Added 'Seconds' to the schema and values list
+        data_rows = "NodeID, InterfaceID, Status, StatusDescription, DetailsUrl, IPAddress, NodeName, SiteType, Duration, DownTime, Seconds"
         placeholders = ', '.join(['?'] * len(data_rows.split(', ')))        
+        
         query = f'''INSERT INTO [Orion.NPM.Interfaces] ({data_rows}) 
                  VALUES ({placeholders})
-                 ON CONFLICT(NodeName) DO UPDATE SET 
-                    IPAddress=excluded.IPAddress, DetailsUrl=excluded.DetailsUrl, Duration=excluded.Duration, DownTime=excluded.DownTime
+                 ON CONFLICT(InterfaceID) DO UPDATE SET 
+                    Status=excluded.Status,
+                    StatusDescription=excluded.StatusDescription,
+                    IPAddress=excluded.IPAddress, 
+                    DetailsUrl=excluded.DetailsUrl, 
+                    Duration=excluded.Duration, 
+                    DownTime=excluded.DownTime,
+                    Seconds=excluded.Seconds
                  '''
 
         try:
             for row in interface_data:
+                # Ensure values match the order of data_rows exactly
                 values = (
-                    str(row.get('NodeName', '')),
-                    str(row.get('IPAddress', '')),
+                    str(row.get('NodeID', '')),
+                    str(row.get('InterfaceID', '')),
+                    str(row.get('Status', '')),
+                    str(row.get('StatusDescription', '')),
                     str(row.get('DetailsUrl', '')),
+                    str(row.get('IPAddress', '')),
+                    str(row.get('NodeName', '')),
                     str(row.get('SiteType', '')),
                     str(row.get('Duration', '')),
-                    str(row.get('DownTime', ''))
+                    str(row.get('DownTime', '')),
+                    row.get('Seconds', 0) # Capture the missing field
                 )
                 self.cursor.execute(query, values)
             self.conn.commit()
             logger.debug(f"Successfully: upsert_interface synced {len(interface_data)} interfaces.")
         except Exception as e:
             self.conn.rollback()
-            logger.error(f"SQL Upsert Failed: {e} | Query: {query} | interface Data: {row}")
+            logger.error(f"SQL Upsert Failed: {e} | interface Data: {row}")
 
     def upsert_alert(self, alert_data):
         """Inserts or updates a record in Orion.AlertObjects."""
@@ -252,7 +271,7 @@ class OrionDatabaseManager:
                 self.cursor.execute(query, values)
             self.conn.commit()
             logger.debug(f"Successfully: upsert_custom_properties synced {len(prop_data)} Site custom properties.")
-        except Exception as e:
+        except Exception as e: 
             self.conn.rollback()
             logger.error(f"SQL upsert_custom_properties Failed: {e} | Query: {query} | nodes Data: {row}")
 

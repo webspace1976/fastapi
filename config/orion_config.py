@@ -7,7 +7,7 @@ from pathlib import Path
 
 # Base paths
 # BASE_DIR = Path(__file__).resolve().parent.parent
-BASE_DIR = ".." / Path(__file__).parent
+BASE_DIR = Path(__file__).parent.parent # "inetpub" / "fastapi"  # Adjusted for the new file structure
 DATA_DIR = BASE_DIR / "data"
 LOGS_DIR = BASE_DIR / "logs"
 CORE_MAIN_DIR = BASE_DIR / ".." / ".." / "logs" / "core"
@@ -214,6 +214,7 @@ swis_netpath='''SELECT ProbeID, EndpointServiceID, Enabled, LastStatus, Status, 
 # 20260412 : add nodes status was not in unmanage/external (interface showing down could be due to node down, so filter out unmanaged/external nodes), and event time filter to 1000 days to cover long duration down case. 
 swis_interfacdown='''
 SELECT
+    i.NodeID, i.InterfaceID,
     I.DetailsUrl, n.IPAddress,i.Status,i.StatusDescription,
     n.NodeName + ' ' + i.InterfaceCaption AS NodeName,
     NCP.SiteType,
@@ -242,7 +243,46 @@ GROUP BY
     n.NodeName + ' ' + i.InterfaceCaption,
     NCP.SiteType,N.status,
     n.IPAddress,
-    i.Status,
+    i.NodeID,i.InterfaceID,i.Status,
+    i.StatusDescription,
+    I.DetailsUrl
+ORDER BY
+    Seconds
+'''
+
+#20260412 update interface query to include node status filter and event time filter, also add alert suppression join and filter to exclude suppressed/muted interfaces.
+swis_interface=  '''
+SELECT
+    i.NodeID, i.InterfaceID,
+    I.DetailsUrl, n.IPAddress,i.Status,i.StatusDescription,
+    n.NodeName + ' ' + i.InterfaceCaption AS NodeName,
+    NCP.SiteType,
+    ToString(DayDiff(0, GETUTCDATE() - MAX(e.EventTime))) + 'd ' +
+    ToString(Ceiling((HourDiff(0, GETUTCDATE() - MAX(e.EventTime)) / 24.0 - Floor(HourDiff(0, GETUTCDATE() - MAX(e.EventTime)) / 24.0)) * 24)) + 'h ' +
+    ToString(Ceiling((MinuteDiff(0, GETUTCDATE() - MAX(e.EventTime)) / 60.0 - Floor(MinuteDiff(0, GETUTCDATE() - MAX(e.EventTime)) / 60.0)) * 60)) + 'm ' AS Duration,
+    SecondDiff(0, GETUTCDATE() - MAX(e.EventTime)) AS Seconds,
+    tolocal(MAX(e.EventTime)) AS DownTime
+FROM
+    Orion.NPM.Interfaces AS i
+INNER JOIN
+    Orion.Events AS e ON e.NetObjectID = i.InterfaceID
+INNER JOIN
+    Orion.Nodes AS n ON n.NodeID = i.NodeID
+INNER JOIN
+    Orion.NodesCustomProperties AS NCP ON NCP.NodeID = N.NodeID
+LEFT JOIN 
+    Orion.AlertSuppression AS asup ON n.Uri = asup.EntityUri    
+WHERE
+    i.Status NOT IN (9,11) -- 1 up, 9 unmanager, 11 external
+    AND N.status  NOT IN (9,11) -- 9 unmanager, 11 external
+    AND e.EventTime > GETDATE() - 1000
+    AND asup.EntityUri IS NULL -- EXCLUSION LOGIC: Only show if NOT suppressed/muted
+
+GROUP BY
+    n.NodeName + ' ' + i.InterfaceCaption,
+    NCP.SiteType,N.status,
+    n.IPAddress,
+    i.NodeID,i.InterfaceID,i.Status,
     i.StatusDescription,
     I.DetailsUrl
 ORDER BY
@@ -336,7 +376,10 @@ LEFT JOIN Orion.NPM.Interfaces GrepInt ON (
 --AND (SourceInt.Caption IS NOT NULL OR GrepInt.Caption IS NOT NULL)
 '''
 
-
+swis_topology='''
+SELECT DiscoveryProfileID, SrcNodeID, SrcInterfaceID, DestNodeID, DestInterfaceID, SrcType, DestType, SrcOrionNodeID, DestOrionNodeID, DataSourceNodeID, LastUpdateUtc, LayerType, DisplayName, Description, InstanceType, Uri, InstanceSiteId
+FROM Orion.TopologyConnections
+'''
 
 # swis_sitetopology='''
 # SELECT 

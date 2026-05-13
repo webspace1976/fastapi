@@ -319,6 +319,9 @@ def generate_interface_table(session):
     table_row = ""
     rows_list = []
     for row in results.get("results", []):
+        if row.get("Status") not in [2]: # Only process interfaces that are down (Status=2)
+            continue
+
         seccond = int(row.get("Seconds", 0))  # Default to 0 if 'Seconds' is missing
         if seccond < 43200 : 
             class_tag = "highLight"

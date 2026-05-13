@@ -596,17 +596,29 @@ async def get_topo_level2(site: str):
                 WHERE ncp.Site = :site
                 ORDER BY ncp.Closet, ncp.Floor, ncp.NodeName
             """, conn, params={"site": site})
-            # FIX: join via NodeID, use NCP.Site on both ends for cross-site accuracy
+            # FIX: join via NodeID (NCP.Site is ground truth for same/cross-site).
+            # LEFT JOIN NPM.Interfaces on node name prefix + exact port string match.
+            # NPM.Interfaces is a down-ports-only table — every row has a DownTime.
+            # A match means that port is currently DOWN; NULL means port is UP.
+            # SUBSTR(i.NodeName, 1, INSTR-1) extracts the switch name prefix.
+            # TRIM(SUBSTR(i.NodeName, INSTR+1)) extracts "PortName · Desc" remainder.
             edge_df = pd.read_sql_query("""
                 SELECT t.SourceNodeID, t.SourceNodeName,
                        t.TargetNodeID, t.TargetNodeName,
                        t.SourceInterface, t.TargetInterface,
-                       src_ncp.Site AS SrcSite,
-                       tgt_ncp.Site AS TgtSite,
-                       t.LayerType
+                       src_ncp.Site    AS SrcSite,
+                       tgt_ncp.Site    AS TgtSite,
+                       t.LayerType,
+                       -- Port down if NPM.Interfaces has this node+port (down-only table)
+                       CASE WHEN iface.NodeName IS NOT NULL THEN 1 ELSE 0 END AS SrcPortDown,
+                       iface.DownTime  AS SrcPortDownSince,
+                       iface.DetailsUrl AS SrcPortUrl
                 FROM [Orion.Topology] t
-                LEFT JOIN [Orion.NodesCustomProperties] src_ncp ON t.SourceNodeID = src_ncp.NodeID
-                LEFT JOIN [Orion.NodesCustomProperties] tgt_ncp ON t.TargetNodeID = tgt_ncp.NodeID
+                LEFT JOIN [Orion.NodesCustomProperties] src_ncp ON t.SourceNodeID  = src_ncp.NodeID
+                LEFT JOIN [Orion.NodesCustomProperties] tgt_ncp ON t.TargetNodeID  = tgt_ncp.NodeID
+                LEFT JOIN [Orion.NPM.Interfaces] iface
+                       ON SUBSTR(iface.NodeName, 1, INSTR(iface.NodeName, ' ') - 1) = t.SourceNodeName
+                      AND TRIM(SUBSTR(iface.NodeName, INSTR(iface.NodeName, ' ') + 1)) = t.SourceInterface
                 WHERE t.LayerType = 'L2'
                   AND (src_ncp.Site = :site OR tgt_ncp.Site = :site)
             """, conn, params={"site": site})
@@ -659,11 +671,24 @@ async def get_topo_level2(site: str):
             src_port = src_if.split(" · ")[0] if " · " in src_if else src_if
             tgt_port = tgt_if.split(" · ")[0] if " · " in tgt_if else tgt_if
             lbl = f"{src_port}↔{tgt_port}" if (src_port and tgt_port) else (src_port or tgt_port or "")
+            src_port_down = bool(r.get("SrcPortDown"))
+            src_port_down_since = str(r.get("SrcPortDownSince") or "").strip()
+            src_port_url = str(r.get("SrcPortUrl") or "").strip()
+            # Colour priority: port down > cross-site > normal
+            if src_port_down:
+                edge_color = "#ef4444"  # red — port is currently down
+            elif cross_site:
+                edge_color = "#f97316"  # orange — cross-site uplink
+            else:
+                edge_color = "#22c55e"  # green — same-site, port up
             edges.append({
                 "id": f"e:{src_id}-{tgt_id}", "source": src_id, "target": tgt_id,
                 "label": lbl, "source_interface": src_if, "target_interface": tgt_if,
                 "cross_site": cross_site,
-                "color": "#f97316" if cross_site else "#22c55e",
+                "port_down": src_port_down,
+                "port_down_since": src_port_down_since,
+                "port_url": src_port_url,
+                "color": edge_color,
             })
         in_site_nodes = [n for n in nodes if n.get("in_site", True)]
         return {
@@ -701,8 +726,10 @@ async def topo_refresh_now():
         # Pull only the two tables needed for topology rendering
         topo_result = client.query(orion_config.swis_sitetopology)
         ncp_result  = client.query(orion_config.swis_ncp)
+        interface_result  = client.query(orion_config.swis_interface) # interface full status 
 
         data_for_db = {
+            "interface_table":        [r for r in (interface_result  or {}).get("results", []) if isinstance(r, dict)],
             "sites_topology":        [r for r in (topo_result  or {}).get("results", []) if isinstance(r, dict)],
             "NodesCustomProperties": [r for r in (ncp_result   or {}).get("results", []) if isinstance(r, dict)],
         }
@@ -712,9 +739,10 @@ async def topo_refresh_now():
         with _orion_read_engine.connect() as conn:
             node_count = conn.execute(_sa_text("SELECT COUNT(*) FROM [Orion.NodesCustomProperties]")).scalar()
             topo_count = conn.execute(_sa_text("SELECT COUNT(*) FROM [Orion.Topology]")).scalar()
+            interface_count = conn.execute(_sa_text("SELECT COUNT(*) FROM [Orion.NPM.Interfaces]")).scalar()
 
-        logger.info("topo/refresh: synced %d NCP nodes, %d topology edges", node_count, topo_count)
-        return {"ok": True, "nodes": node_count, "topology_edges": topo_count}
+        logger.info("topo/refresh: synced %d NCP nodes, %d interfaces", node_count, interface_count)
+        return {"ok": True, "nodes": node_count, "interfaces": interface_count}
 
     except Exception as e:
         logger.error("topo/refresh: %s", e)
