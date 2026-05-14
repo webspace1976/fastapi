@@ -1,195 +1,311 @@
-<!-- {% extends "base.html" %} -->
+{% extends "base.html" %}
 {% block title %}L2 Site Topology{% endblock %}
 {% block content %}
+<link rel="stylesheet" href="/static/css/mystyle_topo.css">
 <style>
-:root{--bg:#0f1117;--panel:#1a1f2e;--border:#2d3448;--txt:#cbd5e1;--muted:#64748b;--accent:#3b82f6;--up:#22c55e;--down:#ef4444;--cross:#f97316;--teal:#14b8a6;--r:7px}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--txt);font-family:"Segoe UI",system-ui,sans-serif;font-size:13px}
-#bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
-#bar label{color:var(--muted);font-size:11px;white-space:nowrap}
-#bar select{background:#0f1117;color:var(--txt);border:1px solid var(--border);border-radius:5px;padding:5px 10px;font-size:12px}
-#haSelect{min-width:170px}
-#siteSelect{min-width:220px;max-width:320px}
-.btn{padding:5px 13px;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;transition:opacity .15s}
-.btn:hover{opacity:.8}
-.b-primary{background:var(--accent);color:#fff}
-.b-sm{background:var(--border);color:var(--txt);padding:4px 10px;font-size:11px}
-.b-back{background:#1e3a5f;color:#93c5fd;display:none}
-#lvlBadge{font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;background:#312e81;color:#a5b4fc;white-space:nowrap}
-#statusBar{font-size:11px;color:var(--muted);margin-left:auto}
-#wrap{display:flex;height:calc(70vh - 100px)}
-#cy-wrap{flex:1 1 0;position:relative;background:#0a0d14;border-right:1px solid var(--border)}
-#cy{width:100%;height:80%}
-#overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,13,20,.92);gap:10px;z-index:10}
-#overlay.hidden{display:none}
-.spin{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite}
-@keyframes sp{to{transform:rotate(360deg)}}
-#leg{position:absolute;bottom:12px;left:12px;background:rgba(26,31,46,.93);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;display:none;flex-direction:column;gap:5px;font-size:11px;z-index:5}
-.li{display:flex;align-items:center;gap:7px}
-.ld{width:11px;height:11px;border-radius:50%;flex-shrink:0}
-.ll{width:22px;height:2px;flex-shrink:0}
-#detail{width:300px;flex-shrink:0;overflow-y:auto;background:var(--panel);padding:14px;display:flex;flex-direction:column;gap:8px}
-#detail h3{font-size:12px;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:5px;margin-bottom:2px}
-.kr{display:flex;gap:6px;font-size:11px;padding:2px 0}
-.kk{color:var(--muted);min-width:86px;flex-shrink:0}
-.kv{color:var(--txt);word-break:break-all}
-.badge{display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700}
-.b-up{background:#14532d;color:#4ade80}.b-dn{background:#7f1d1d;color:#fca5a5}
-.b-ha{background:#1e3a5f;color:#93c5fd}.b-cr{background:#431407;color:#fb923c}
-.b-ext{background:#292524;color:#a8a29e}
-.b-refresh{background:#064e3b;color:#6ee7b7;padding:4px 11px;font-size:11px;border:none;border-radius:5px;cursor:pointer;font-weight:600}
-.b-refresh:hover{opacity:.8}
-.b-refresh.syncing{opacity:.5;cursor:wait}
-#detail-ph{color:var(--muted);font-size:12px;text-align:center;margin-top:40px;line-height:1.8}
-#stats{display:flex;gap:16px;padding:5px 14px;background:var(--panel);border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
-#stats strong{color:var(--txt)}
-#tbl-sec{border-top:1px solid var(--border);max-height:300px;overflow-y:auto;display:none}
-#tbl-sec h4{padding:7px 14px;font-size:12px;color:var(--accent);background:var(--panel);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-#tblQ{margin-left:auto;background:#0f1117;color:var(--txt);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;width:190px}
-table{width:100%;border-collapse:collapse;font-size:11px}
-thead th{background:var(--panel);color:var(--muted);padding:5px 10px;text-align:left;position:sticky;top:32px;font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
-tbody tr:hover{background:rgba(255,255,255,.03)}
-tbody td{padding:4px 10px;border-bottom:1px solid #151a27}
-.su{color:var(--up)}.sd{color:var(--down)}
-a.nl{color:var(--accent);text-decoration:none}
-a.nl:hover{text-decoration:underline}
+/* ── Topology-page overrides (light theme, matches BGP/OSPF peer pages) ── */
+:root {
+  --clr-up:     #2ECC40;
+  --clr-down:   #FF4136;
+  --clr-accent: #1a56db;
+  --clr-cross:  #e67e00;
+  --clr-core-border: #1a56db;
+}
+
+/* Toolbar reuses topbar from mystyle_topo.css */
+#topbar { gap:.6rem; flex-wrap:wrap; }
+#topbar label { font-size:.8rem; color:rgba(255,255,255,.7); white-space:nowrap; }
+#topbar select { min-width:80px; }
+#haSelect  { min-width:160px; }
+#siteSelect{ min-width:210px; max-width:320px; }
+#lvlBadge  {
+  /*font-size:.72rem;*/
+  font-weight:700; 
+  padding:.2rem .65rem;
+
+  border-radius:999px; background:aqua;
+  color:#fff; white-space:nowrap; letter-spacing:.03em;
+}
+.btn-topo {
+  font-size:.8rem; padding:.28rem .75rem; border:none; border-radius:6px;
+  cursor:pointer; font-weight:600; transition:opacity .15s;
+}
+.btn-topo:hover { opacity:.85; }
+.btn-primary{ background:#1a56db; color:#fff; }
+.btn-back   { background:rgba(255,255,255,.15); color:#fff; display:none; }
+.btn-sm     { background:rgba(255,255,255,.1);  color:#fff; }
+.btn-sync   { background:#065f46; color:#6ee7b7; }
+.btn-sync.busy { opacity:.5; cursor:wait; }
+#statusMsg  { font-size:.78rem; color:rgba(255,255,255,.6); margin-left:auto; }
+
+/* ── Main layout: graph (left, 75%) + detail panel (right, 25%) ── */
+#main-wrap {
+  display: flex;
+  height: 60vh;          /* 78% viewport — enough canvas, ~18vh left for table */
+  min-height: 460px;
+}
+
+/* Graph canvas — reuses #cy-wrap / #cy from mystyle_topo.css */
+#cy-wrap {
+  flex: 1 1 0;
+  height: 100% !important;  /* override mystyle fixed 580px */
+  border-right: 1px solid var(--clr-border);
+  border-bottom: none;
+}
+#cy { height: 100% !important; }
+
+/* Detail panel */
+#detail-panel {
+  width: 280px; flex-shrink: 0;
+  background: #fff; border-left: 1px solid var(--clr-border);
+  overflow-y: auto; padding: .75rem 1rem;
+  display: flex; flex-direction: column; gap: .5rem;
+  font-size: .8rem;
+}
+#detail-panel h4 {
+  font-size: .82rem; font-weight: 700; color: var(--clr-accent);
+  border-bottom: 1px solid var(--clr-border); padding-bottom:.35rem; margin:0;
+}
+.drow { display:flex; gap:.4rem; padding:.2rem 0; line-height:1.4; }
+.dkey { color:#64748b; min-width:72px; flex-shrink:0; font-size:.75rem; }
+.dval { color:#1e293b; word-break:break-all; font-size:.75rem; }
+#detail-ph { color:#94a3b8; text-align:center; margin-top:2rem; line-height:1.8; font-size:.8rem; }
+.badge-up   { display:inline-block;padding:0 .45rem;border-radius:4px;background:#dcfce7;color:#166534;font-size:.7rem;font-weight:700; }
+.badge-down { display:inline-block;padding:0 .45rem;border-radius:4px;background:#fee2e2;color:#991b1b;font-size:.7rem;font-weight:700; }
+.badge-ha   { display:inline-block;padding:0 .45rem;border-radius:4px;background:#eff6ff;color:#1d4ed8;font-size:.7rem;font-weight:700; }
+.iface-row  { display:flex;gap:.35rem;padding:.15rem 0;border-bottom:1px solid #f1f5f9;align-items:flex-start; }
+.iface-port { font-size:.7rem;color:#334155;min-width:120px;flex-shrink:0;font-family:monospace; }
+.iface-desc { font-size:.7rem;color:#64748b; }
+a.orion-lnk { color:var(--clr-accent);text-decoration:none;font-size:.7rem; }
+a.orion-lnk:hover { text-decoration:underline; }
+
+/* ── Stats bar ── */
+#statsbar {
+  display:flex; gap:1rem; padding:.35rem 1.25rem;
+  background:#f8fafc; border-top:1px solid var(--clr-border);
+  border-bottom:1px solid var(--clr-border);
+  font-size:.78rem; color:#64748b; align-items:center;
+}
+#statsbar strong { color:#1e293b; }
+
+/* ── Reference table — reuses mystyle_topo #table-section styles ── */
+#table-section { padding:.75rem 1.25rem 1.25rem; }
+#peerTable thead th { top:0; }   /* reset sticky top since not in scroll container */
+.su { color:var(--clr-up);  font-weight:600; }
+.sd { color:var(--clr-down);font-weight:600; }
+a.nl { color:var(--clr-accent); text-decoration:none; }
+a.nl:hover { text-decoration:underline; }
+
+/* ── Legend inside canvas ── */
+#legend {
+  position:absolute; bottom:10px; left:10px;
+  background:rgba(255,255,255,.94);
+  border:1px solid var(--clr-border); border-radius:8px;
+  padding:.45rem .75rem; font-size:.73rem;
+  display:none; flex-direction:column; gap:.22rem;
+}
+.legend-item { display:flex; align-items:center; gap:.4rem; }
+.legend-dot  { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
+.legend-line { width:22px;height:2px;border-radius:2px;flex-shrink:0; }
+
+/* ── Spinner overlay ── */
+#cy-loading { z-index:20; font-size:.85rem; }
+
+/* ── Light theme polish — better for 12-hour shift eye comfort ── */
+/* Soft shadow on detail panel separates it from the canvas */
+#detail-panel {
+  box-shadow: -2px 0 8px rgba(0,0,0,.06);
+}
+/* Table row highlighting on click matches the peer table style */
+#peerTable tbody tr { cursor: pointer; }
+/* Core node label larger weight already set via cy style — 
+   make topbar slightly less harsh than pure #1a1f2e */
+#topbar {
+  background: #1e293b;   /* slate-800 — slightly warmer than pure dark */
+}
+/* Stats bar subtle left-border accent per-stat */
+#statsbar { letter-spacing: .01em; }
 </style>
 
-<div id="bar">
+<!-- ── Toolbar ── -->
+<div id="topbar">
   <span id="lvlBadge">L1 · HA View</span>
-  <label>HA</label>
-  <select id="haSelect"><option value="">— loading… —</option></select>
-  <label>Site</label>
-  <select id="siteSelect" disabled><option value="">— select HA first —</option></select>
-  <button class="btn b-primary" id="btnLoad">Load</button>
-  <button class="btn b-back"   id="btnBack">← HA View</button>
-  <button class="btn b-sm"     id="btnFit">⊞ Fit</button>
-  <button class="btn b-refresh" id="btnRefresh" title="Pull fresh data from Orion SWIS now">⟳ Sync Orion</button>
-  <button class="btn b-sm"     id="btnClear">✕</button>
-  <span id="statusBar">Loading filters…</span>
+
+  <div class="filter-group">
+    <label>HA</label>
+    <select id="haSelect"><option value="">— loading —</option></select>
+    <label>Site</label>
+    <select id="siteSelect" disabled><option value="">— select HA first —</option></select>
+    <button class="btn-topo btn-primary" id="btnLoad">Load</button>
+    <button class="btn-topo btn-back"   id="btnBack">← HA View</button>
+    <button class="btn-topo btn-sm"     id="btnFit">⊞ Fit</button>
+    <button class="btn-topo btn-sync"   id="btnRefresh" title="Pull fresh data from Orion SWIS">⟳ Sync Orion</button>
+    <button class="btn-topo btn-sm"     id="btnClear">✕</button>
+  </div>
+
+  <span id="statusMsg">Loading filters…</span>
 </div>
 
-<div id="wrap">
+<!-- ── Main: graph + detail ── -->
+<div id="main-wrap">
   <div id="cy-wrap">
     <div id="cy"></div>
-    <div id="overlay" class="hidden">
-      <div class="spin"></div>
-      <span style="color:var(--muted);font-size:12px" id="overlayMsg">Loading…</span>
-    </div>
-    <div id="leg"></div>
+    <div id="cy-loading" class="hidden">Loading topology…</div>
+    <div id="legend"></div>
   </div>
-  <div id="detail"><div id="detail-ph">Select an HA → click Load.<br><br>Click a site node to see details.<br>Double-click to drill into devices.</div></div>
+
+  <div id="detail-panel">
+    <div id="detail-ph">Select an HA → Load.<br><br>Click a site node to inspect.<br>Double-click to drill into devices.</div>
+  </div>
 </div>
 
-<div id="stats">
-  Nodes <strong id="sN">—</strong>&nbsp;
-  Edges <strong id="sE">—</strong>&nbsp;
+<!-- ── Stats bar ── -->
+<div id="statsbar">
+  Nodes <strong id="sN">—</strong>
+  Edges <strong id="sE">—</strong>
   <span id="sExtra"></span>
 </div>
 
-<div id="tbl-sec">
-  <h4>Reference <span id="tblCnt" style="color:var(--muted);font-weight:400"></span>
-    <input id="tblQ" type="search" placeholder="Filter…">
-  </h4>
-  <table><thead id="tblHead"></thead><tbody id="tblBody"></tbody></table>
+<!-- ── Reference table ── -->
+<div id="table-section" style="display:none">
+  <div class="section-header">
+    <h5>Device Reference</h5>
+    <span class="count-badge" id="tblCnt">0</span>
+    <input id="searchBox" type="search" placeholder="Filter table…">
+  </div>
+  <div style="overflow-x:auto;max-height:200px;overflow-y:auto;">
+    <table class="table table-sm table-hover" id="peerTable">
+      <thead id="tblHead"></thead>
+      <tbody id="tblBody"></tbody>
+    </table>
+  </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script> -->
+<script src="/static/js/cytoscape-3.28.1.min.js"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
 const ORION = 'https://orion.net.mgmt';
 let LEVEL = 0, SITES_BY_HA = {}, CUR_HA = '', CUR_SITE = '';
 
+// ── Cytoscape — light theme matching mystyle_topo.css colours ─────────────────
 const cy = cytoscape({
   container: $('cy'),
   style: [
-    { selector: 'node[type="site"]', style: {
-        label:'data(label)','font-size':10,'text-wrap':'wrap','text-max-width':130,
-        'text-valign':'center','text-halign':'center',color:'#e2e8f0',
-        'background-color':'#1e3a5f','border-width':1.5,'border-color':'#3b82f6',
-        shape:'round-rectangle','min-width':60,'min-height':24,padding:'10px','text-margin-x':4,
+    // ── Site nodes (L1) ─────────────────────────────────────────────────────
+    { selector:'node[type="site"]', style:{
+        label:'data(label)', 'text-wrap':'wrap', 'text-max-width':140,
+        'font-size':10, 'text-valign':'center', 'text-halign':'center',
+        color:'#1e293b',
+        'background-color':'#eff6ff', 'border-width':1.5, 'border-color':'#1a56db',
+        shape:'round-rectangle', 'min-width':70, 'min-height':26, padding:'10px',
     }},
-    { selector:'node[type="site"][?has_down]',style:{'border-color':'#ef4444','border-width':2.5}},
-    { selector:'node[type="device"]',style:{
-        label:'data(short)','font-size':8,'text-wrap':'wrap','text-max-width':110,
-        'text-valign':'center','text-halign':'center',color:'#cbd5e1',
-        'background-color':'#1e3a5f','border-width':1.5,'border-color':'#3b82f6',
-        shape:'ellipse',width:80,height:28,
+    { selector:'node[type="site"][?has_down]', style:{
+        'border-color':'#FF4136', 'border-width':2.5, 'background-color':'#fff1f0',
     }},
-    { selector:'node[type="device"][?down]',style:{'background-color':'#450a0a','border-color':'#ef4444',color:'#fca5a5'}},
-    { selector:'node[?external]',style:{'background-color':'#1c1917','border-color':'#57534e',color:'#a8a29e','border-style':'dashed'}},
-    { selector:'node.sel',style:{'border-color':'#f59e0b','border-width':3,'z-index':10}},
-    { selector:'.dim',style:{opacity:0.1}},
-    { selector:'edge',style:{
-        width:2,'line-color':'data(color)','curve-style':'unbundled-bezier',
-        'control-point-distances':[0],'control-point-weights':[0.5],
-        label:'',opacity:0.7,
+
+    // ── Device nodes (L2) ────────────────────────────────────────────────────
+    { selector:'node[type="device"]', style:{
+        label:'data(short)', 'text-wrap':'wrap', 'text-max-width':120,
+        'font-size':9, 'text-valign':'center', 'text-halign':'center',
+        color:'#1e293b',
+        'background-color':'#f0f9ff', 'border-width':1.5, 'border-color':'#38bdf8',
+        shape:'ellipse', width:90, height:30,
     }},
-    { selector:'edge[?thick]',style:{width:'mapData(weight,1,300,2,8)'}},
-    { selector:'edge[?port_down]',style:{'line-style':'dashed','line-dash-pattern':[8,4],width:2.5,opacity:1}},
-    { selector:'edge.hov',style:{
-        label:'data(lbl)','font-size':8,color:'#94a3b8','text-rotation':'autorotate',
-        'text-margin-y':-5,width:3,opacity:1,'z-index':5,
+    // Core/switch — larger, amber border, bold — clearly the hub
+    { selector:'node[type="device"][?is_core]', style:{
+        'background-color':'#fffbeb', 'border-color':'#d97706', 'border-width':3,
+        color:'#78350f', 'font-weight':'bold',
+        width:110, height:36,   /* slightly bigger than peripheral nodes */
+    }},
+    // Down devices
+    { selector:'node[type="device"][?down]', style:{
+        'background-color':'#fff1f0', 'border-color':'#FF4136', color:'#991b1b',
+    }},
+
+    // ── Interaction states ────────────────────────────────────────────────────
+    { selector:'node.sel', style:{ 'border-color':'#7c3aed','border-width':3,'z-index':10 }},
+    { selector:'.dim',     style:{ opacity:0.15 }},
+
+    // ── Edges ─────────────────────────────────────────────────────────────────
+    { selector:'edge', style:{
+        width:1.8, 'line-color':'data(color)',
+        'curve-style':'unbundled-bezier',
+        'control-point-distances':[0], 'control-point-weights':[0.5],
+        label:'', opacity:0.8,
+    }},
+    // L1 inter-site edges — weight-scaled width
+    { selector:'edge[?thick]', style:{ width:'mapData(weight,1,300,2,7)', opacity:0.7 }},
+    // Port-down edges — dashed red
+    { selector:'edge[?port_down]', style:{
+        'line-style':'dashed', 'line-dash-pattern':[8,4], width:2, opacity:1,
+    }},
+    // Hover — show port label
+    { selector:'edge.hov', style:{
+        label:'data(lbl)', 'font-size':8, color:'#475569',
+        'text-rotation':'autorotate', 'text-margin-y':-6,
+        width:2.5, opacity:1, 'z-index':5,
     }},
   ],
-  layout:{name:'grid',animate:false},
-  minZoom:0.05,maxZoom:4,
+  layout:{ name:'grid', animate:false },
+  minZoom:0.05, maxZoom:5,
 });
 
-// ── Load dynamic filters ──────────────────────────────────────────────────────
+// ── Filters ───────────────────────────────────────────────────────────────────
 async function loadFilters(){
-  try {
+  try{
     const d = await fetch('/api/orion/topo/filters').then(r=>r.json());
-    SITES_BY_HA = d.sites_by_ha || {};
+    SITES_BY_HA = d.sites_by_ha||{};
     const el = $('haSelect');
     el.innerHTML = '<option value="">— select HA —</option>';
-    (d.ha_list||[]).forEach(h => {
-      const o = document.createElement('option');
-      o.value = h.HA;
-      o.textContent = `${h.HA}  (${h.site_count} sites · ${h.node_count} nodes)`;
+    (d.ha_list||[]).forEach(h=>{
+      const o=document.createElement('option');
+      o.value=h.HA;
+      o.textContent=`${h.HA}  (${h.site_count} sites · ${h.node_count} nodes)`;
       el.appendChild(o);
     });
     setStatus('Select an HA and click Load.');
-  } catch(e){ setStatus('Filter load error: '+e.message); }
+  }catch(e){ setStatus('Filter error: '+e.message); }
 }
 
 function populateSites(ha){
-  const sites = SITES_BY_HA[ha] || [];
-  const el = $('siteSelect');
-  el.innerHTML = '<option value="">— All sites (HA view) —</option>';
+  const sites=SITES_BY_HA[ha]||[];
+  const el=$('siteSelect');
+  el.innerHTML='<option value="">— All sites (HA view) —</option>';
   sites.sort((a,b)=>a.site.localeCompare(b.site)).forEach(s=>{
-    const o = document.createElement('option');
-    o.value = s.site;
-    const dn = s.down_count>0 ? ` ⚠ ${s.down_count}↓` : '';
-    o.textContent = `${s.site}${s.city?' · '+s.city:''}${dn}`;
-    if(s.down_count>0) o.style.color='#f87171';
+    const o=document.createElement('option');
+    o.value=s.site;
+    const dn=s.down_count>0?` ⚠ ${s.down_count}↓`:'';
+    o.textContent=`${s.site}${s.city?' · '+s.city:''}${dn}`;
+    if(s.down_count>0) o.style.color='#dc2626';
     el.appendChild(o);
   });
-  el.disabled = false;
+  el.disabled=false;
 }
 
-// ── Load & render ─────────────────────────────────────────────────────────────
+// ── Load ──────────────────────────────────────────────────────────────────────
 async function load(){
-  const ha = $('haSelect').value, site = $('siteSelect').value;
+  const ha=$('haSelect').value, site=$('siteSelect').value;
   if(!ha){ setStatus('Select an HA first.'); return; }
   site ? await doLevel2(site,ha) : await doLevel1(ha);
 }
 
 async function doLevel1(ha){
   CUR_HA=ha; CUR_SITE=''; LEVEL=1;
-  showOv('Building HA view…');
+  showLoad('Building HA view…');
   try{
-    const d = await fetch(`/api/orion/topo/ha?ha=${enc(ha)}`).then(r=>r.json());
+    const d=await fetch(`/api/orion/topo/ha?ha=${enc(ha)}`).then(r=>r.json());
     cy.elements().remove();
     cy.add((d.nodes||[]).map(n=>({data:{
-      id:`site:${n.label}`,label:n.label,type:'site',
-      ha:n.ha,city:n.city||'',address:n.address||'',
-      total_nodes:n.total_nodes,down_count:n.down_count,has_down:n.has_down||null,
+      id:`site:${n.label}`, label:n.label, type:'site',
+      ha:n.ha, city:n.city||'', total_nodes:n.total_nodes,
+      down_count:n.down_count, has_down:n.has_down||null,
     }})));
     cy.add((d.edges||[]).map(e=>({data:{
-      id:e.id,source:e.source,target:e.target,color:e.color,
-      lbl:`${e.link_count} L2 links`,weight:e.link_count,thick:true,
+      id:e.id, source:e.source, target:e.target,
+      color:e.color, lbl:`${e.link_count} links`,
+      weight:e.link_count, thick:true,
     }})));
     runLayout((d.nodes||[]).length, false);
     $('lvlBadge').textContent=`L1 · ${ha}`;
@@ -199,85 +315,110 @@ async function doLevel1(ha){
     $('btnBack').style.display='none';
     setLeg1(); renderTbl1(d.nodes||[]);
     setStatus(`${(d.nodes||[]).length} sites loaded. Click a site or double-click to drill in.`);
-    $('detail').innerHTML='<div id="detail-ph">Click a site node.<br>Double-click to drill into devices.</div>';
-  } catch(e){ setStatus('Error: '+e.message); showOv(false); }
+    setDetail('<div id="detail-ph">Click a site node.<br>Double-click to drill into devices.</div>');
+  }catch(e){ setStatus('Error: '+e.message); showLoad(false); }
 }
 
 async function doLevel2(site,ha){
   CUR_SITE=site; LEVEL=2;
-  showOv(`Loading ${site}…`);
+  showLoad(`Loading ${site}…`);
   try{
-    const d = await fetch(`/api/orion/topo/site?site=${enc(site)}`).then(r=>r.json());
+    const d=await fetch(`/api/orion/topo/site?site=${enc(site)}`).then(r=>r.json());
     cy.elements().remove();
-    // In-site only — no external nodes per design
-    const allNodes = d.nodes||[];
+
+    const allNodes=d.nodes||[];
+    // Separate core and peripheral nodes for preset layout
+    const cores  = allNodes.filter(n=>n.is_core);
+    const others = allNodes.filter(n=>!n.is_core);
+
     cy.add(allNodes.map(n=>({data:{
       id:n.id, short:sn(n.label), full:n.label, type:'device',
       ha:n.ha||'', closet:n.closet||'', floor:n.floor||'',
       dtype:n.device_type||'', ip:n.ip||'',
       url:n.details_url||'', sdesc:n.status_desc||'',
-      down:(!n.is_up)||null,
-      is_core:n.is_core||null,
+      down:(!n.is_up)||null, is_core:n.is_core||null,
       ifaces:JSON.stringify(n.interfaces||[]),
     }})));
-    const siteNodeIds = new Set(allNodes.map(n=>n.id));
-    const allEdges = (d.edges||[]).filter(e=>siteNodeIds.has(e.source)&&siteNodeIds.has(e.target));
-    cy.add(allEdges.map(e=>({data:{
+
+    const allEdges=(d.edges||[]);
+    const nodeIds=new Set(allNodes.map(n=>n.id));
+    const siteEdges=allEdges.filter(e=>nodeIds.has(e.source)&&nodeIds.has(e.target));
+    cy.add(siteEdges.map(e=>({data:{
       id:e.id, source:e.source, target:e.target, color:e.color,
       lbl:e.label||'', desc:e.description||'',
       port_down:(!e.port_up)||null, url:e.url||'',
     }})));
-    runLayout(allNodes.length, true);
+
+    // ── Core-centred preset layout ─────────────────────────────────────────
+    // Place cores at canvas centre; CoSE pushes peripherals outward
+    runLayout(allNodes.length, true, cores.map(n=>n.id));
+
     const s=d.summary||{};
-    $('lvlBadge').textContent=`L2 · ${site}`;
+    //$('lvlBadge').textContent=`L2 · ${site}`;
+    const lvlBadge = document.getElementById('lvlBadge');
+    lvlBadge.innerHTML = `<a href="https://orion.net.mgmt/apps/search/?q=${site}" target="_blank">${site}</a>`;
     $('sN').textContent=allNodes.length;
-    $('sE').textContent=allEdges.length;
-    $('sExtra').innerHTML=`<strong>${s.devices_in_site??allNodes.length}</strong> devices · <strong>${allEdges.length}</strong> edges`;
+    $('sE').textContent=siteEdges.length;
+    $('sExtra').innerHTML=`<strong>${s.devices_in_site??allNodes.length}</strong> devices · <strong>${siteEdges.length}</strong> L2 edges`;
     $('btnBack').style.display='';
     setLeg2(); renderTbl2(allNodes);
-    setStatus(`${s.devices_in_site??allNodes.length} devices · ${allEdges.length} edges in site.`);
-    $('detail').innerHTML='<div id="detail-ph">Click a device node.</div>';
-  } catch(e){ setStatus('Error: '+e.message); showOv(false); }
+    setStatus(`${s.devices_in_site??allNodes.length} devices · ${siteEdges.length} edges.`);
+    setDetail('<div id="detail-ph">Click a device node to inspect.</div>');
+  }catch(e){ setStatus('Error: '+e.message); showLoad(false); }
 }
 
-function runLayout(n, isSiteView){
-  // Level 2 site view: pin core nodes to centre, peripherals laid out around them
-  if(isSiteView){
-    const cores = cy.nodes('[?is_core]');
-    const W = $('cy-wrap').clientWidth  || 800;
-    const H = $('cy-wrap').clientHeight || 600;
-    if(cores.length > 0){
-      // Lock core nodes at centre — one or two cores stacked slightly
-      cores.forEach((n,i) => {
-        n.position({x: W/2 + (i*40 - cores.length*20), y: H/2});
-        n.lock();
-      });
-      // Lay peripherals out with preset core positions fixed
-      const layout = cy.layout({
-        name:'cose', animate:false, padding:60,
-        nodeRepulsion:()=>70000, nodeOverlap:20,
-        idealEdgeLength:()=>100, edgeElasticity:()=>45,
-        gravity:0.3, numIter:1000, randomize:false,
-      });
-      layout.on('layoutstop',()=>{
-        cy.nodes().unlock();   // unlock so user can drag
-        cy.fit(cy.elements(),50);
-        showOv(false); $('leg').style.display='flex';
-      });
-      layout.run();
-      return;
-    }
+// ── Layout ────────────────────────────────────────────────────────────────────
+function runLayout(n, isSite, coreIds){
+  if(isSite && coreIds && coreIds.length){
+    // cy.width()/cy.height() are always correct after cytoscape init.
+    // Place cores at canvas centre; CoSE physics push peripherals outward.
+    const W = cy.width()  || $('cy-wrap').offsetWidth  || 800;
+    const H = cy.height() || $('cy-wrap').offsetHeight || 500;
+    const cx = W / 2, cy_mid = H / 2;
+    coreIds.forEach((nid, i) => {
+      const el = cy.getElementById(nid);
+      if (el.length) {
+        // Offset multiple cores slightly so they don't stack exactly
+        const offset = coreIds.length > 1 ? (i * 60 - (coreIds.length - 1) * 30) : 0;
+        el.position({ x: cx + offset, y: cy_mid });
+        el.lock();
+      }
+    });
+    const layout = cy.layout({
+      name: 'cose', animate: false, padding: 70,
+      // High repulsion so peripherals spread far from the locked centre
+      nodeRepulsion:   () => 120000,
+      nodeOverlap:     24,
+      idealEdgeLength: () => 140,
+      edgeElasticity:  () => 40,
+      gravity:         0.15,   // low gravity keeps peripherals from being pulled back in
+      numIter:         1500,
+      randomize:       false,
+      // Don't move locked nodes
+      fixedNodeConstraint: coreIds.map(nid => ({
+        nodeId: nid,
+        position: cy.getElementById(nid).position(),
+      })),
+    });
+    layout.on('layoutstop', () => {
+      cy.nodes().unlock();
+      cy.fit(cy.elements(), 60);
+      showLoad(false);
+      showLegend();
+    });
+    layout.run();
+    return;
   }
-  // Level 1 or fallback
-  const layout = cy.layout(n>150?{
+  // L1 or fallback
+  const layout=cy.layout(n>150?{
     name:'grid', animate:false, padding:50, rows:Math.ceil(Math.sqrt(n)),
   }:{
     name:'cose', animate:false, padding:60,
     nodeRepulsion:()=>80000, nodeOverlap:20,
-    idealEdgeLength:()=>n>50?80:120, edgeElasticity:()=>45,
+    idealEdgeLength:()=>n>50?80:130, edgeElasticity:()=>45,
     gravity:0.25, numIter:1200, randomize:false,
   });
-  layout.on('layoutstop',()=>{cy.fit(cy.elements(),50);showOv(false);$('leg').style.display='flex';});
+  layout.on('layoutstop',()=>{ cy.fit(cy.elements(),50); showLoad(false); showLegend(); });
   layout.run();
 }
 
@@ -287,17 +428,20 @@ cy.on('tap','node[type="site"]',e=>{
   e.target.addClass('sel');
   cy.elements().not(e.target.closedNeighborhood()).addClass('dim');
   const d=e.target.data();
-  const dn=d.down_count>0?`<span class="badge b-dn">${d.down_count} down</span>`:'<span class="badge b-up">All up</span>';
-  $('detail').innerHTML=`<h3>🏢 ${d.label}</h3>
-    ${r('HA',`<span class="badge b-ha">${d.ha}</span>`)}
-    ${r('City',d.city||'—')}${r('Nodes',`${d.total_nodes??'—'} total · ${dn}`)}
-    ${r('Connected to',`${e.target.neighborhood('node').length} sites`)}
-    <div style="margin-top:10px">
-      <button class="btn b-primary" style="width:100%;font-size:11px"
+  const dn=d.down_count>0?`<span class="badge-down">${d.down_count} down</span>`:`<span class="badge-up">All up</span>`;
+  setDetail(`
+    <h4>🏢 ${d.label}</h4>
+    ${dr('HA',`<span class="badge-ha">${d.ha}</span>`)}
+    ${dr('City',d.city||'—')}
+    ${dr('Nodes',`${d.total_nodes??'—'} total · ${dn}`)}
+    ${dr('Peers',`${e.target.neighborhood('node').length} sites`)}
+    <div style="margin-top:.6rem">
+      <button class="btn-topo btn-primary" style="width:100%;font-size:.78rem"
         onclick="drill('${d.label.replace(/'/g,"\\'")}')">🔍 Drill into devices →</button>
     </div>
-    <h3 style="margin-top:10px">Neighbours (${e.target.neighborhood('node').length})</h3>
-    ${e.target.neighborhood('node').map(n=>`<div class="kr"><span class="kv">${n.data('label')}</span></div>`).join('')}`;
+    <h4 style="margin-top:.75rem">Connected sites</h4>
+    ${e.target.neighborhood('node').map(n=>`<div class="drow"><span class="dval">${n.data('label')}</span></div>`).join('')}
+  `);
 });
 
 cy.on('tap','node[type="device"]',e=>{
@@ -305,57 +449,61 @@ cy.on('tap','node[type="device"]',e=>{
   e.target.addClass('sel');
   cy.elements().not(e.target.closedNeighborhood()).addClass('dim');
   const d=e.target.data();
-  const lnk=d.url?`<a class="nl" href="${ORION}${d.url}" target="_blank">Open in Orion ↗</a>`:'—';
-  // Build interfaces list from NCP data stored in node
-  const ifaceHtml = (()=>{
+  const lnk=d.url?`<a class="orion-lnk" href="${ORION}${d.url}" target="_blank">Open in Orion ↗</a>`:'—';
+  const ifaceHtml=(()=>{
     try{
-      const ifaces = JSON.parse(d.ifaces||'[]');
+      const ifaces=JSON.parse(d.ifaces||'[]');
       if(!ifaces.length) return '';
-      return '<h3 style="margin-top:10px">Interfaces ('+ifaces.length+')</h3>'
-        + ifaces.map(i=>{
-            const col = i.is_up ? 'var(--up)' : 'var(--down)';
-            const lnk = i.url ? `<a class="nl" href="${ORION}${i.url}" target="_blank">↗</a>` : '';
-            return `<div class="kr">`
-              + `<span class="kk" style="color:${col};min-width:130px;font-size:10px">${i.port||'?'}</span>`
-              + `<span class="kv" style="font-size:10px">${i.description||''} ${lnk}</span></div>`;
-          }).join('');
+      return `<h4 style="margin-top:.75rem">Interfaces (${ifaces.length})</h4>`
+        +ifaces.map(i=>{
+          const col=i.is_up?'var(--clr-up)':'var(--clr-down)';
+          const lnk=i.url?`<a class="orion-lnk" href="${ORION}${i.url}" target="_blank">↗</a>`:'';
+          return `<div class="iface-row">`
+            +`<span class="iface-port" style="color:${col}">${i.port||'?'}</span>`
+            +`<span class="iface-desc">${i.description||''} ${lnk}</span></div>`;
+        }).join('');
     }catch(e){return '';}
   })();
-  $('detail').innerHTML=`<h3>📦 ${d.full}</h3>
-    ${r('Status',d.down?'<span class="badge b-dn">DOWN</span>':'<span class="badge b-up">UP</span>')}
-    ${r('HA',d.ha?`<span class="badge b-ha">${d.ha}</span>`:'—')}
-    ${r('Closet',d.closet||'—')} ${r('Floor',d.floor||'—')}
-    ${r('Type',d.dtype||'—')} ${r('IP',d.ip||'—')}
-    ${d.sdesc?r('State',d.sdesc):''} ${r('Orion',lnk)}
-    <h3 style="margin-top:10px">Connected (${e.target.neighborhood('node').length})</h3>
-    ${e.target.neighborhood('node').map(n=>`<div class="kr"><span class="kv">${sn(n.data('full')||n.data('label'))}</span></div>`).join('')}
-    ${ifaceHtml}`;
+  setDetail(`
+    <h4>📦 ${d.full}${d.is_core?` <span class="badge-ha">Core</span>`:''}</h4>
+    ${dr('Status',d.down?'<span class="badge-down">DOWN</span>':'<span class="badge-up">UP</span>')}
+    ${dr('HA',d.ha?`<span class="badge-ha">${d.ha}</span>`:'—')}
+    ${dr('Closet',d.closet||'—')} ${dr('Floor',d.floor||'—')}
+    ${dr('Type',d.dtype||'—')} ${dr('IP',d.ip||'—')}
+    ${d.sdesc?dr('State',d.sdesc):''}
+    ${dr('Orion',lnk)}
+    <h4 style="margin-top:.75rem">Connected (${e.target.neighborhood('node').length})</h4>
+    ${e.target.neighborhood('node').map(n=>`<div class="drow"><span class="dval">${sn(n.data('full')||n.data('label'))}</span></div>`).join('')}
+    ${ifaceHtml}
+  `);
 });
 
 cy.on('tap','edge',e=>{
   cy.elements().removeClass('sel dim');
   const d=e.target.data();
-  $('detail').innerHTML = d.thick
-    ? `<h3>🔗 Inter-Site Link</h3>${r('L2 links',d.weight)}`
-    : `<h3>🔗 L2 Link</h3>
-       ${r('Port', d.lbl||'—')}
-       ${r('Description', d.desc||'—')}
-       ${r('Status', d.port_down?'<span class="badge b-dn">Port Down</span>':'<span class="badge b-up">Up</span>')}
-       ${d.url?r('Orion',`<a class="nl" href="${ORION}${d.url}" target="_blank">View interface ↗</a>`):''}`;
+  if(d.thick){
+    setDetail(`<h4>🔗 Inter-Site</h4>${dr('L2 links',d.weight)}`);
+  } else {
+    const st=d.port_down?'<span class="badge-down">Port Down</span>':'<span class="badge-up">Up</span>';
+    const lnk=d.url?`<a class="orion-lnk" href="${ORION}${d.url}" target="_blank">View interface ↗</a>`:'';
+    setDetail(`
+      <h4>🔗 L2 Link</h4>
+      ${dr('Port',d.lbl||'—')}
+      ${dr('Desc',d.desc||'—')}
+      ${dr('Status',st)}
+      ${lnk?dr('Orion',lnk):''}
+    `);
+  }
 });
 
-cy.on('tap',ev=>{
-  if(ev.target!==cy) return;
-  cy.elements().removeClass('sel dim');
-  $('detail').innerHTML='<div id="detail-ph">Click a node or edge.</div>';
-});
-
+cy.on('tap',ev=>{ if(ev.target!==cy) return; cy.elements().removeClass('sel dim'); });
 cy.on('dblclick','node[type="site"]',e=>drill(e.target.data('label')));
 cy.on('mouseover','edge',e=>e.target.addClass('hov'));
 cy.on('mouseout', 'edge',e=>e.target.removeClass('hov'));
 
 function drill(site){ $('siteSelect').value=site; doLevel2(site,CUR_HA); }
-function r(k,v){ return `<div class="kr"><span class="kk">${k}</span><span class="kv">${v}</span></div>`; }
+function dr(k,v){ return `<div class="drow"><span class="dkey">${k}</span><span class="dval">${v}</span></div>`; }
+function setDetail(html){ $('detail-panel').innerHTML=html; }
 
 // ── Tables ────────────────────────────────────────────────────────────────────
 function renderTbl1(nodes){
@@ -363,108 +511,114 @@ function renderTbl1(nodes){
   const tb=$('tblBody'); tb.innerHTML='';
   nodes.forEach(n=>{
     const tr=document.createElement('tr');
+    tr.className='peer-row';
     tr.innerHTML=`<td>${n.label}</td><td>${n.city||'—'}</td><td>${n.ha||'—'}</td>
-      <td>${n.total_nodes??'—'}</td><td class="${n.down_count>0?'sd':'su'}">${n.down_count??0}</td>`;
-    tr.style.cursor='pointer'; tr.title='Click to drill';
+      <td>${n.total_nodes??'—'}</td>
+      <td class="${n.down_count>0?'sd':'su'}">${n.down_count??0}</td>`;
+    tr.style.cursor='pointer'; tr.title='Drill in';
     tr.onclick=()=>drill(n.label);
     tb.appendChild(tr);
   });
-  $('tblCnt').textContent=`${nodes.length} sites`;
-  $('tbl-sec').style.display='block';
+  $('tblCnt').textContent=nodes.length;
+  $('table-section').style.display='block';
 }
 
 function renderTbl2(nodes){
-  $('tblHead').innerHTML='<tr><th>Node</th><th>HA</th><th>Closet</th><th>Floor</th><th>Type</th><th>IP</th><th>Status</th></tr>';
+  $('tblHead').innerHTML='<tr><th>Node</th><th>Type</th><th>HA</th><th>Closet</th><th>Floor</th><th>IP</th><th>Status</th></tr>';
   const tb=$('tblBody'); tb.innerHTML='';
-  nodes.filter(n=>n.in_site!==false).forEach(n=>{
+  nodes.forEach(n=>{
     const up=n.is_up!==false;
-    const nm=n.details_url?`<a class="nl" href="${ORION}${n.details_url}" target="_blank">${n.label}</a>`:n.label;
+    const nm=n.details_url
+      ?`<a class="nl" href="${ORION}${n.details_url}" target="_blank">${n.label}</a>`
+      :n.label;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${nm}</td><td>${n.ha||'—'}</td><td>${n.closet||'—'}</td>
-      <td>${n.floor||'—'}</td><td>${n.device_type||'—'}</td>
-      <td>${n.ip||'—'}</td><td class="${up?'su':'sd'}">${up?'↑ Up':'↓ Down'}</td>`;
+    tr.className='peer-row';
+    tr.innerHTML=`<td>${nm}${n.is_core?' ★':''}</td>
+      <td>${n.device_type||'—'}</td><td>${n.ha||'—'}</td>
+      <td>${n.closet||'—'}</td><td>${n.floor||'—'}</td>
+      <td>${n.ip||'—'}</td>
+      <td class="${up?'su':'sd'}">${up?'↑ Up':'↓ Down'}</td>`;
     tb.appendChild(tr);
   });
-  $('tblCnt').textContent=`${nodes.filter(n=>n.in_site!==false).length} devices`;
-  $('tbl-sec').style.display='block';
+  $('tblCnt').textContent=nodes.length;
+  $('table-section').style.display='block';
 }
 
-$('tblQ').addEventListener('input',function(){
+$('searchBox').addEventListener('input',function(){
   const q=this.value.toLowerCase(); let v=0;
   $('tblBody').querySelectorAll('tr').forEach(tr=>{
     const ok=tr.textContent.toLowerCase().includes(q);
     tr.style.display=ok?'':'none'; if(ok) v++;
   });
-  $('tblCnt').textContent=`${v} rows`;
+  $('tblCnt').textContent=v;
 });
 
 // ── Legends ───────────────────────────────────────────────────────────────────
 function setLeg1(){
-  $('leg').innerHTML=`
-    <div class="li"><div class="ld" style="background:#1e3a5f;border:1.5px solid #3b82f6"></div>Site — all up</div>
-    <div class="li"><div class="ld" style="background:#1e3a5f;border:2.5px solid #ef4444"></div>Site — has down nodes</div>
-    <div class="li"><div class="ll" style="background:#14b8a6"></div>Same-HA inter-site L2</div>
-    <div class="li"><div class="ll" style="background:#f97316"></div>Cross-HA inter-site L2</div>`;
-  $('leg').style.display='flex';
+  $('legend').innerHTML=`
+    <div class="legend-item"><div class="legend-dot" style="background:#eff6ff;border:1.5px solid #1a56db"></div>Site — up</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fff1f0;border:2px solid #FF4136"></div>Site — has down nodes</div>
+    <div class="legend-item"><div class="legend-line" style="background:#14b8a6"></div>Same-HA inter-site</div>
+    <div class="legend-item"><div class="legend-line" style="background:#e67e00"></div>Cross-HA inter-site</div>`;
 }
 function setLeg2(){
-  $('leg').innerHTML=`
-    <div class="li"><div class="ld" style="background:#1e3a5f;border:1.5px solid #3b82f6"></div>Device (up)</div>
-    <div class="li"><div class="ld" style="background:#450a0a;border:1.5px solid #ef4444"></div>Device (down)</div>
-
-    <div class="li"><div class="ll" style="background:#22c55e"></div>Same-site L2 (port up)</div>
-    <div class="li"><div class="ll" style="background:#ef4444;border-top:2px dashed #ef4444"></div>Port DOWN</div>
-    <div class="li"><div class="ll" style="background:#f97316"></div>Cross-site L2</div>`;
-  $('leg').style.display='flex';
+  $('legend').innerHTML=`
+    <div class="legend-item"><div class="legend-dot" style="background:#fefce8;border:2.5px solid #ca8a04"></div>Core / Switch ★</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f0f9ff;border:1.5px solid #38bdf8"></div>Device (up)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fff1f0;border:1.5px solid #FF4136"></div>Device (down)</div>
+    <div class="legend-item"><div class="legend-line" style="background:#2ECC40"></div>L2 link (port up)</div>
+    <div class="legend-item"><div class="legend-line" style="background:#FF4136;border-top:2px dashed #FF4136;height:0"></div>Port DOWN</div>`;
 }
+function showLegend(){ $('legend').style.display='table'; }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function sn(n){
   if(!n) return '—';
-  n=n.replace(/\.(vch|phsa|hssbc|fha|vcha)\.ca$/i,'').replace(/\.(vch|phsa|hssbc|org|ca)$/i,'');
+  n=n.replace(/\.(vch|phsa|hssbc|fha|vcha)\.ca$/i,'');
   return n.length>22?n.slice(0,20)+'…':n;
 }
 function enc(s){ return encodeURIComponent(s); }
-function setStatus(m){ $('statusBar').textContent=m; }
-function showOv(msg){
-  const o=$('overlay');
-  if(msg){$('overlayMsg').textContent=msg;o.classList.remove('hidden');}
-  else{o.classList.add('hidden');}
+function setStatus(m){ $('statusMsg').textContent=m; }
+function showLoad(msg){
+  const o=$('cy-loading');
+  if(msg){ o.textContent=msg; o.classList.remove('hidden'); }
+  else   { o.classList.add('hidden'); }
 }
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
-$('btnRefresh').addEventListener('click', async function(){
-  this.textContent='⟳ Syncing…'; this.classList.add('syncing');
-  setStatus('Pulling fresh data from Orion SWIS…');
-  try{
-    const r = await fetch('/api/orion/topo/refresh',{method:'POST'}).then(r=>r.json());
-    if(r.ok){
-      setStatus(`Sync complete — ${r.nodes} nodes · ${r.topology_edges} topology edges in DB.`);
-      // Reload current view
-      if(LEVEL===1) doLevel1(CUR_HA);
-      else if(LEVEL===2) doLevel2(CUR_SITE, CUR_HA);
-    } else {
-      setStatus('Sync error: '+(r.error||'unknown'));
-    }
-  } catch(e){ setStatus('Sync failed: '+e.message); }
-  this.textContent='⟳ Sync Orion'; this.classList.remove('syncing');
-});
-
 $('haSelect').addEventListener('change',function(){
-  this.value ? populateSites(this.value)
-             : ($('siteSelect').innerHTML='<option value="">— select HA first —</option>', $('siteSelect').disabled=true);
+  if(this.value) populateSites(this.value);
+  else{ $('siteSelect').innerHTML='<option value="">— select HA first —</option>'; $('siteSelect').disabled=true; }
 });
 $('btnLoad').addEventListener('click',load);
 $('btnBack').addEventListener('click',()=>doLevel1(CUR_HA));
-$('btnFit').addEventListener('click',()=>cy.fit(cy.elements(),50));
+$('btnFit').addEventListener('click', ()=>cy.fit(cy.elements(),50));
 $('btnClear').addEventListener('click',()=>{
   cy.elements().remove();
-  $('leg').style.display='none'; $('tbl-sec').style.display='none';
-  $('tblBody').innerHTML=''; $('btnBack').style.display='none';
+  $('legend').style.display='none';
+  $('table-section').style.display='none';
+  $('tblBody').innerHTML='';
+  $('btnBack').style.display='none';
   $('lvlBadge').textContent='L1 · HA View';
-  ['sN','sE'].forEach(id=>$(id).textContent='—'); $('sExtra').innerHTML='';
-  $('detail').innerHTML='<div id="detail-ph">Select an HA → click Load.</div>';
-  setStatus('Cleared.'); LEVEL=0;
+  ['sN','sE'].forEach(id=>$(id).textContent='—');
+  $('sExtra').innerHTML='';
+  setDetail('<div id="detail-ph">Select an HA → click Load.</div>');
+  setStatus('Cleared.');
+  LEVEL=0;
+});
+
+$('btnRefresh').addEventListener('click',async function(){
+  this.textContent='⟳ Syncing…'; this.classList.add('busy');
+  setStatus('Pulling fresh data from Orion SWIS…');
+  try{
+    const r=await fetch('/api/orion/topo/refresh',{method:'POST'}).then(r=>r.json());
+    if(r.ok){
+      setStatus(`Sync done — ${r.nodes} nodes · ${r.topology_edges} topology edges.`);
+      if(LEVEL===1) doLevel1(CUR_HA);
+      else if(LEVEL===2) doLevel2(CUR_SITE,CUR_HA);
+    } else setStatus('Sync error: '+(r.error||'unknown'));
+  }catch(e){ setStatus('Sync failed: '+e.message); }
+  this.textContent='⟳ Sync Orion'; this.classList.remove('busy');
 });
 
 loadFilters();

@@ -1,17 +1,15 @@
-20260311
-Python 3.11
+20260513
+Python 3.12.10
 
-1. setup venv:
-c:\>"\\PHSAhome2.phsabc.ehcnet.ca\tao.lin\My Web Sites\tools\WPy64-31180\python-3.11.8.amd64\python.exe" -m venv "\\PHSAhome2.phsabc.ehcnet.ca\tao.lin\My Web Sites\fastapi-main\venv"
+1. copy whole folder to any pc
 
-2.activate venv
-"\\PHSAhome2.phsabc.ehcnet.ca\tao.lin\My Web Sites\fastapi-main\venv\Scripts\activate"
 
-3. install requirement
-execute fastapi_install_deps.bat
+2. install and update
+2.1 update_app.bat
+2.2 fastapi_install_deps.bat
 
-update github:
-update_app.bat
-
-4. startup 
+3. startup 
 fastapi_startup_portable.bat
+
+4. local pc access: 
+127.0.0.1:8080

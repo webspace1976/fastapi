@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SOC Network Portal</title>
     <!-- <script src="/static/js/d3.v7.min.js"></script> -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script> -->
+    <script src="/static/js/cytoscape-3.28.1.min.js"></script>
     <style>
         /* ── Design tokens ──────────────────────────────────── */
         :root {
@@ -31,7 +32,7 @@
 
         body {
             font-family: 'SF Mono','Cascadia Code','Fira Code',monospace;
-            //background: var(--hdr);
+            background: var(--hdr);
             color: var(--text);
             height: 100vh;
             display: flex;
@@ -184,7 +185,7 @@
 
         .core-grid {
             display: grid;
-            grid-template-columns: 380px 1fr;
+            grid-template-columns: 40% 1fr;
             gap: 1.25rem;
         }
 
