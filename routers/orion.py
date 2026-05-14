@@ -579,130 +579,235 @@ async def get_topo_level1(ha: str):
 
 @router.get("/topo/site")
 async def get_topo_level2(site: str):
-    """Level 2 — devices inside one site as nodes with L2 direct connections.
-    Core device (Switch/Firewall/Router by DeviceType, or 'CORE' in name) is
-    returned with is_core=True so the frontend can pin it to the centre."""
+    """Level 2 — devices inside one site, edges built from:
+      1. NPM.Interfaces on CORE/Switch nodes (most accurate, has port names + status)
+      2. Orion.Topology fallback for any remaining connections
+
+    Key fixes vs previous version:
+      - TRIM(ncp.Site) to handle leading/trailing spaces in NCP data
+      - Join NPM.Interfaces via NodeID (not NodeName prefix)
+      - NPM.Interfaces Status: 1=Up, 2=Down, 4=Shutdown, 0=Unknown
+      - No external nodes shown — site-only view as requested
+      - Edges come from CORE's port descriptions matching site device names/types
+    """
     if not site:
-        raise HTTPException(status_code=400, detail="site required")
-    CORE_TYPES = {"Switch", "Firewall", "Router", "Telus CE"}
+        raise HTTPException(status_code=400, detail="site parameter required")
+
+    CORE_TYPES  = {"Switch", "Firewall", "Router"}
+    PORT_STATUS = {"1": "Up", "2": "Down", "4": "Shutdown", "0": "Unknown"}
+
     try:
         with _orion_read_engine.connect() as conn:
+
+            # ── 1. All devices in this site from NCP ─────────────────────────
+            # TRIM() fixes the leading-space bug in NCP Site values
             node_df = pd.read_sql_query("""
-                SELECT ncp.NodeID, ncp.NodeName, ncp.IPaddress,
-                       ncp.HA, ncp.Closet, ncp.Floor, ncp.Building,
-                       ncp.DeviceType, ncp.SiteType, ncp.Status,
-                       ncp.StatusDescription, ncp.DetailsUrl
-                FROM [Orion.NodesCustomProperties] ncp
-                WHERE ncp.Site = :site
-                ORDER BY ncp.Closet, ncp.Floor, ncp.NodeName
-            """, conn, params={"site": site})
-            # FIX: join via NodeID (NCP.Site is ground truth for same/cross-site).
-            # LEFT JOIN NPM.Interfaces on node name prefix + exact port string match.
-            # NPM.Interfaces is a down-ports-only table — every row has a DownTime.
-            # A match means that port is currently DOWN; NULL means port is UP.
-            # SUBSTR(i.NodeName, 1, INSTR-1) extracts the switch name prefix.
-            # TRIM(SUBSTR(i.NodeName, INSTR+1)) extracts "PortName · Desc" remainder.
-            edge_df = pd.read_sql_query("""
-                SELECT t.SourceNodeID, t.SourceNodeName,
-                       t.TargetNodeID, t.TargetNodeName,
-                       t.SourceInterface, t.TargetInterface,
-                       src_ncp.Site    AS SrcSite,
-                       tgt_ncp.Site    AS TgtSite,
-                       t.LayerType,
-                       -- Port down if NPM.Interfaces has this node+port (down-only table)
-                       CASE WHEN iface.NodeName IS NOT NULL THEN 1 ELSE 0 END AS SrcPortDown,
-                       iface.DownTime  AS SrcPortDownSince,
-                       iface.DetailsUrl AS SrcPortUrl
-                FROM [Orion.Topology] t
-                LEFT JOIN [Orion.NodesCustomProperties] src_ncp ON t.SourceNodeID  = src_ncp.NodeID
-                LEFT JOIN [Orion.NodesCustomProperties] tgt_ncp ON t.TargetNodeID  = tgt_ncp.NodeID
-                LEFT JOIN [Orion.NPM.Interfaces] iface
-                       ON SUBSTR(iface.NodeName, 1, INSTR(iface.NodeName, ' ') - 1) = t.SourceNodeName
-                      AND TRIM(SUBSTR(iface.NodeName, INSTR(iface.NodeName, ' ') + 1)) = t.SourceInterface
-                WHERE t.LayerType = 'L2'
-                  AND (src_ncp.Site = :site OR tgt_ncp.Site = :site)
-            """, conn, params={"site": site})
-        node_ids = set(str(r["NodeID"]) for _, r in node_df.iterrows())
-        nodes = []
-        for _, r in node_df.iterrows():
-            nid = str(r["NodeID"])
-            try: is_up = int(str(r.get("Status") or "1")) == 1
-            except: is_up = True
-            dtype = r["DeviceType"] or ""
-            name_upper = (r["NodeName"] or "").upper()
-            # Core detection: Switch/Firewall/Router/Telus CE type OR 'CORE' in name
-            is_core = dtype in CORE_TYPES or "CORE" in name_upper
-            nodes.append({
-                "id": f"node:{nid}", "label": r["NodeName"] or nid,
-                "type": "device", "is_core": is_core,
-                "ha": r["HA"] or "", "closet": r["Closet"] or "",
-                "floor": r["Floor"] or "", "building": r["Building"] or "",
-                "device_type": dtype, "ip": r["IPaddress"] or "",
-                "details_url": r["DetailsUrl"] or "",
-                "status_desc": r["StatusDescription"] or "",
-                "is_up": is_up, "in_site": True,
-            })
-        seen_edges, edges = set(), []
-        for _, r in edge_df.iterrows():
-            src_id = f"node:{r['SourceNodeID']}"
-            tgt_id = f"node:{r['TargetNodeID']}"
-            if src_id == tgt_id: continue
-            key = tuple(sorted([src_id, tgt_id]))
-            if key in seen_edges: continue
-            seen_edges.add(key)
-            # NCP-derived site comparison — accurate even when Topology.SourceSite is wrong
-            cross_site = (r.get("SrcSite") or "") != (r.get("TgtSite") or "")
-            for side_id, side_name, in_site_flag in [
-                (src_id, r["SourceNodeName"], str(r["SourceNodeID"]) in node_ids),
-                (tgt_id, r["TargetNodeName"], str(r["TargetNodeID"]) in node_ids),
-            ]:
-                if side_id not in {n["id"] for n in nodes}:
-                    nodes.append({
-                        "id": side_id, "label": side_name or side_id,
-                        "type": "device", "is_core": False,
-                        "in_site": False, "is_up": True,
-                        "ha": "", "closet": "", "floor": "", "building": "",
-                        "device_type": "", "ip": "", "details_url": "",
-                        "status_desc": "",
-                    })
-                    node_ids.add(side_id.replace("node:", ""))
-            src_if = str(r.get("SourceInterface") or "").replace("None","").strip()
-            tgt_if = str(r.get("TargetInterface") or "").replace("None","").strip()
-            src_port = src_if.split(" · ")[0] if " · " in src_if else src_if
-            tgt_port = tgt_if.split(" · ")[0] if " · " in tgt_if else tgt_if
-            lbl = f"{src_port}↔{tgt_port}" if (src_port and tgt_port) else (src_port or tgt_port or "")
-            src_port_down = bool(r.get("SrcPortDown"))
-            src_port_down_since = str(r.get("SrcPortDownSince") or "").strip()
-            src_port_url = str(r.get("SrcPortUrl") or "").strip()
-            # Colour priority: port down > cross-site > normal
-            if src_port_down:
-                edge_color = "#ef4444"  # red — port is currently down
-            elif cross_site:
-                edge_color = "#f97316"  # orange — cross-site uplink
-            else:
-                edge_color = "#22c55e"  # green — same-site, port up
-            edges.append({
-                "id": f"e:{src_id}-{tgt_id}", "source": src_id, "target": tgt_id,
-                "label": lbl, "source_interface": src_if, "target_interface": tgt_if,
-                "cross_site": cross_site,
-                "port_down": src_port_down,
-                "port_down_since": src_port_down_since,
-                "port_url": src_port_url,
-                "color": edge_color,
-            })
-        in_site_nodes = [n for n in nodes if n.get("in_site", True)]
-        return {
-            "level": 2, "site": site, "nodes": nodes, "edges": edges,
-            "summary": {
-                "devices_in_site":  len(in_site_nodes),
-                "external_nodes":   len([n for n in nodes if not n.get("in_site", True)]),
-                "total_edges":      len(edges),
-                "cross_site_edges": sum(1 for e in edges if e.get("cross_site")),
-            },
-        }
+                SELECT NodeID, NodeName, IPaddress, DetailsUrl,
+                       HA, Closet, Floor, Building, DeviceType,
+                       SiteType, Status, StatusDescription
+                FROM [Orion.NodesCustomProperties]
+                WHERE TRIM(Site) = TRIM(:site)
+                ORDER BY DeviceType, NodeName
+            """, conn, params={"site": site.strip()})
+
+            # ── 2. NPM.Interfaces for CORE/Switch nodes in this site ──────────
+            # Join by NodeID — correct, direct, no string-split tricks needed.
+            # We fetch all interfaces on core switches; each row's description
+            # tells us what device is on the other end of that port.
+            iface_df = pd.read_sql_query("""
+                SELECT i.NodeID   AS CoreNodeID,
+                       i.NodeName AS IfaceName,
+                       i.Status   AS IfaceStatus,
+                       i.StatusDescription AS IfaceStatusDesc,
+                       i.DetailsUrl AS IfaceUrl,
+                       i.DownTime
+                FROM [Orion.NPM.Interfaces] i
+                JOIN [Orion.NodesCustomProperties] ncp ON i.NodeID = ncp.NodeID
+                WHERE TRIM(ncp.Site) = TRIM(:site)
+                  AND ncp.DeviceType IN ('Switch','Firewall','Router')
+                ORDER BY i.NodeName
+            """, conn, params={"site": site.strip()})
+
     except Exception as e:
-        logger.error("topo/site: %s", e)
+        logger.error("topo/site DB error: %s", e)
         return {"nodes": [], "edges": [], "error": str(e)}
+
+    if node_df.empty:
+        return {"nodes": [], "edges": [],
+                "summary": {"devices_in_site": 0, "total_edges": 0},
+                "site": site}
+
+    # ── Build node map from NCP ───────────────────────────────────────────────
+    nodes_by_id   = {}   # NodeID → node dict
+    nodes_by_name = {}   # NodeName → NodeID  (for edge matching)
+
+    for _, r in node_df.iterrows():
+        nid   = str(r["NodeID"]).strip()
+        name  = (r["NodeName"] or "").strip()
+        dtype = (r["DeviceType"] or "").strip()
+        try:
+            is_up = int(str(r.get("Status") or "1")) == 1
+        except (ValueError, TypeError):
+            is_up = True
+
+        node = {
+            "id":          f"node:{nid}",
+            "label":       name,
+            "type":        "device",
+            "is_core":     dtype in CORE_TYPES,
+            "ha":          (r["HA"]          or "").strip(),
+            "closet":      (r["Closet"]      or "").strip(),
+            "floor":       (r["Floor"]       or "").strip(),
+            "building":    (r["Building"]    or "").strip(),
+            "device_type": dtype,
+            "ip":          (r["IPaddress"]   or "").strip(),
+            "details_url": (r["DetailsUrl"]  or "").strip(),
+            "status_desc": (r["StatusDescription"] or "").strip(),
+            "is_up":       is_up,
+            "in_site":     True,
+            "interfaces":  [],   # filled below
+        }
+        nodes_by_id[nid]   = node
+        nodes_by_name[name] = nid
+
+    # ── Attach interfaces to their CORE node ──────────────────────────────────
+    # Parse NPM.Interfaces rows: "SwitchName PortName · EndpointDescription"
+    # Strip the switch name prefix to get "PortName · EndpointDesc"
+    core_interfaces = {}  # CoreNodeID → list of iface dicts
+    for _, r in iface_df.iterrows():
+        core_nid    = str(r["CoreNodeID"]).strip()
+        iface_name  = (r["IfaceName"] or "").strip()
+        iface_status= str(r["IfaceStatus"] or "1").strip()
+        is_up       = iface_status == "1"
+
+        # Strip the switch name prefix from the full "SwitchName Port · Desc" string
+        core_node   = nodes_by_id.get(core_nid)
+        sw_name     = core_node["label"] if core_node else ""
+        if sw_name and iface_name.startswith(sw_name):
+            port_and_desc = iface_name[len(sw_name):].strip()
+        else:
+            port_and_desc = iface_name
+
+        parts = port_and_desc.split(" · ", 1)
+        port  = parts[0].strip()
+        desc  = parts[1].strip() if len(parts) > 1 else ""
+
+        iface = {
+            "port":        port,
+            "description": desc,
+            "status":      PORT_STATUS.get(iface_status, "Unknown"),
+            "is_up":       is_up,
+            "url":         (r["IfaceUrl"]   or "").strip(),
+            "down_since":  (r["DownTime"]   or "").strip(),
+        }
+
+        if core_node:
+            core_node["interfaces"].append(iface)
+
+        if core_nid not in core_interfaces:
+            core_interfaces[core_nid] = []
+        core_interfaces[core_nid].append({**iface, "core_nid": core_nid})
+
+    # ── Build edges from CORE interface descriptions → site devices ───────────
+    # Match by: NodeName in description OR DeviceType keyword in description
+    TYPE_KEYWORDS = {
+        "UPS":       ["ups", "ups management"],
+        "PDU":       ["pdu", "epdu", "eaton", "pdu management", "epdu management"],
+        "ATS":       ["ats", "ats management"],
+        "Telus CE":  ["telus", "rcmdb", "tvcha", "ciu", "wan", "csid"],
+        "Switch":    ["sw", "switch", "core"],
+    }
+
+    edges       = []
+    seen_edges  = set()
+
+    def add_edge(src_nid, tgt_nid, port, desc, is_up, url):
+        key = tuple(sorted([f"node:{src_nid}", f"node:{tgt_nid}"]))
+        if key in seen_edges:
+            return
+        seen_edges.add(key)
+        color = "#ef4444" if not is_up else "#22c55e"
+        edges.append({
+            "id":      f"e:node:{src_nid}-node:{tgt_nid}",
+            "source":  f"node:{src_nid}",
+            "target":  f"node:{tgt_nid}",
+            "label":   port,
+            "description": desc,
+            "port_up": is_up,
+            "color":   color,
+            "url":     url,
+        })
+
+    for core_nid, ifaces in core_interfaces.items():
+        for iface in ifaces:
+            desc_lower = iface["description"].lower()
+            port       = iface["port"]
+            is_up      = iface["is_up"]
+            url        = iface["url"]
+            matched    = False
+
+            # Priority 1: exact NodeName match in description
+            for node_name, tgt_nid in nodes_by_name.items():
+                if tgt_nid == core_nid:
+                    continue
+                if node_name.lower() in desc_lower or desc_lower in node_name.lower():
+                    add_edge(core_nid, tgt_nid, port, iface["description"], is_up, url)
+                    matched = True
+                    break
+
+            # Priority 2: DeviceType keyword match (UPS/PDU/ATS etc.)
+            if not matched:
+                for dtype, keywords in TYPE_KEYWORDS.items():
+                    if any(kw in desc_lower for kw in keywords):
+                        # Find a site device of that type
+                        for nid, node in nodes_by_id.items():
+                            if node["device_type"] == dtype and nid != core_nid:
+                                add_edge(core_nid, nid, port, iface["description"], is_up, url)
+                                matched = True
+                                break
+                        if matched:
+                            break
+
+    # ── Add remaining intra-site edges from Orion.Topology ───────────────────
+    # These catch any connections Orion discovered that NPM.Interfaces doesn't cover
+    try:
+        with _orion_read_engine.connect() as conn:
+            topo_df = pd.read_sql_query("""
+                SELECT t.SourceNodeID, t.SourceInterface,
+                       t.TargetNodeID, t.TargetInterface
+                FROM [Orion.Topology] t
+                JOIN [Orion.NodesCustomProperties] src ON t.SourceNodeID = src.NodeID
+                JOIN [Orion.NodesCustomProperties] tgt ON t.TargetNodeID = tgt.NodeID
+                WHERE t.LayerType = 'L2'
+                  AND TRIM(src.Site) = TRIM(:site)
+                  AND TRIM(tgt.Site) = TRIM(:site)
+            """, conn, params={"site": site.strip()})
+
+        for _, r in topo_df.iterrows():
+            src_nid = str(r["SourceNodeID"]).strip()
+            tgt_nid = str(r["TargetNodeID"]).strip()
+            if src_nid not in nodes_by_id or tgt_nid not in nodes_by_id:
+                continue
+            src_if  = str(r.get("SourceInterface") or "").replace("None", "").strip()
+            port    = src_if.split(" · ")[0] if " · " in src_if else src_if
+            add_edge(src_nid, tgt_nid, port, src_if, True, "")
+
+    except Exception as e:
+        logger.warning("topo/site topology fallback error: %s", e)
+
+    nodes     = list(nodes_by_id.values())
+    in_site   = len(nodes)
+
+    return {
+        "level":  2,
+        "site":   site,
+        "nodes":  nodes,
+        "edges":  edges,
+        "summary": {
+            "devices_in_site": in_site,
+            "total_edges":     len(edges),
+        },
+    }
 
 
 @router.post("/topo/refresh")

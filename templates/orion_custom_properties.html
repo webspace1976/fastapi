@@ -1,52 +1,26 @@
-{% extends "base.html" %}
+<!-- {% extends "base.html" %} -->
 {% block title %}L2 Site Topology{% endblock %}
 {% block content %}
 <style>
-:root{
-  /*--bg:#0f1117;
-  --panel:#1a1f2e;
-  --txt:#cbd5e1;
-  */
-  --border:#2d3448;
-  
-  --muted:#64748b;--accent:#3b82f6;--up:#22c55e;--down:#ef4444;--cross:#f97316;--teal:#14b8a6;--r:7px
-}
+:root{--bg:#0f1117;--panel:#1a1f2e;--border:#2d3448;--txt:#cbd5e1;--muted:#64748b;--accent:#3b82f6;--up:#22c55e;--down:#ef4444;--cross:#f97316;--teal:#14b8a6;--r:7px}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--txt);font-family:"Segoe UI",system-ui,sans-serif;font-size:13px}
 #bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
 #bar label{color:var(--muted);font-size:11px;white-space:nowrap}
-#bar select{
-  /*background:#0f1117;*/
-  color:var(--txt);border:1px solid var(--border);border-radius:5px;padding:5px 10px;font-size:12px
-}
+#bar select{background:#0f1117;color:var(--txt);border:1px solid var(--border);border-radius:5px;padding:5px 10px;font-size:12px}
 #haSelect{min-width:170px}
 #siteSelect{min-width:220px;max-width:320px}
 .btn{padding:5px 13px;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;transition:opacity .15s}
 .btn:hover{opacity:.8}
 .b-primary{background:var(--accent);color:#fff}
 .b-sm{background:var(--border);color:var(--txt);padding:4px 10px;font-size:11px}
-.b-back{
-  /*background:#1e3a5f;*/
-  color:#93c5fd;display:none}
-#lvlBadge{
-  font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;background:#312e81;color:#a5b4fc;white-space:nowrap}
+.b-back{background:#1e3a5f;color:#93c5fd;display:none}
+#lvlBadge{font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;background:#312e81;color:#a5b4fc;white-space:nowrap}
 #statusBar{font-size:11px;color:var(--muted);margin-left:auto}
-
-#wrap{
-  display:flex;
-  height:calc(80vh - 100px)}
-
-#cy-wrap{
-  flex:1 1 0;
-  position:relative;
-  /*background:#0a0d14;*/
-  border-right:1px solid var(--border)
-}
-#cy{width:100%;height:100%}
-#overlay{
-  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  /*background:rgba(10,13,20,.92);*/
-  gap:10px;z-index:10}
+#wrap{display:flex;height:calc(70vh - 100px)}
+#cy-wrap{flex:1 1 0;position:relative;background:#0a0d14;border-right:1px solid var(--border)}
+#cy{width:100%;height:80%}
+#overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,13,20,.92);gap:10px;z-index:10}
 #overlay.hidden{display:none}
 .spin{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -235,28 +209,33 @@ async function doLevel2(site,ha){
   try{
     const d = await fetch(`/api/orion/topo/site?site=${enc(site)}`).then(r=>r.json());
     cy.elements().remove();
-    cy.add((d.nodes||[]).map(n=>({data:{
-      id:n.id,short:sn(n.label),full:n.label,type:'device',
-      ha:n.ha||'',closet:n.closet||'',floor:n.floor||'',dtype:n.device_type||'',
-      ip:n.ip||'',url:n.details_url||'',sdesc:n.status_desc||'',
-      down:(!n.is_up)||null, external:(!n.in_site)||null,
+    // In-site only — no external nodes per design
+    const allNodes = d.nodes||[];
+    cy.add(allNodes.map(n=>({data:{
+      id:n.id, short:sn(n.label), full:n.label, type:'device',
+      ha:n.ha||'', closet:n.closet||'', floor:n.floor||'',
+      dtype:n.device_type||'', ip:n.ip||'',
+      url:n.details_url||'', sdesc:n.status_desc||'',
+      down:(!n.is_up)||null,
       is_core:n.is_core||null,
+      ifaces:JSON.stringify(n.interfaces||[]),
     }})));
-    cy.add((d.edges||[]).map(e=>({data:{
-      id:e.id,source:e.source,target:e.target,color:e.color,
-      lbl:e.label||'',si:e.source_interface||'',ti:e.target_interface||'',
-      cross:e.cross_site||null,
-      port_down:e.port_down||null,port_down_since:e.port_down_since||'',port_url:e.details_url||'',
+    const siteNodeIds = new Set(allNodes.map(n=>n.id));
+    const allEdges = (d.edges||[]).filter(e=>siteNodeIds.has(e.source)&&siteNodeIds.has(e.target));
+    cy.add(allEdges.map(e=>({data:{
+      id:e.id, source:e.source, target:e.target, color:e.color,
+      lbl:e.label||'', desc:e.description||'',
+      port_down:(!e.port_up)||null, url:e.url||'',
     }})));
-    runLayout((d.nodes||[]).length, true);
+    runLayout(allNodes.length, true);
     const s=d.summary||{};
     $('lvlBadge').textContent=`L2 · ${site}`;
-    $('sN').textContent=(d.nodes||[]).length;
-    $('sE').textContent=(d.edges||[]).length;
-    $('sExtra').innerHTML=`In-site <strong>${s.devices_in_site??'—'}</strong> · External <strong>${s.external_nodes??'—'}</strong> · Cross-site links <strong>${s.cross_site_edges??'—'}</strong>`;
+    $('sN').textContent=allNodes.length;
+    $('sE').textContent=allEdges.length;
+    $('sExtra').innerHTML=`<strong>${s.devices_in_site??allNodes.length}</strong> devices · <strong>${allEdges.length}</strong> edges`;
     $('btnBack').style.display='';
-    setLeg2(); renderTbl2(d.nodes||[]);
-    setStatus(`${s.devices_in_site??''} devices · ${s.cross_site_edges??''} cross-site links.`);
+    setLeg2(); renderTbl2(allNodes);
+    setStatus(`${s.devices_in_site??allNodes.length} devices · ${allEdges.length} edges in site.`);
     $('detail').innerHTML='<div id="detail-ph">Click a device node.</div>';
   } catch(e){ setStatus('Error: '+e.message); showOv(false); }
 }
@@ -327,14 +306,30 @@ cy.on('tap','node[type="device"]',e=>{
   cy.elements().not(e.target.closedNeighborhood()).addClass('dim');
   const d=e.target.data();
   const lnk=d.url?`<a class="nl" href="${ORION}${d.url}" target="_blank">Open in Orion ↗</a>`:'—';
-  $('detail').innerHTML=`<h3>📦 ${d.full}${d.external?'<span class="badge b-ext" style="margin-left:6px">External</span>':''}</h3>
+  // Build interfaces list from NCP data stored in node
+  const ifaceHtml = (()=>{
+    try{
+      const ifaces = JSON.parse(d.ifaces||'[]');
+      if(!ifaces.length) return '';
+      return '<h3 style="margin-top:10px">Interfaces ('+ifaces.length+')</h3>'
+        + ifaces.map(i=>{
+            const col = i.is_up ? 'var(--up)' : 'var(--down)';
+            const lnk = i.url ? `<a class="nl" href="${ORION}${i.url}" target="_blank">↗</a>` : '';
+            return `<div class="kr">`
+              + `<span class="kk" style="color:${col};min-width:130px;font-size:10px">${i.port||'?'}</span>`
+              + `<span class="kv" style="font-size:10px">${i.description||''} ${lnk}</span></div>`;
+          }).join('');
+    }catch(e){return '';}
+  })();
+  $('detail').innerHTML=`<h3>📦 ${d.full}</h3>
     ${r('Status',d.down?'<span class="badge b-dn">DOWN</span>':'<span class="badge b-up">UP</span>')}
     ${r('HA',d.ha?`<span class="badge b-ha">${d.ha}</span>`:'—')}
-    ${r('Closet',d.closet||'—')}${r('Floor',d.floor||'—')}
-    ${r('Type',d.dtype||'—')}${r('IP',d.ip||'—')}
-    ${d.sdesc?r('State',d.sdesc):''}${r('Orion',lnk)}
+    ${r('Closet',d.closet||'—')} ${r('Floor',d.floor||'—')}
+    ${r('Type',d.dtype||'—')} ${r('IP',d.ip||'—')}
+    ${d.sdesc?r('State',d.sdesc):''} ${r('Orion',lnk)}
     <h3 style="margin-top:10px">Connected (${e.target.neighborhood('node').length})</h3>
-    ${e.target.neighborhood('node').map(n=>`<div class="kr"><span class="kv">${sn(n.data('full')||n.data('label'))}</span></div>`).join('')}`;
+    ${e.target.neighborhood('node').map(n=>`<div class="kr"><span class="kv">${sn(n.data('full')||n.data('label'))}</span></div>`).join('')}
+    ${ifaceHtml}`;
 });
 
 cy.on('tap','edge',e=>{
@@ -343,10 +338,10 @@ cy.on('tap','edge',e=>{
   $('detail').innerHTML = d.thick
     ? `<h3>🔗 Inter-Site Link</h3>${r('L2 links',d.weight)}`
     : `<h3>🔗 L2 Link</h3>
-       ${r('Type',d.cross?'<span class="badge b-cr">Cross-site</span>':'<span class="badge b-up">Same-site</span>')}
-       ${r('Port',d.port_down?`<span class="badge b-dn">DOWN since ${d.port_down_since||'?'}</span>`:'<span class="badge b-up">Up</span>')}
-       ${d.port_url?r('Interface',`<a class="nl" href="${ORION}${d.port_url}" target="_blank">View in Orion ↗</a>`):''}
-       ${r('Src port',d.si||'—')}${r('Tgt port',d.ti||'—')}`;
+       ${r('Port', d.lbl||'—')}
+       ${r('Description', d.desc||'—')}
+       ${r('Status', d.port_down?'<span class="badge b-dn">Port Down</span>':'<span class="badge b-up">Up</span>')}
+       ${d.url?r('Orion',`<a class="nl" href="${ORION}${d.url}" target="_blank">View interface ↗</a>`):''}`;
 });
 
 cy.on('tap',ev=>{
@@ -416,7 +411,7 @@ function setLeg2(){
   $('leg').innerHTML=`
     <div class="li"><div class="ld" style="background:#1e3a5f;border:1.5px solid #3b82f6"></div>Device (up)</div>
     <div class="li"><div class="ld" style="background:#450a0a;border:1.5px solid #ef4444"></div>Device (down)</div>
-    <div class="li"><div class="ld" style="background:#1c1917;border:1.5px dashed #57534e"></div>External device</div>
+
     <div class="li"><div class="ll" style="background:#22c55e"></div>Same-site L2 (port up)</div>
     <div class="li"><div class="ll" style="background:#ef4444;border-top:2px dashed #ef4444"></div>Port DOWN</div>
     <div class="li"><div class="ll" style="background:#f97316"></div>Cross-site L2</div>`;

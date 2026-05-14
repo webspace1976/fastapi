@@ -707,7 +707,7 @@ def generate_syslog(session):
 
         node_id_to_find = str(row['NodeID'])
         # Find the device dictionary that matches the nodeid
-        device = next((item for item in orion_config.CORE_DEVICES if item["nodeid"] == node_id_to_find), None)
+        device = next((item for item in mainconfig.CORE_DEVICES if item["nodeid"] == node_id_to_find), None)
         if device:
             host_name = device['name']
             host_ip = device['ip']
