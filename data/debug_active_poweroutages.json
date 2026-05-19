@@ -1,1 +1,55 @@
-[]
+[
+    {
+        "Name": "Power Outage",
+        "Node": "Motor vehicle accident (ETR: May 17 04:00) bchydro2768969 Chilliwack Cheam Health Services",
+        "Start": "2026-05-16T21:24:28",
+        "End": "2026-05-16T21:31:31",
+        "Source": "BCHydro",
+        "HA": "FHA",
+        "SiteName": "Chilliwack Cheam Health Services",
+        "SiteAddress": "101 - 45485 Knight Road",
+        "SiteCity": "Chilliwack",
+        "SiteContact": "604-858-0338",
+        "SiteType": "Non-Acute",
+        "SiteHours": "8hx5d",
+        "SourceURL": "https://www.bchydro.com/power-outages/app/outage-map.html#outage=2768969",
+        "SiteNameShort": "CCH/CHV/SNH",
+        "Description": "(Outage Start: May 16 20:16) Crew on-site May 16 21:25",
+        "Update": "2026-05-18T17:09:26",
+        "record_id": 3968490,
+        "AckTime": "21:30:51",
+        "ack_user": "fernando.piche@phsa.ca",
+        "ack_time": "2026-05-16T21:30:51",
+        "event_to_case_user": "SOCPOLLER",
+        "event_to_case_time": "2026-05-16T21:30:36",
+        "create_datetime": "2026-05-16T21:30:36",
+        "lane_prediction": null,
+        "case_prediction": null,
+        "case_prediction_name": null,
+        "anomaly": "1",
+        "lane_prediction_id": null,
+        "task_count": "0",
+        "Mops": [],
+        "TimeSpanAllDisplay": "May 16 21:24 - 21:31",
+        "StatusColor": "",
+        "StatusColorDisplay": "dimgray",
+        "EventToCaseTimeDisplay": "2026-05-16 21:30:36",
+        "AckTimeDisplay": "2026-05-16 21:30:51",
+        "CreateTimeDisplay": "2026-05-16 21:30:36",
+        "TimeSpanDisplay": "21:24:28",
+        "DateSpanDisplay": "May 16",
+        "is_active_outage": true,
+        "duration": "1d 19h 45m",
+        "all_sites": [
+            "Chilliwack Cheam Health Services",
+            "Chilliwack Heritage Village",
+            "Sto:lo Nation Health Centre"
+        ],
+        "all_shorts": [
+            "CCH",
+            "CHV",
+            "SNH"
+        ],
+        "impacted_site": "Chilliwack Cheam Health Services / Chilliwack Heritage Village / Sto:lo Nation Health Centre"
+    }
+]
