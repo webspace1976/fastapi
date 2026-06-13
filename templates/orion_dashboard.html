@@ -114,7 +114,28 @@
                     <div style="display: flex;justify-content: space-between;">
                         <div style="width:5%;">
                             <label for="toggleNodeBtn"><button type="button" id="toggleNodeBtn">☰</button></label>
-                        </div>                            
+                        </div>
+                        
+                        <div>
+                        <!-- Mute List button next to Node count -->
+                            <button onclick="toggleNodeMuteNotepad()" 
+                                    style="font-size:11px;padding:2px 6px;background:#e67e22;color:white;border:none;border-radius:3px;cursor:pointer;">
+                                Ignore List
+                            </button>
+
+                            <!-- Mute Notepad Modal (mirrors power outage ignore list pattern) -->
+                            <div id="nodeMuteModal" style="display:none; position:fixed; top:80px; right:20px; z-index:9999;
+                                background:white; border:1px solid #ccc; border-radius:6px; padding:12px; width:280px;
+                                box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+                                <b>Node Mute List</b> <small style="color:#888">(one per line)</small>
+                                <br><br>
+                                <textarea id="nodeMuteTextarea" rows="10" style="width:100%;font-size:11px;font-family:monospace;"></textarea>
+                                <br>
+                                <button onclick="saveNodeMuteNotepad()" style="background:#27ae60;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;">Save</button>
+                                <button onclick="toggleNodeMuteNotepad()" style="margin-left:8px;background:#aaa;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;">Cancel</button>
+                            </div>
+                        </div>
+
                         <div>
                             <label for="nodeChartButton"><button id="nodeChartButton">Chart Display</button></label>    
                         </div>    
@@ -484,6 +505,74 @@ async function updatePowerOutages() {
     // Auto-load when the page opens
     document.addEventListener('DOMContentLoaded', loadPeerFromDB);    // load from my_javascript.js 
     document.addEventListener('DOMContentLoaded', updatePowerOutages);
+
+// ── Node Mute List ────────────────────────────────────────────────────────────
+    let nodeMuteList = new Set();
+
+    async function loadNodeMuteList() {
+        const res = await fetch('/api/orion/nodedown/mute-list');
+        const data = await res.json();
+        nodeMuteList = new Set(data.mute_list);
+        applyNodeMuteFilter();
+    }
+
+    function applyNodeMuteFilter() {
+        document.querySelectorAll('#nodedownTable tbody tr[data-node-name]').forEach(row => {
+            const name = row.dataset.nodeName;
+            row.style.display = nodeMuteList.has(name) ? 'none' : '';
+        });
+        // Recount visible rows
+        const visible = [...document.querySelectorAll('#nodedownTable tbody tr[data-node-name]')]
+            .filter(r => r.style.display !== 'none').length;
+        const el = document.getElementById('countNodeDown');
+        if (el) el.textContent = visible;
+    }
+
+    async function muteNode(nodeName) {
+        await fetch(`/api/orion/nodedown/mute/${encodeURIComponent(nodeName)}`, { method: 'POST' });
+        nodeMuteList.add(nodeName);
+        applyNodeMuteFilter();
+    }
+
+    async function unmuteNode(nodeName) {
+        await fetch(`/api/orion/nodedown/mute/${encodeURIComponent(nodeName)}`, { method: 'DELETE' });
+        nodeMuteList.delete(nodeName);
+        applyNodeMuteFilter();
+    }
+
+    // Mute notepad modal toggle
+    function toggleNodeMuteNotepad() {
+        const modal = document.getElementById('nodeMuteModal');
+        if (!modal) return;
+        if (modal.style.display === 'none' || !modal.style.display) {
+            fetch('/api/orion/nodedown/mute-list')
+                .then(r => r.json())
+                .then(d => {
+                    document.getElementById('nodeMuteTextarea').value = d.mute_list.join('\n');
+                    modal.style.display = 'block';
+                });
+        } else {
+            modal.style.display = 'none';
+        }
+    }
+
+    async function saveNodeMuteNotepad() {
+        const raw_text = document.getElementById('nodeMuteTextarea').value;
+        await fetch('/api/orion/nodedown/mute-list/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ raw_text })
+        });
+        nodeMuteList = new Set(raw_text.split('\n').map(s => s.trim()).filter(Boolean));
+        applyNodeMuteFilter();
+        document.getElementById('nodeMuteModal').style.display = 'none';
+    }
+
+    // Call on load (and after each auto-refresh that rebuilds the table)
+    loadNodeMuteList();
+// ── Node Mute List ────────────────────────────────────────────────────────────
+
+
         </script>
     </body>
 </html>

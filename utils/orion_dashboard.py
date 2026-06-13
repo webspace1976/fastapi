@@ -134,6 +134,17 @@ def generate_node_table(session):
     nodedown_list = []
     table_rows = ""
 
+    # ── Load mute list ────────────────────────────────────────────────────────
+    NODE_MUTE_CONFIG = os.path.join(data_dir, "node_mute_list.json")
+    try:
+        with open(NODE_MUTE_CONFIG, "r") as f:
+            mute_list = set(json.load(f).get("mute_list", []))
+    except (FileNotFoundError, json.JSONDecodeError):
+        mute_list = set()
+    # ─────────────────────────────────────────────────────────────────────────
+
+
+
     # --- UPDATED: Load Active Power Outages with URLs ---
     power_lookup = {} # Use a dictionary to store SiteName: SourceURL
     debug_path = os.path.join(orion_config.DATA_DIR, "debug_active_poweroutages.json")
@@ -227,10 +238,12 @@ def generate_node_table(session):
             node_address = str(row.get('Address') or 'None').strip()
             raw_site_name = str(row.get('Site') or 'Unknown').strip()
             site_ha = str(row.get('HA') or 'Unknown').strip()
-            # 1. Find the match in the sitedown_list using a prefix match
-            # We check if the item in the list starts with the specific site name
-            # site_down_match = next((item for item in sitedown_list if item.startswith(f"{raw_site_name},")), None)
-            # 20260121. Match by BOTH Site Name and Address to distinguish campus buildings
+
+            # ── Skip muted nodes ──────────────────────────────────────────────
+            if node_name in mute_list:
+                continue
+            # ─────────────────────────────────────────────────────────────────
+
             site_down_match = next((
                 item for item in sitedown_list 
                 if item['Site'].lower() == raw_site_name.lower() and item['Address'].lower() == node_address.lower()
@@ -269,16 +282,25 @@ def generate_node_table(session):
             escaped_site_display = html.escape(display_site_name)
             encoded_site_search = urllib.parse.quote(raw_site_name) # Search by raw name for better results
 
+            # 20260612 - Add Mute Button with JavaScript function call
+            mute_btn = (
+                f'<button onclick="muteNode(\'{node_name}\')" '
+                f'title="Mute this node" '
+                f'style="font-size:10px;padding:1px 4px;cursor:pointer;background:#e67e22;'
+                f'color:white;border:none;border-radius:3px;"> - </button>'
+            )
+
             table_rows += (
-                "<tr class=\"{}\"><td style=\"text-align:right;padding-right:5px\">{}</td><td><a href=\"{}\" target=\"_blank\">{}</a></td>"
+                "<tr class=\"{}\"><td style=\"text-align:right;padding-right:5px\">{}</td><td> {} <a href=\"{}\" target=\"_blank\">{}</a></td>"
                 "<td><div style=\"display: flex;justify-content: space-between;\"><div><a href=\"{}\" target=\"_blank\">{}</a></div><div>{}</div></div></td>"
                 "<td>{}</td>"
                 "<td id=\"IPAddress\" style=\"display:none\">{}</td></tr>\n"
             ).format(
                 class_tag,
                 # row.get('Duration', ""),
-                duration_str,
+                duration_str, mute_btn,
                 url_link if url_link is not None else "",
+                
                 escaped_node_name,
                 f"{site_searchurl}{encoded_site_search}",
                 f"<b>{escaped_site_display} **Site Down** </b>" if is_down else escaped_site_display, power_tag,
@@ -286,30 +308,30 @@ def generate_node_table(session):
                 row.get('IPAddress', "")
             )  
 
-    results_html = f"""
-    <div style="max-height: 50vh; overflow-y: auto;">
-    <table id="nodedownTable" style="display:none; width:100%">
-        <thead>
-            <tr>
-                <th style="width:14%">Duration</th> 
-                <th >
-                    <div>Link:
-                        <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="Orion" checked>OrionNode</label>
-                        <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="SNOW">SNOW</label>
-                        <label><input type="radio" name="link_type_nodedownTable" value="Orion_UDT">OrionUDT</label>
-                        <label><input type="radio" name="link_type_nodedownTable" value="Ringer">RingerOPS</label>
-                    </div>
-                </th> 
-                <th style="width:12%">Type</th>
-                <th style="display:none">IPAddress</th>
-            </tr>
-        </thead>
-        <tbody style="font-size:11px;">
-            {table_rows}
-        </tbody>
-    </table>
-    </div>
-    """
+    # results_html = f"""
+    # <div style="max-height: 50vh; overflow-y: auto;">
+    # <table id="nodedownTable" style="display:none; width:100%">
+    #     <thead>
+    #         <tr>
+    #             <th style="width:14%">Duration</th> 
+    #             <th >
+    #                 <div>Link:
+    #                     <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="Orion" checked>OrionNode</label>
+    #                     <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="SNOW">SNOW</label>
+    #                     <label><input type="radio" name="link_type_nodedownTable" value="Orion_UDT">OrionUDT</label>
+    #                     <label><input type="radio" name="link_type_nodedownTable" value="Ringer">RingerOPS</label>
+    #                 </div>
+    #             </th> 
+    #             <th style="width:12%">Type</th>
+    #             <th style="display:none">IPAddress</th>
+    #         </tr>
+    #     </thead>
+    #     <tbody style="font-size:11px;">
+    #         {table_rows}
+    #     </tbody>
+    # </table>
+    # </div>
+    # """
 
     return table_rows, results_data, site_data, results_sitetopology_data
 

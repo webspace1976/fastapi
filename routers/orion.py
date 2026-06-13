@@ -914,3 +914,43 @@ async def get_syslog_tracking():
     except Exception as e:
         logger.error(f"Failed to fetch SyslogTracking: {e}")
         return {"data": [], "error": str(e)}
+
+
+# ── Node Mute List ────────────────────────────────────────────────────────────
+NODE_MUTE_CONFIG = os.path.join(data_dir, "node_mute_list.json")
+
+def load_node_mute_list() -> list:
+    if os.path.exists(NODE_MUTE_CONFIG):
+        with open(NODE_MUTE_CONFIG, "r") as f:
+            return json.load(f).get("mute_list", [])
+    return []
+
+def save_node_mute_list(mute_list: list):
+    with open(NODE_MUTE_CONFIG, "w") as f:
+        json.dump({"mute_list": mute_list}, f, indent=2)
+
+@router.get("/nodedown/mute-list")
+async def get_node_mute_list():
+    return {"mute_list": load_node_mute_list()}
+
+@router.post("/nodedown/mute/{node_name}")
+async def mute_node(node_name: str):
+    mute_list = load_node_mute_list()
+    if node_name not in mute_list:
+        mute_list.append(node_name)
+        save_node_mute_list(mute_list)
+    return {"status": "muted", "node": node_name}
+
+@router.delete("/nodedown/mute/{node_name}")
+async def unmute_node(node_name: str):
+    mute_list = load_node_mute_list()
+    mute_list = [n for n in mute_list if n != node_name]
+    save_node_mute_list(mute_list)
+    return {"status": "unmuted", "node": node_name}
+
+@router.post("/nodedown/mute-list/save")
+async def save_node_mute_list_raw(request: Request):
+    data = await request.json()
+    new_list = [ln.strip() for ln in data.get("raw_text", "").split("\n") if ln.strip()]
+    save_node_mute_list(new_list)
+    return {"status": "success", "count": len(new_list)}
