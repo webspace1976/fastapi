@@ -330,7 +330,7 @@
 
 
             // JavaScript for dynamic table updates
-            countTableRow('nodedownTable', 'countNodeDown');
+            // countTableRow('nodedownTable', 'countNodeDown'); -- moved to applyNodeMuteFilter() to ensure it counts after mute filter is applied  
             countClassOccurrences('nodedownTable', 'nodeCountTable');
             countSite('nodedownTable','nodeCountTable')
             toggleAndDrawChart('nodeChartButton', 'nodeChartDown','nodedownTable')
@@ -452,7 +452,7 @@ function regroupAndColspan() {
         }
         
         // Modify row styles while they are "detached" from the screen
-        item.el.cells[1].style.paddingLeft = "5px"; 
+        // item.el.cells[1].style.paddingLeft = "5px"; 
         item.el.cells[2].style.display = 'none'; 
         if(item.el.cells[4]) item.el.cells[4].style.display = 'none';
         
@@ -463,16 +463,13 @@ function regroupAndColspan() {
     // We clear the tbody and inject the fragment in ONE frame.
     tbody.innerHTML = ''; 
     tbody.appendChild(fragment);
-    
-    // Ensure visibility is reset
-    //tbody.style.display = 'block';
     tbody.style.visibility = 'visible';
+
+    // 20260613 ── ADD THIS: re-apply mute filter after table is rebuilt ──
+    applyNodeMuteFilter();
 }
 
-    // Run it after your table data is loaded
-    $(document).ready(function() {
-        setTimeout(regroupAndColspan);
-    });
+
 
 
 async function updatePowerOutages() {
@@ -521,11 +518,14 @@ async function updatePowerOutages() {
             const name = row.dataset.nodeName;
             row.style.display = nodeMuteList.has(name) ? 'none' : '';
         });
-        // Recount visible rows
-        const visible = [...document.querySelectorAll('#nodedownTable tbody tr[data-node-name]')]
-            .filter(r => r.style.display !== 'none').length;
+
+        const dataRows = [...document.querySelectorAll('#nodedownTable tbody tr[data-node-name]')];
+        const visible = dataRows.filter(r => r.style.display !== 'none').length;
+
         const el = document.getElementById('countNodeDown');
         if (el) el.textContent = visible;
+
+        console.log('applyNodeMuteFilter: total rows:', dataRows.length, 'visible:', visible);
     }
 
     async function muteNode(nodeName) {
@@ -568,10 +568,18 @@ async function updatePowerOutages() {
         document.getElementById('nodeMuteModal').style.display = 'none';
     }
 
-    // Call on load (and after each auto-refresh that rebuilds the table)
-    loadNodeMuteList();
-// ── Node Mute List ────────────────────────────────────────────────────────────
+    // ── Node Mute List ────────────────────────────────────────────────────────────
 
+    console.log('regroupAndColspan done, rows with data-node-name:', 
+    document.querySelectorAll('#nodedownTable tbody tr[data-node-name]').length);
+    applyNodeMuteFilter();
+// Run it after your table data is loaded
+$(document).ready(function() {
+    setTimeout(function() {
+        regroupAndColspan();
+        loadNodeMuteList();   // runs after table is fully rebuilt
+    });
+});
 
         </script>
     </body>

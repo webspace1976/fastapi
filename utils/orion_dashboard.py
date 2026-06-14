@@ -283,30 +283,31 @@ def generate_node_table(session):
             encoded_site_search = urllib.parse.quote(raw_site_name) # Search by raw name for better results
 
             # 20260612 - Add Mute Button with JavaScript function call
+            safe_node_name = escaped_node_name.replace("'", "\\'")
             mute_btn = (
-                f'<button onclick="muteNode(\'{node_name}\')" '
-                f'title="Mute this node" '
-                f'style="font-size:10px;padding:1px 4px;cursor:pointer;background:#e67e22;'
-                f'color:white;border:none;border-radius:3px;"> - </button>'
+                f'<button onclick="muteNode(\'{safe_node_name}\')" '
+                f'style="font-size:9px;padding:1px 4px;background:#e67e22;color:white;'
+                f'border:none;border-radius:3px;cursor:pointer;margin-left:2px;" '
+                f'title="Mute this node"> - </button>'
             )
 
             table_rows += (
-                "<tr class=\"{}\"><td style=\"text-align:right;padding-right:5px\">{}</td><td> {} <a href=\"{}\" target=\"_blank\">{}</a></td>"
+                "<tr class=\"{}\" data-node-name=\"{}\"><td style=\"text-align:right;padding-right:3px\">{}</td><td style=\"text-align:left;padding-left:0\">{} <a href=\"{}\" target=\"_blank\">{}</a></td>"
                 "<td><div style=\"display: flex;justify-content: space-between;\"><div><a href=\"{}\" target=\"_blank\">{}</a></div><div>{}</div></div></td>"
                 "<td>{}</td>"
                 "<td id=\"IPAddress\" style=\"display:none\">{}</td></tr>\n"
             ).format(
                 class_tag,
-                # row.get('Duration', ""),
-                duration_str, mute_btn,
+                escaped_node_name,          # fills data-node-name
+                duration_str,
+                mute_btn,                   # appended after node name link
                 url_link if url_link is not None else "",
-                
                 escaped_node_name,
                 f"{site_searchurl}{encoded_site_search}",
                 f"<b>{escaped_site_display} **Site Down** </b>" if is_down else escaped_site_display, power_tag,
                 row.get('SiteType', ""),
                 row.get('IPAddress', "")
-            )  
+            )
 
     # results_html = f"""
     # <div style="max-height: 50vh; overflow-y: auto;">

@@ -350,11 +350,11 @@ function displayJsonAsTable(data, parentElement, prefix = '') {
 }
 
 function countTableRow(inputTable,outputDiv) {
-  console.log("countTableRow function called.",inputTable,outputDiv);
   var table = document.getElementById(inputTable);
   var rows = table.getElementsByTagName('tr');
   const rowCount = rows.length - 1
   document.getElementById(outputDiv).innerHTML = rowCount
+  console.log("countTableRow function called.",inputTable,outputDiv,"Row count:", rowCount);
 }
 
 async function fetchAndReadTextFile(url, outputDiv) {
@@ -960,103 +960,6 @@ function showPeer(file_src, sourceDiv) {
   });
 }
 
-// function setupLinkRadioToggle(tableId, stateId) {
-//     const servicenowBaseUrl = "https://healthbc.service-now.com/nav_to.do?uri=%2F$sn_global_search_results.do%3Fsysparm_search%3D";
-//     const udtBaseUrl = "https://orion.net.mgmt/Orion/UDT/EndpointDetails.aspx?NetObject=UE-IP:VAL=";
-//     const websshBaseUrl = "/webssh?ip=";
-//     const ringerBaseUrl = "/api/ringer/opsapi?method=fetchOpsTracking&search=";
-//     const radios = document.querySelectorAll(`input[name="link_type_${tableId}"]`);
-//     const state = document.getElementById(stateId);
-
-//     function updateLinks(mode) {
-//         const rows = document.querySelectorAll(`#${tableId} tbody tr`);
-        
-//         rows.forEach((row) => {
-//           const links = row.querySelectorAll("a"); // Get all <a> tags in the row
-//           links.forEach((link, idx) => {
-//               if (!link.dataset.originalHref) {
-//                   link.dataset.originalHref = link.href;
-//               }
-//               if (mode === "Orion") {
-//                   link.href = link.dataset.originalHref;
-//               } else if (mode === "SNOW") {
-//                   if (tableId === "nodedownTable" || tableId === "interfacedownTable") {
-//                       // For the first link (device), use its text
-//                       if (idx === 0) {
-//                           const linkText = link.textContent.trim();
-//                           link.href = `${servicenowBaseUrl}${encodeURIComponent(linkText)}`;
-//                       } else {
-//                           // For all other links (site), use <b> if present, else link text
-//                           let linkText = "";
-//                           const bold = link.querySelector("b");
-//                           if (bold) {
-//                               linkText = bold.textContent.trim();
-//                           } else {
-//                               linkText = link.textContent.trim();
-//                           }
-//                           // Remove "Site Down" and asterisks
-//                           // linkText = linkText.replace(/\*?\*?Site Down\*?\*?/gi, "").trim();
-//                           linkText = linkText.split(",")[0].trim();
-//                           // Only update if linkText is not empty
-//                           if (linkText) {
-//                               link.href = `${servicenowBaseUrl}${encodeURIComponent(linkText)}`;
-//                           }
-//                       }
-//                   } else if (tableId === "alertTable") {
-//                       let linkText = link.textContent.trim();
-//                       let firstPart = linkText.split(/[\s·]/)[0];
-//                       link.href = `${servicenowBaseUrl}${encodeURIComponent(firstPart)}`;
-//                   }
-//               } else if (mode === "Orion_UDT") {
-//                   const ipCell = row.cells[row.cells.length - 1];
-//                   const ip = ipCell ? ipCell.textContent.trim() : "";
-//                   if (ip) {
-//                       link.href = `${udtBaseUrl}${ip}`;
-//                   }
-//               } else if (mode === "webssh") {
-//                   // Get IP from the value attribute of the second cell
-//                   const nodeInfoCell = row.cells[1];
-//                   let ip = "";
-//                   if (nodeInfoCell && nodeInfoCell.getAttribute("value")) {
-//                       const value = nodeInfoCell.getAttribute("value");
-//                       const match = value.match(/\d{1,3}(?:\.\d{1,3}){3}/);
-//                       if (match) ip = match[0];
-//                   }
-//                   if (ip) {
-//                       link.removeAttribute('href');
-//                       link.style.cursor = 'pointer';
-//                       link.onclick = function(e) {
-//                           e.preventDefault();
-//                           window.open(`/webssh?ip=${ip}`, '_blank');
-//                       };
-//                   }               
-//               } else if (mode === "Ringer") {
-//                   const linkText = link.textContent.trim();
-//                   linkText = linkText.split(",")[0].trim();
-//                   if (linkText) {
-//                       link.href = `${ringerBaseUrl}${encodeURIComponent(linkText)}`;
-//                   }
-//               } else {
-//                   // Restore normal link behavior for other modes
-//                   link.onclick = null;
-//                   link.href = link.dataset.originalHref;
-//                   link.style.cursor = '';
-//               }
-//             });
-//         });
-//         if (state) state.textContent = mode;
-//     }
-
-//     radios.forEach(radio => {
-//         radio.addEventListener('change', function() {
-//             if (this.checked) {
-//                 updateLinks(this.value);
-//             }
-//         });
-//     });
-
-// }
-
 function setupLinkRadioToggle(tableId, stateId) {
     const servicenowBaseUrl = "https://healthbc.service-now.com/nav_to.do?uri=%2F$sn_global_search_results.do%3Fsysparm_search%3D";
     const udtBaseUrl = "https://orion.net.mgmt/Orion/UDT/EndpointDetails.aspx?NetObject=UE-IP:VAL=";
@@ -1148,49 +1051,6 @@ function setupLinkRadioToggle(tableId, stateId) {
         });
     });
 }
-
-
-// function linkToggle(inputId, toggleStateId, tableId) {
-//   // const orionBaseUrl = "https://orion.net.mgmt/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:";
-//   const servicenowBaseUrl = "https://healthbc.service-now.com/nav_to.do?uri=%2F$sn_global_search_results.do%3Fsysparm_search%3D";
-//   // const orionSearchBaseUrl = "https://orion.net.mgmt/apps/search/?q=";
-
-//   const toggleInput = document.getElementById(inputId);
-//   const toggleState = document.getElementById(toggleStateId);
-
-//   if (!toggleInput || !toggleState) {
-//     console.error("Toggle input or state element not found.");
-//     return;
-//   }
-
-//   toggleInput.addEventListener("change", () => {
-//       toggleState.textContent = toggleInput.checked ? "ServiceNow" : "Orion";
-//       console.log(tableId, `Toggled to ${toggleInput.checked ? "ServiceNow" : "Orion"}`); ;
-//       toggleLinks(tableId, toggleInput.checked);
-//   });
-
-//   function toggleLinks(tableId, useServiceNow) {
-//     const rows = document.querySelectorAll(`#${tableId} tbody tr`);
-//     rows.forEach((row) => {
-//       const links = row.querySelectorAll("a"); // Find all <a> tags in the row
-//       links.forEach((link) => {
-//         const originalHref = link.dataset.originalHref || link.href;
-
-//         // Save the original link if not already saved
-//         if (!link.dataset.originalHref) {
-//           link.dataset.originalHref = originalHref;
-//         }
-
-//         if (useServiceNow) {
-//           const linkText = link.textContent.trim();
-//           link.href = `${servicenowBaseUrl}${encodeURIComponent(linkText)}`;
-//         } else {
-//           link.href = link.dataset.originalHref; // Restore the original link
-//         }
-//       });
-//     });
-//   }
-// }
 
 function tableToScript() {
   console.log('tableToScript starting:');
@@ -1350,7 +1210,8 @@ async function muteOutage(rawDetails) {
             alert("Failed to mute ID");
         }
     }
-}        
+}   
+
 async function toggleIgnoreModal(show) {
     const modal = document.getElementById('ignoreModal');
     if (show) {
