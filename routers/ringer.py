@@ -1,4 +1,4 @@
-import requests, json, os, re
+import requests, json, os, re, asyncio
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import HTMLResponse
@@ -10,6 +10,16 @@ logger = mainconfig.setup_module_logger(__name__)
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 CONFIG_PATH = os.path.join(mainconfig.DATA_DIR, "power_config.json")
+
+
+def _http_get(url: str, params: dict, timeout: int):
+    """Blocking GET — wraps requests.get for use with asyncio.to_thread.
+    Every Ringer call in this file goes through this helper so the event loop
+    is never blocked while waiting on ringer.healthbc.org. This was previously
+    a likely cause of multi-day freeze-ups under --workers 1: any slow/hung
+    response from Ringer blocked the entire app, not just this request."""
+    return requests.get(url, params=params, verify=False, timeout=timeout)
+
 
 def load_ignore_list():
     if os.path.exists(CONFIG_PATH):
@@ -32,7 +42,7 @@ async def get_ops_tracking(
     if caseid:
         params = {"method": "fetchOpsTrackingById", "id": caseid}
         try:
-            response = requests.get(base_url, params=params, verify=False, timeout=10)
+            response = await asyncio.to_thread(_http_get, base_url, params, 10)
             detail_data = response.json()
             # Return a specific small template for the inside of the card
             return templates.TemplateResponse("ops_detail_snippet.html", {
@@ -45,7 +55,7 @@ async def get_ops_tracking(
     # 2. Global Search Logic (Existing)
     params = {"method": "fetchOpsTracking", "search": search or "", "open": open}
     try:
-        response = requests.get(base_url, params=params, verify=False, timeout=10)
+        response = await asyncio.to_thread(_http_get, base_url, params, 10)
         cases = response.json()
         
         # Apply your duration fix
@@ -66,7 +76,7 @@ async def get_case_detail(request: Request, caseid: str):
     case_data = {} 
 
     try:
-        response = requests.get(base_url, params=params, verify=False, timeout=10)
+        response = await asyncio.to_thread(_http_get, base_url, params, 10)
         raw_data = response.json()
         
         # Ringer returns a list for this method; we need the first item
@@ -229,7 +239,7 @@ async def get_poweroutage(request: Request):
 
     try:
         # Initial search call
-        search_response = requests.get(base_url, params=params, verify=False, timeout=10)
+        search_response = await asyncio.to_thread(_http_get, base_url, params, 10)
         search_response.raise_for_status()
         case_summaries = search_response.json()
         
@@ -243,7 +253,7 @@ async def get_poweroutage(request: Request):
                 
             # Second API call for the specific Case ID
             detail_params = {"method": "fetchOpsTrackingById", "id": case_id}
-            detail_response = requests.get(base_url, params=detail_params, verify=False, timeout=5)
+            detail_response = await asyncio.to_thread(_http_get, base_url, detail_params, 5)
             full_case_data = detail_response.json()
 
             # Ringer returns a list for ById; append the actual case object

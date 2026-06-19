@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from typing import List
 from uuid import uuid4
-import json, os
+import json, os, asyncio
 from pathlib import Path
 
 # Import the refactored utilities
@@ -103,14 +103,20 @@ async def get_check_results(request: Request, task_id: str):
         
     # 2. If DB status is missing or not completed, try to load from the JSON file
     elif results_file_path.exists():
-        try:
-        # 20260228 moved the file loading and analysis generation logic into a utility function for better separation of concerns
+        def _load_and_analyze():
+            # FIX: file read + generate_analysis_data() previously ran
+            # directly inside async def. For a large results file (many
+            # devices' worth of parsed output) this could block the event
+            # loop for a noticeable stretch; offloaded defensively.
+            # 20260228 moved the file loading and analysis generation logic into a utility function for better separation of concerns
             with open(results_file_path, "r") as f:
                 raw_results_list = json.load(f)
-
             # Now pass the LIST, not the Path object
-            results = generate_analysis_data(raw_results_list)
-            
+            return generate_analysis_data(raw_results_list)
+
+        try:
+            results = await asyncio.to_thread(_load_and_analyze)
+
             # --- FIX END ---
             # 20260228 - moved the log filename retrieval into the DB status check, since the file-based fallback is only for historical tasks where the DB might not have been updated. If we rely on the file for results, we won't have the log filename in the DB, so we can set it to a default value indicating it's from a historical task.
             # with open(results_file_path, "r") as f:

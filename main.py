@@ -69,9 +69,24 @@ logger = mainconfig.setup_module_logger(__name__)
 
 # Wire up DEBUG_MODE and LOG_LEVEL env var (refactor report items #21 and #23)
 import logging as _logging
+from logging.handlers import RotatingFileHandler
 _log_level = os.getenv("LOG_LEVEL", "DEBUG" if mainconfig.DEBUG_MODE else "WARNING").upper()
 logging_root = _logging.getLogger()
 logging_root.setLevel(getattr(_logging, _log_level, _logging.WARNING))
+
+# NOTE: alert_center.log previously grew unbounded (refactor report #23 area).
+# An ever-growing log file made /admin/alerts re-read + regex the whole file on
+# every request, which is a likely cause of the multi-day freeze-up — see patch below.
+# If setup_module_logger() already attaches a FileHandler for alert_center.log,
+# swap that handler for a RotatingFileHandler here so the file can't grow forever:
+for _h in list(logging_root.handlers):
+    if isinstance(_h, _logging.FileHandler) and not isinstance(_h, RotatingFileHandler):
+        _path = _h.baseFilename
+        logging_root.removeHandler(_h)
+        _h.close()
+        _rotating = RotatingFileHandler(_path, maxBytes=10_000_000, backupCount=5, encoding="utf-8")
+        _rotating.setFormatter(_h.formatter)
+        logging_root.addHandler(_rotating)
 
 # Include routers
 app.include_router(devices.router, prefix="/api/devices", tags=["Devices"])
@@ -84,6 +99,14 @@ app.include_router(ringer.router, prefix="/api/ringer", tags=["Ringer"])
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/health")
+async def health():
+    """Cheap liveness check — intentionally does no file I/O or blocking calls.
+    Used by Docker healthcheck / systemd watchdog / external cron watchdog to
+    detect a frozen event loop (process alive, but not answering HTTP)."""
+    return {"status": "ok", "time": datetime.utcnow().isoformat()}
 
 
 @app.get("/admin/session-log", response_class=HTMLResponse)
@@ -287,6 +310,49 @@ async def oriondataviz(request: Request):
     return templates.TemplateResponse("orion_map.html", {"request": request})
 
 log_file_path = os.path.join(logs_dir, "alert_center.log")
+
+# Compiled once at module load — avoids recompiling the regex on every line/request
+_ALERT_LINE_RE = re.compile(
+    r"^(.*?)\s-\s(\w+)\s-\s\[(.*?):(\d+)\]\s-\s(.*?)\(\)\s-\s(.*)"
+)
+# Hard cap on how many lines we'll ever parse per request. Even with rotation in
+# place (see logging setup above), this bounds worst-case blocking time and is a
+# second line of defense against the freeze this endpoint could previously cause.
+_ALERT_MAX_LINES = 20000
+
+def _parse_alert_log_sync(path: str, level_filter: str | None) -> list[dict]:
+    """Blocking file read + regex parse. Always call via asyncio.to_thread from
+    an async route — never call this directly inside `async def`."""
+    alerts = []
+    if not os.path.exists(path):
+        return alerts
+
+    with open(path, "r", encoding="utf-8") as f:
+        # Only look at the tail of the file — bounds worst-case work regardless
+        # of how large the (now-rotated) log file gets.
+        lines = f.readlines()[-_ALERT_MAX_LINES:]
+
+    for line in lines:
+        # Format: Timestamp - Level - [Module:Line] - Function() - Message
+        match = _ALERT_LINE_RE.search(line)
+        if not match:
+            continue
+        timestamp, log_level, module, lineno, func_name, message = match.groups()
+
+        if level_filter and log_level.upper() != level_filter.upper():
+            continue  # skip if not matching filter
+
+        alerts.append({
+            "timestamp": timestamp,
+            "level": log_level,
+            "module": f"{module}:{lineno}",  # Combines file and line
+            "function": func_name,
+            "message": message.strip(),
+            "date": timestamp.split(" ")[0],
+        })
+    return alerts
+
+
 @app.get("/admin/alerts", response_class=HTMLResponse)
 async def get_alert_center(
     request: Request,
@@ -294,38 +360,13 @@ async def get_alert_center(
     group_by: str = Query(default=None),  # "date" or "module"
     export: bool = Query(default=False)
 ):
-    alerts = []
-    log_file_path = os.path.join(logs_dir, "alert_center.log")
+    # FIX: file read + regex parsing previously ran synchronously inside this
+    # async route. On a large/unrotated alert_center.log this could block the
+    # entire event loop (single worker) for seconds, which is a strong
+    # candidate for the "app stops answering on the port after days" symptom.
+    # Now offloaded to a thread so other requests keep being served.
+    alerts = await asyncio.to_thread(_parse_alert_log_sync, log_file_path, level)
 
-    if os.path.exists(log_file_path):
-        with open(log_file_path, "r", encoding="utf-8") as f:
-            for line in f:
-            # Updated Regex to match: Timestamp - Level - [Module:Line] - Function() - Message
-            # Pattern explanation:
-            # (.*?) : Timestamp
-            # \s-\s(\w+)\s-\s : Log Level (e.g., ERROR)
-            # \[(.*?):(\d+)\] : [filename.py:line]
-            # \s-\s(.*?)\(\)\s-\s : function_name()
-            # (.*) : The actual message
-                match = re.search(r"^(.*?)\s-\s(\w+)\s-\s\[(.*?):(\d+)\]\s-\s(.*?)\(\)\s-\s(.*)", line)                
-                # match = re.match(r"^(.*?) \| (\w+) \| (.*?) \| (.*)", line)
-                if match:
-                    # timestamp, log_level, module, message = match.groups()
-                    timestamp, log_level, module, lineno, func_name, message = match.groups()
-
-                    if level and log_level.upper() != level.upper():
-                        continue  # skip if not matching filter
-
-                    alerts.append({
-                        "timestamp": timestamp,
-                        "level": log_level,
-                        "module": f"{module}:{lineno}", # Combines file and line
-                        "function": func_name,         # New field: shows which 'def'                        
-                        # "module": module,
-                        # "message": message.strip(),
-                        "message": message.strip(),
-                        "date": timestamp.split(" ")[0]
-                    })
     # ✅ Sort by timestamp DESCENDING
     alerts.sort(key=lambda x: x["timestamp"], reverse=True)
 

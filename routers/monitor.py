@@ -21,6 +21,7 @@ Refactor notes (2026):
 import os
 import re
 import sys
+import asyncio
 import logging
 import subprocess
 from datetime import datetime, timedelta
@@ -635,71 +636,82 @@ def api_merged_topology(
 
 @router.get("", response_class=HTMLResponse)
 async def monitor_dashboard(request: Request):
-    db = DatabaseManager(DB_PATH)
-    recent_bgp_flaps, recent_ospf_flaps = get_recently_changed_peers(db)
-    problem_ips, problem_bgp, problem_ospf = get_problem_peers(db)
-    bgp_peers = get_bgp_current_status(db)
-    ospf_peers = get_ospf_current_status(db)
+    def _build_dashboard_data():
+        # FIX: previously this whole block (DB open + ~6 queries + row
+        # annotation/sorting loops) ran directly inside async def on the
+        # event loop. DatabaseManager/SQLite reads are normally fast, but
+        # this route is hit frequently and does meaningful Python-side work
+        # per row, so it's offloaded defensively rather than risk it being
+        # the thing that stalls other requests under load.
+        db = DatabaseManager(DB_PATH)
+        recent_bgp_flaps, recent_ospf_flaps = get_recently_changed_peers(db)
+        problem_ips, problem_bgp, problem_ospf = get_problem_peers(db)
+        bgp_peers = get_bgp_current_status(db)
+        ospf_peers = get_ospf_current_status(db)
 
-    # Build flap/problem lookup sets for the template
-    bgp_flap_ips  = {r["neighbor_address"] for r in recent_bgp_flaps}
-    ospf_flap_ips = {r["neighbor_address"] for r in recent_ospf_flaps}
-    problem_bgp_ips  = {r["neighbor_address"] for r in problem_bgp}
-    problem_ospf_ips = {r["neighbor_address"] for r in problem_ospf}
+        # Build flap/problem lookup sets for the template
+        bgp_flap_ips  = {r["neighbor_address"] for r in recent_bgp_flaps}
+        ospf_flap_ips = {r["neighbor_address"] for r in recent_ospf_flaps}
+        problem_bgp_ips  = {r["neighbor_address"] for r in problem_bgp}
+        problem_ospf_ips = {r["neighbor_address"] for r in problem_ospf}
 
-    # Annotate rows in-place so templates can use simple flags
-    for peer in bgp_peers:
-        d = dict(peer)
-        d["is_flap"]    = d["neighbor_address"] in bgp_flap_ips
-        d["is_problem"] = d["neighbor_address"] in problem_bgp_ips
-        d["uptime_html"] = format_uptime(d.get("up_down_time") or "")
-
-    for peer in ospf_peers:
-        d = dict(peer)
-        d["is_flap"]    = d["neighbor_address"] in ospf_flap_ips
-        d["is_problem"] = d["neighbor_address"] in problem_ospf_ips
-        d["uptime_html"] = format_uptime(d.get("verbose_uptime") or "")
-
-    # Annotated peer lists for the template
-    annotated_bgp = []
-    seen = set()
-    all_sorted = sorted(bgp_peers, key=lambda p: parse_uptime(p.get("up_down_time") or "0"))
-    for peer in all_sorted:
-        key = (peer["hostname"], peer.get("vpn_instance"), peer["neighbor_address"])
-        if key not in seen:
-            seen.add(key)
+        # Annotate rows in-place so templates can use simple flags
+        for peer in bgp_peers:
             d = dict(peer)
-            d["is_flap"]     = d["neighbor_address"] in bgp_flap_ips
-            d["is_problem"]  = d["neighbor_address"] in problem_bgp_ips
+            d["is_flap"]    = d["neighbor_address"] in bgp_flap_ips
+            d["is_problem"] = d["neighbor_address"] in problem_bgp_ips
             d["uptime_html"] = format_uptime(d.get("up_down_time") or "")
-            annotated_bgp.append(d)
 
-    annotated_ospf = []
-    seen = set()
-    all_sorted = sorted(ospf_peers, key=lambda p: parse_uptime(p.get("verbose_uptime") or "0"))
-    for peer in all_sorted:
-        key = (peer["hostname"], peer["neighbor_address"])
-        if key not in seen:
-            seen.add(key)
+        for peer in ospf_peers:
             d = dict(peer)
-            d["is_flap"]     = d["neighbor_address"] in ospf_flap_ips
-            d["is_problem"]  = d["neighbor_address"] in problem_ospf_ips
+            d["is_flap"]    = d["neighbor_address"] in ospf_flap_ips
+            d["is_problem"] = d["neighbor_address"] in problem_ospf_ips
             d["uptime_html"] = format_uptime(d.get("verbose_uptime") or "")
-            annotated_ospf.append(d)
 
-    return templates.TemplateResponse("monitor_summary.html", {
-        "request":            request,
-        "bgp_peers":          annotated_bgp,
-        "ospf_peers":         annotated_ospf,
-        "problem_bgp":        problem_bgp,
-        "problem_ospf":       problem_ospf,
-        "problem_ips":        problem_ips,
-        "recent_bgp_flaps":   recent_bgp_flaps,
-        "recent_ospf_flaps":  recent_ospf_flaps,
-        "bgp_flap_ips":       bgp_flap_ips,
-        "ospf_flap_ips":      ospf_flap_ips,
-        "core_logs_dir":      CORE_LOGS_DIR,
-    })
+        # Annotated peer lists for the template
+        annotated_bgp = []
+        seen = set()
+        all_sorted = sorted(bgp_peers, key=lambda p: parse_uptime(p.get("up_down_time") or "0"))
+        for peer in all_sorted:
+            key = (peer["hostname"], peer.get("vpn_instance"), peer["neighbor_address"])
+            if key not in seen:
+                seen.add(key)
+                d = dict(peer)
+                d["is_flap"]     = d["neighbor_address"] in bgp_flap_ips
+                d["is_problem"]  = d["neighbor_address"] in problem_bgp_ips
+                d["uptime_html"] = format_uptime(d.get("up_down_time") or "")
+                annotated_bgp.append(d)
+
+        annotated_ospf = []
+        seen = set()
+        all_sorted = sorted(ospf_peers, key=lambda p: parse_uptime(p.get("verbose_uptime") or "0"))
+        for peer in all_sorted:
+            key = (peer["hostname"], peer["neighbor_address"])
+            if key not in seen:
+                seen.add(key)
+                d = dict(peer)
+                d["is_flap"]     = d["neighbor_address"] in ospf_flap_ips
+                d["is_problem"]  = d["neighbor_address"] in problem_ospf_ips
+                d["uptime_html"] = format_uptime(d.get("verbose_uptime") or "")
+                annotated_ospf.append(d)
+
+        return {
+            "bgp_peers":          annotated_bgp,
+            "ospf_peers":         annotated_ospf,
+            "problem_bgp":        problem_bgp,
+            "problem_ospf":       problem_ospf,
+            "problem_ips":        problem_ips,
+            "recent_bgp_flaps":   recent_bgp_flaps,
+            "recent_ospf_flaps":  recent_ospf_flaps,
+            "bgp_flap_ips":       bgp_flap_ips,
+            "ospf_flap_ips":      ospf_flap_ips,
+        }
+
+    ctx = await asyncio.to_thread(_build_dashboard_data)
+    ctx["request"] = request
+    ctx["core_logs_dir"] = CORE_LOGS_DIR
+
+    return templates.TemplateResponse("monitor_summary.html", ctx)
 
 
 @router.get("/topology", response_class=HTMLResponse)
@@ -816,9 +828,14 @@ async def peer_history(
     neighbor:  str,
     protocol:  str = "BGP",
 ):
-    db = DatabaseManager(DB_PATH)
-    html_content = display_history_page(db, hostname, protocol, neighbor)
-    full_html_string = "".join(html_content)
+    def _build_history_html():
+        # FIX: db.execute_query + history HTML assembly previously ran
+        # directly inside async def. Offloaded to bound worst-case blocking.
+        db = DatabaseManager(DB_PATH)
+        html_content = display_history_page(db, hostname, protocol, neighbor)
+        return "".join(html_content)
+
+    full_html_string = await asyncio.to_thread(_build_history_html)
     return templates.TemplateResponse("monitor_history.html", {
         "request":      request,
         "html_history": full_html_string,

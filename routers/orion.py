@@ -86,8 +86,11 @@ async def run_orioncheck_route(
     manager = OrionSession(npm_server, npm_uname, npm_passwd)
 
     try:
-        # One single call to get the persistent client
-        swis_client, session_id = manager.get_client()
+        # FIX: get_client() performs a blocking SWIS login/handshake. It was
+        # previously called directly inside this async def, which could
+        # freeze the whole event loop (single worker) if the Orion server is
+        # slow to respond to login. Now offloaded to a thread.
+        swis_client, session_id = await asyncio.to_thread(manager.get_client)
 
         # AUDIT LOG: Capture the login event
     # Update the audit log with duration tracking
@@ -819,7 +822,12 @@ async def topo_refresh_now():
     ACTIVE_SESSIONS dict (populated when any user logs into the dashboard).
     Only fetches topology + NCP — not the full dashboard payload.
     """
-    try:
+    def _do_refresh_sync():
+        """Blocking work: 3 sequential SWIS queries + DB write. Previously ran
+        directly inside the async route with no offload — three sequential
+        network calls to Orion with no thread isolation meant a slow/hung
+        SWIS response could freeze the entire app (single worker). Now run
+        as one unit in a worker thread via asyncio.to_thread below."""
         from utils.session_manager import get_any_active_client
         from utils.orion_db_manager import sync_orion_data
         from sqlalchemy import text as _sa_text
@@ -831,7 +839,7 @@ async def topo_refresh_now():
         # Pull only the two tables needed for topology rendering
         topo_result = client.query(orion_config.swis_sitetopology)
         ncp_result  = client.query(orion_config.swis_ncp)
-        interface_result  = client.query(orion_config.swis_interface) # interface full status 
+        interface_result  = client.query(orion_config.swis_interface) # interface full status
 
         data_for_db = {
             "interface_table":        [r for r in (interface_result  or {}).get("results", []) if isinstance(r, dict)],
@@ -846,8 +854,13 @@ async def topo_refresh_now():
             topo_count = conn.execute(_sa_text("SELECT COUNT(*) FROM [Orion.Topology]")).scalar()
             interface_count = conn.execute(_sa_text("SELECT COUNT(*) FROM [Orion.NPM.Interfaces]")).scalar()
 
-        logger.info("topo/refresh: synced %d NCP nodes, %d interfaces", node_count, interface_count)
         return {"ok": True, "nodes": node_count, "interfaces": interface_count}
+
+    try:
+        result = await asyncio.to_thread(_do_refresh_sync)
+        if result.get("ok"):
+            logger.info("topo/refresh: synced %d NCP nodes, %d interfaces", result["nodes"], result["interfaces"])
+        return result
 
     except Exception as e:
         logger.error("topo/refresh: %s", e)
@@ -857,19 +870,18 @@ async def topo_refresh_now():
 @router.get("/get_PeerTracking")
 async def get_syslog_tracking():
     """Fetches the latest 200 syslog entries from the SQLite backup."""
-    try:
-        # Ensure the latest syslogs are in the routing DB
-        sync_syslog_to_routing_db(mainconfig.DB_ORION_PATH, mainconfig.DB_PATH)  
-        
+    def _fetch_sync():
+        # FIX: sync_syslog_to_routing_db + raw sqlite3 query previously ran
+        # directly inside async def. sync_syslog_to_routing_db in particular
+        # may do non-trivial DB work; offloading bounds worst-case blocking.
+        sync_syslog_to_routing_db(mainconfig.DB_ORION_PATH, mainconfig.DB_PATH)
+
         conn = sqlite3.connect(mainconfig.DB_PATH)    # load from network_core.db
-        conn.row_factory = sqlite3.Row 
+        conn.row_factory = sqlite3.Row
 
         # Attach Orion DB        
         orion_db_path = str(mainconfig.DB_ORION_PATH)
         conn.execute(f"ATTACH DATABASE '{orion_db_path}' AS orion_db")        # Using a dictionary factory makes it easy to convert to JSON for the frontend
-        
-# OSPF	ENG22-KAM-Core	10.102.102.79	10.244.255.225	FULL	INIT	2026-04-15T02:26:05	2026 ENG22-KAM-Core %%10OSPF/5/OSPF_NBR_CHG: -DevIP=10.251.0.43; OSPF 10 Neighbor 10.244.255.225(Vlan-interface408) changed from FULL to INIT.	SyslogDB
-# BGP	ENG22-CW-Core	10.8.8.16	10.251.9.153	ESTABLISHED	IDLE	2026-04-13T20:41:09	%Apr 13 20:41:09:883 2026 ENG22-CW-Core BGP/5/BGP_STATE_CHANGED: BGP.extranet: 10.251.9.153  state has changed from ESTABLISHED to IDLE	20260413_204100_10.8.8.16_jl1700_sa.txt
 
         query = """
             SELECT 
@@ -895,21 +907,16 @@ async def get_syslog_tracking():
             ORDER BY logs.last_updated_ts DESC
         """
 
-        # query = """
-        #     SELECT LogEntryID, NodeID, NodeName, IPAddress, DateTime, Message 
-        #     FROM [Orion.SyslogTracking] 
-        #     ORDER BY LogEntryID DESC 
-        #     LIMIT 200
-        # """
         curr = conn.cursor()
         curr.execute(query)
         rows = curr.fetchall()
         conn.close()
-        
+
         # Convert sqlite3.Row objects to standard dictionaries
-        data = [dict(row) for row in rows]
-        # print(data)
-        
+        return [dict(row) for row in rows]
+
+    try:
+        data = await asyncio.to_thread(_fetch_sync)
         return {"data": data}
     except Exception as e:
         logger.error(f"Failed to fetch SyslogTracking: {e}")
