@@ -204,12 +204,16 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 // Wire refresh buttons
 document.getElementById('btn-refresh-nodes').addEventListener('click', () => reloadTab('nodes'));
-document.getElementById('btn-refresh-topology').addEventListener('click', () => reloadTab('topology'));
+// btn-refresh-topology is commented out in the HTML above — no listener needed.
+// (Previously this line called .addEventListener on null and threw, which
+// silently aborted the rest of the script — including the DOMContentLoaded
+// handler below that sets the default tab.)
 
 // On load: restore last active tab, default to 'login' — same as template file
 window.addEventListener('DOMContentLoaded', () => {
-    const saved = localStorage.getItem('orion-tab') || 'login';
-    showTab(saved);
+    // const saved = localStorage.getItem('orion-tab') || 'login';
+    // showTab(saved);
+    showTab('login');
 });
 
 // ── Clock ─────────────────────────────────────────────────────────────────────

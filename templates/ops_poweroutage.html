@@ -119,13 +119,11 @@
         <div class="case-body" style="font-size: 0.9em;">
             <div>
                 <strong>Details:</strong>
-
                 <a  href="{{ event.SourceURL }}" target="_blank"> {{ display_details }}</a>
                 {% set display_update = event.Update | replace('T', ' ') %}
-                <strong>    Update:</strong> {{ display_update }}
+                <br><strong>Update:</strong> {{ display_update }}
             </div>
-
-            <strong>Description:</strong> {{ event.Description }}
+                <strong>Description:</strong> {{ event.Description }}
             </td>
         </tr>    
         </div>

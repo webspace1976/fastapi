@@ -186,7 +186,11 @@ def get_ha_power_alerts(raw_data):
                     existing = outage_tracker[h_id]
                     # Update the ETR/Status to the most recent one found in the logs
                     existing["Description"] = event.get("Description", "No ETR")
-                    
+
+                    # 20260714 Track the most recent activity for this outage so we can sort by it below
+                    existing["latest_record_id"] = event.get("record_id", existing.get("latest_record_id", 0))
+                    existing["Update"] = event.get("Update", existing.get("Update"))
+
                     if current_site not in existing["all_sites"]:
                         existing["all_sites"].append(current_site)
                         existing["all_shorts"].append(current_short)
@@ -202,10 +206,16 @@ def get_ha_power_alerts(raw_data):
                     event["all_shorts"] = [current_short]
                     event["impacted_site"] = current_site
                     event["SiteNameShort"] = current_short
+                    event["latest_record_id"] = event.get("record_id", 0)
+                    # event["Update"] = event.get("Update")
                     outage_tracker[h_id] = event
 
-    return list(outage_tracker.values())
-
+    # Show the most recently updated/reported outage first
+    return sorted(
+        outage_tracker.values(),
+        key=lambda x: x.get("latest_record_id", 0),
+        reverse=True
+    )
 
 @router.get("/opsapi/poweroutage", response_class=HTMLResponse)
 async def get_poweroutage(request: Request):

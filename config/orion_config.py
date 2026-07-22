@@ -42,6 +42,7 @@ DEBUG_MODE = True
 
 # orion settings
 orion_prefix = "https://orion.net.mgmt"
+OrionRCS_prefix = "https://samsw.phsa.ca"
 
 swis_test='SELECT TOP 3 NodeID, DisplayName FROM Orion.Nodes'
 # swis_sitedown= 'SELECT SUM(1) as value, Site FROM (SELECT nodeid,DisplayName,CP.CustomProperties.Site,CP.CustomProperties.SiteType FROM Orion.Nodes CP WHERE CP.Status=2 ) GROUP by site order by value'
@@ -151,7 +152,11 @@ swis_nodestatistic="SELECT COUNT(1) as value, Status, CASE WHEN Status = 1 THEN 
 
 # 20251011 Full Node Custom Properties Query
 # 20251230 update ONS.NodeName, ONS.IPaddress, ONS.DetailsUrl
-swis_ncp="SELECT Site, ONS.NodeName, ONS.IPaddress, ONS.DetailsUrl, NodeID, ONS.Status, ONS.StatusDescription, Address, Architecture, AssetTag, Building, City, Closest_Poller, Closet, Comments, Configuration, ControlUpEventID, DeviceType, Floor, HA, HardwareIncidentStatus, Imported_From_NCM, IncidentStatus, Layer3, LdapTestFailureMessage, Make, New_Poller_Home, NodeOwner,  OutOfBand, PDIntegrationKey, PONumber, ProgramApplication, ProgramApplicationType, Provider, ProviderSiteID, Rack, Region, ServiceType, SiteContactName, SiteHours, SitePhone, SiteType, Technology, Topology, Unmanaged_, WANbandwidth, WANnode, WANProvider,WANProviderCSID,WANProviderDeviceID FROM Orion.NodesCustomProperties ONCP INNER JOIN Orion.Nodes ONS ON ONCP.NodeID = ONS.NodeID ORDER BY Site"
+# swis_ncp="SELECT Site, ONS.NodeName, ONS.IPaddress, ONS.DetailsUrl, NodeID, ONS.Status, ONS.StatusDescription, Address, Architecture, AssetTag, Building, City, Closest_Poller, Closet, Comments, Configuration, ControlUpEventID, DeviceType, Floor, HA, HardwareIncidentStatus, Imported_From_NCM, IncidentStatus, Layer3, LdapTestFailureMessage, Make, New_Poller_Home, NodeOwner,  OutOfBand, PDIntegrationKey, PONumber, ProgramApplication, ProgramApplicationType, Provider, ProviderSiteID, Rack, Region, ServiceType, SiteContactName, SiteHours, SitePhone, SiteType, Technology, Topology, Unmanaged_, WANbandwidth, WANnode, WANProvider,WANProviderCSID,WANProviderDeviceID FROM Orion.NodesCustomProperties ONCP INNER JOIN Orion.Nodes ONS ON ONCP.NodeID = ONS.NodeID ORDER BY Site"
+
+#20260709 updated
+swis_ncp='''SELECT Site, ONS.NodeName, ONS.IPaddress, ONS.DetailsUrl, NodeID, ONS.Status, ONS.StatusDescription, Address, Architecture, Building, City, Closet, Comments, Configuration, DeviceType, Floor, HA, HardwareIncidentStatus, IncidentStatus, Layer3, Make, New_Poller_Home, NodeOwner,  OutOfBand,  ProgramApplication, ProgramApplicationType, Provider, ProviderSiteID, Rack, Region, ServiceType, SiteContactName, SiteHours, SitePhone, SiteType, Technology, Topology, WANbandwidth, WANnode, WANProvider,WANProviderCSID,WANProviderDeviceID FROM Orion.NodesCustomProperties ONCP INNER JOIN Orion.Nodes ONS ON ONCP.NodeID = ONS.NodeID ORDER BY Site
+'''
 
 
 swis_alert='''

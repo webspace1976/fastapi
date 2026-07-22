@@ -265,8 +265,14 @@ def generate_node_table(session):
 
             # --- NEW: Check for Power Outage Tag ---
             power_tag = ""
-            if raw_site_name in power_lookup:
-                target_url = power_lookup[raw_site_name]
+            # 20260708 Normalize keys for case-insensitive matching
+            power_lookup_normalized = {k.strip().upper(): v for k, v in power_lookup.items()}
+            lookup_key = raw_site_name.strip().upper()
+            if lookup_key in power_lookup_normalized:
+                target_url = power_lookup_normalized[lookup_key]
+            # 20260708 Normalize keys for case-insensitive matching            
+            # if raw_site_name in power_lookup:
+            #     target_url = power_lookup[raw_site_name]
                 power_tag = (
                     f'<a href="{target_url}" target="_blank" style="text-decoration: none;">'
                     f'<span style="background-color: #ffc107; color: #000;border-radius: 3px; font-weight: bold; margin-left: 5px; '

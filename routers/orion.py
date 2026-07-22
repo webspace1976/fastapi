@@ -437,6 +437,7 @@ async def get_site_topology_page(request: Request):
     return templates.TemplateResponse("orion_site_topology.html", {"request": request})
 
 
+
 @router.get("/orion_analysis", response_class=HTMLResponse)
 async def get_analysis_page(request: Request):
     # This renders your orion_custom_properties.html file
