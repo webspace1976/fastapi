@@ -82,6 +82,8 @@ async def run_orioncheck_route(
     npm_uname: str = Form(...),
     npm_passwd: str = Form(...),
 ):
+    npm_server = npm_server.strip()
+    npm_uname = npm_uname.strip()
     # 20260211 Create/Retrieve persistent session
     manager = OrionSession(npm_server, npm_uname, npm_passwd)
 
@@ -112,7 +114,7 @@ async def run_orioncheck_route(
             request,
             npm_server,
             npm_uname,
-            npm_passwd,
+            swis_client,      # <-- pass the cached, already-validated client 
             session_id,
         )
 

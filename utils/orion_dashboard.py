@@ -115,11 +115,19 @@ def remove_non_ascii(data):
     else:
         return data
 
-def check_orion_status(session):
+# def check_orion_status(session):
+#     try:
+#         # Try a lightweight query
+#         session.refresh_session()
+#         session.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
+#         return True
+#     except Exception as e:
+#         logger.error(f"Orion server check failed: {e}")
+#         return False
+
+def check_orion_status(swis_client):
     try:
-        # Try a lightweight query
-        session.refresh_session()
-        session.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
+        swis_client.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
         return True
     except Exception as e:
         logger.error(f"Orion server check failed: {e}")
@@ -288,6 +296,13 @@ def generate_node_table(session):
             escaped_site_display = html.escape(display_site_name)
             encoded_site_search = urllib.parse.quote(raw_site_name) # Search by raw name for better results
 
+            # 20260722 - Stable grouping key: same normalization used for site_down_match/
+            # nodedown_match lookups above, so rows for the same physical site always
+            # share one key regardless of whitespace, DownCount/TotalNodes changes, or
+            # a power-outage badge being present on one row and not the other.
+            site_key = f"{raw_site_name.strip().lower()}|{node_address.strip().lower()}"
+            escaped_site_key = html.escape(site_key)
+
             # 20260612 - Add Mute Button with JavaScript function call
             safe_node_name = escaped_node_name.replace("'", "\\'")
             mute_btn = (
@@ -298,47 +313,39 @@ def generate_node_table(session):
             )
 
             table_rows += (
-                "<tr class=\"{}\" data-node-name=\"{}\"><td style=\"text-align:right;padding-right:3px\">{}</td><td style=\"text-align:left;padding-left:0\">{} <a href=\"{}\" target=\"_blank\">{}</a></td>"
+                "<tr class=\"{}\" data-node-name=\"{}\" data-site-key=\"{}\" style=\"display:none\"><td style=\"text-align:right;padding-right:3px\">{}</td><td style=\"text-align:left;padding-left:0\">{} <a href=\"{}\" target=\"_blank\">{}</a></td>"
                 "<td><div style=\"display: flex;justify-content: space-between;\"><div><a href=\"{}\" target=\"_blank\">{}</a></div><div>{}</div></div></td>"
-                "<td>{}</td>"
                 "<td id=\"IPAddress\" style=\"display:none\">{}</td></tr>\n"
             ).format(
                 class_tag,
                 escaped_node_name,          # fills data-node-name
+                escaped_site_key,          # fills data-site-key
                 duration_str,
                 mute_btn,                   # appended after node name link
                 url_link if url_link is not None else "",
                 escaped_node_name,
                 f"{site_searchurl}{encoded_site_search}",
                 f"<b>{escaped_site_display} **Site Down** </b>" if is_down else escaped_site_display, power_tag,
-                row.get('SiteType', ""),
                 row.get('IPAddress', "")
             )
 
-    # results_html = f"""
-    # <div style="max-height: 50vh; overflow-y: auto;">
-    # <table id="nodedownTable" style="display:none; width:100%">
-    #     <thead>
-    #         <tr>
-    #             <th style="width:14%">Duration</th> 
-    #             <th >
-    #                 <div>Link:
-    #                     <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="Orion" checked>OrionNode</label>
-    #                     <label style="margin-right: 10px;"><input type="radio" name="link_type_nodedownTable" value="SNOW">SNOW</label>
-    #                     <label><input type="radio" name="link_type_nodedownTable" value="Orion_UDT">OrionUDT</label>
-    #                     <label><input type="radio" name="link_type_nodedownTable" value="Ringer">RingerOPS</label>
-    #                 </div>
-    #             </th> 
-    #             <th style="width:12%">Type</th>
-    #             <th style="display:none">IPAddress</th>
-    #         </tr>
-    #     </thead>
-    #     <tbody style="font-size:11px;">
-    #         {table_rows}
-    #     </tbody>
-    # </table>
-    # </div>
-    # """
+            # table_rows += (
+            #     "<tr class=\"{}\" data-node-name=\"{}\"><td style=\"text-align:right;padding-right:3px\">{}</td><td style=\"text-align:left;padding-left:0\">{} <a href=\"{}\" target=\"_blank\">{}</a></td>"
+            #     "<td><div style=\"display: flex;justify-content: space-between;\"><div><a href=\"{}\" target=\"_blank\">{}</a></div><div>{}</div></div></td>"
+            #     "<td style=\"display:none\">{}</td>"
+            #     "<td id=\"IPAddress\" style=\"display:none\">{}</td></tr>\n"
+            # ).format(
+            #     class_tag,
+            #     escaped_node_name,          # fills data-node-name
+            #     duration_str,
+            #     mute_btn,                   # appended after node name link
+            #     url_link if url_link is not None else "",
+            #     escaped_node_name,
+            #     f"{site_searchurl}{encoded_site_search}",
+            #     f"<b>{escaped_site_display} **Site Down** </b>" if is_down else escaped_site_display, power_tag,
+            #     row.get('SiteType', ""),
+            #     row.get('IPAddress', "")
+            # )
 
     return table_rows, results_data, site_data, results_sitetopology_data
 
@@ -377,7 +384,7 @@ def generate_interface_table(session):
 
         table_row = (            
                 "<tr class=\"{}\"><td style=\"text-align:right;padding-right:5px\">{}</td><td style=\"padding-left:5px;\" id=\"node_info\" value=\"{}\"><a href=\"{}\" target=\"_blank\">{}</a></td>"
-                "<td style=\"text-align:left;padding-left:3px\">{}</td></tr>\n"
+                "<td style=\"text-align:left;padding-left:3px;display:none\">{}</td></tr>\n"
             ).format(
                 class_tag,
                 duration_str,
@@ -795,6 +802,27 @@ def generate_syslog(session):
     return results_html, results_data  
 
 
+def generate_login_audit_table(swis_client):
+    """Returns (html_table, raw_rows) — same contract as other generate_* functions."""
+    query = orion_config.swis_loginCount24H
+    result = swis_client.query(query)
+    rows = result.get("results", []) if result else []
+    loginCount24H = int(rows[0].get('LoginCount', 0)) if rows else 0
+
+    html_rows = "".join(
+        f"<tr><td>{safe_escape(r.get('AccountID'))}</td>"
+        f"<td>{safe_escape(r.get('LoginCount'))}</td>"
+        f"<td>{safe_escape(r.get('AuditEventMessage'))}</td></tr>"
+        for r in rows
+    )
+    table_html = f"""
+    <table class="table table-striped table-sm">
+        <thead><tr><th>Account</th><th>Login Count</th><th>Message</th></tr></thead>
+        <tbody>{html_rows}</tbody>
+    </table>
+    """
+    return table_html, loginCount24H
+
 
 def sync_historical_tracing(session):
     query = swis_nodesevent
@@ -857,58 +885,60 @@ def safe_generate(func, session, default_val="<p class='text-danger'>Error loadi
 
 
 
-def get_orion_dashboard_html(request, npm_server, username, password, session_id):
+def get_orion_dashboard_html(request, npm_server, username, swis_client, session_id):
     try:
         logger.debug("Debug: Starting main_all function")
         session_path = os.path.join(session_dir, f"{session_id}.json")
 
         # Initialize and attempt to connect
-        session = OrionSession(npm_server, username, password)
-        # connect() MUST throw an error if UN/PW is wrong or IP is down
-        session.connect(session_id)
+        # session = OrionSession(npm_server, username, password)
+        # # connect() MUST throw an error if UN/PW is wrong or IP is down
+        # session.connect(session_id)
 
-        # Try to reuse OrionSession from file
-        if os.path.exists(session_path):
-            with open(session_path, "r") as f:
-                session_data = json.load(f)
-                if session_data.get("npm_server") == npm_server and session_data.get("username") == username:
-                    session = OrionSession(npm_server, username, password)
-                    session.session_id = session_id  # Reuse ID
-                    session.reuse = True
-                    logger.debug(f"Reusing session: {session_id}")
-                else:
-                    logger.warning("Mismatch in session, starting fresh")
-                    session = OrionSession(npm_server, username, password)
-                    session.connect(session_id=session_id)
-        else:
-            session = OrionSession(npm_server, username, password)
-            # session.connect(session_id=session_id)
+        # # Try to reuse OrionSession from file
+        # if os.path.exists(session_path):
+        #     with open(session_path, "r") as f:
+        #         session_data = json.load(f)
+        #         if session_data.get("npm_server") == npm_server and session_data.get("username") == username:
+        #             session = OrionSession(npm_server, username, password)
+        #             session.session_id = session_id  # Reuse ID
+        #             session.reuse = True
+        #             logger.debug(f"Reusing session: {session_id}")
+        #         else:
+        #             logger.warning("Mismatch in session, starting fresh")
+        #             session = OrionSession(npm_server, username, password)
+        #             session.connect(session_id=session_id)
+        # else:
+        #     session = OrionSession(npm_server, username, password)
+        #     # session.connect(session_id=session_id)
 
-        # Save session metadata (once)
-        if not os.path.exists(session_path):
-            session_meta = {
-                "session_id": session_id,
-                "username": username,
-                "npm_server": npm_server,
-                "ip": request.client.host,
-                "timestamp": datetime.now().isoformat()
-            }
-            with open(session_path, "w") as f:
-                json.dump(session_meta, f)    
+        # # Save session metadata (once)
+        # if not os.path.exists(session_path):
+        #     session_meta = {
+        #         "session_id": session_id,
+        #         "username": username,
+        #         "npm_server": npm_server,
+        #         "ip": request.client.host,
+        #         "timestamp": datetime.now().isoformat()
+        #     }
+        #     with open(session_path, "w") as f:
+        #         json.dump(session_meta, f)    
 
 
         # Get the current time as the last execution time
-        orion_status = check_orion_status(session)
+        # orion_status = check_orion_status(session)
+        orion_status = check_orion_status(swis_client)
         last_execution_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
         # Wrap each call so one failure doesn't stop the others
-        node_table = safe_generate(generate_node_table, session)
-        interface_table = safe_generate(generate_interface_table, session)
-        alert_table = safe_generate(generate_alert_table, session)
-        netpath_table = safe_generate(generate_netpath_table, session)
-        apipoller_table = safe_generate(generate_apipoller_table, session)
-        syslog_table = safe_generate(generate_syslog, session)    
+        node_table = safe_generate(generate_node_table, swis_client)
+        interface_table = safe_generate(generate_interface_table, swis_client)
+        alert_table = safe_generate(generate_alert_table, swis_client)
+        netpath_table = safe_generate(generate_netpath_table, swis_client)
+        apipoller_table = safe_generate(generate_apipoller_table, swis_client)
+        syslog_table = safe_generate(generate_syslog, swis_client)    
+        login_count = safe_generate(generate_login_audit_table, swis_client)
 
         rendered_html = templates.get_template("orion_dashboard.html").render({
             "request": request,
@@ -923,6 +953,7 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
             "alert_table": alert_table[0],
             "netpath_table": netpath_table[0],
             "apipoller_table": apipoller_table[0],
+            "login_count": login_count[1]
         })
         # Save the last good page
         with open("data/last_orion_dashboard.html", "w", encoding="utf-8") as f:
@@ -952,7 +983,7 @@ def get_orion_dashboard_html(request, npm_server, username, password, session_id
             )).scalar()
         if count != 8835:   # run full load if count doesn't match expected (orion 2026-05-10)
             logger.debug("Performing Initial Full Load...")
-            swis_result = session.query(orion_config.swis_ncp)
+            swis_result = swis_client.query(orion_config.swis_ncp)   # <-- use swis_client, not session
             if swis_result and swis_result.get("results"):
                 data_for_db["NodesCustomProperties"] = swis_result.get("results")
 

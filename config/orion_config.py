@@ -386,28 +386,35 @@ SELECT DiscoveryProfileID, SrcNodeID, SrcInterfaceID, DestNodeID, DestInterfaceI
 FROM Orion.TopologyConnections
 '''
 
-# swis_sitetopology='''
-# SELECT 
-#     SourceNode.Caption AS SourceNodeName,
-#     SourceNode.NodeID AS SourceNodeID,
-#     SourceInt.Caption AS SourceInterface,
-#     TargetNode.Caption AS TargetNodeName,
-#     TargetNode.NodeID AS TargetNodeID,
-#     TargetInt.Caption AS TargetInterface,
-#     NCP.Site AS SourceSite,         -- Pulling Site from Custom Properties
-#     TargetCP.Site AS TargetSite,    -- Pulling Site for the destination node
-#     t.LayerType,
-#     t.LastUpdateUtc
-# FROM Orion.TopologyConnections t
-# INNER JOIN Orion.Nodes SourceNode ON t.SrcNodeID = SourceNode.NodeID
-# INNER JOIN Orion.Nodes TargetNode ON t.DestNodeID = TargetNode.NodeID
-# INNER JOIN Orion.NodesCustomProperties NCP ON t.SrcNodeID = NCP.NodeID
-# INNER JOIN Orion.NodesCustomProperties TargetCP ON t.DestNodeID = TargetCP.NodeID
-# LEFT JOIN Orion.NPM.Interfaces SourceInt ON t.SrcInterfaceID = SourceInt.InterfaceID
-# LEFT JOIN Orion.NPM.Interfaces TargetInt ON t.DestInterfaceID = TargetInt.InterfaceID
-# -- Optional: Filter for a specific site
-# -- WHERE NCP.Site = '1190 Hornby (PHC)'
-# '''
+swis_loginCount='''
+SELECT AccountID,
+       Year(AddHour(-7, TimeLoggedUtc)) AS Yr,
+       Month(AddHour(-7, TimeLoggedUtc)) AS Mo,
+       Day(AddHour(-7, TimeLoggedUtc)) AS Dy,
+       COUNT(*) AS LoginCount
+FROM Orion.AuditingEvents
+WHERE ActionTypeID = '286'
+  AND TimeLoggedUtc > AddDay(-200, GETUTCDATE())
+GROUP BY AccountID,
+         Year(AddHour(-7, TimeLoggedUtc)),
+         Month(AddHour(-7, TimeLoggedUtc)),
+         Day(AddHour(-7, TimeLoggedUtc))
+ORDER BY Yr DESC, Mo DESC, Dy DESC, LoginCount DESC
+'''
+
+
+swis_loginCount24H='''
+SELECT
+    AccountID,COUNT(*) AS LoginCount, AuditEventMessage
+FROM Orion.AuditingEvents
+WHERE ActionTypeID = '286'
+
+  AND AuditEventMessage LIKE '%142.71.179.58%'
+  AND TimeLoggedUtc > ADDHOUR(-24, GETUTCDATE())
+
+GROUP BY AccountID,AuditEventMessage
+ORDER BY LoginCount DESC
+'''
 
 swis_syslog='''
 SELECT top 200  LogEntryID,NodeID, DateTime, Message

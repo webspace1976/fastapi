@@ -82,15 +82,15 @@
                 color:white;font-weight:bold;"> 
                 <div style="display: flex;flex-wrap: wrap;justify-content: space-around;">
                     <div>
-                        <a href="https://{{ npm_server }}" target="_blank">{{ npm_server }} {{ npm_username }} : </a>
+                        <a href="https://{{ npm_server }}" target="_blank">{{ npm_server }} {{ npm_username }} : </a> Last 24H Query - {{ login_count }}
                     </div>
                     <div>
-                    {{ 'UP' if orion_status else 'DOWN' }} - Last checked: {{ last_execution_time }} 
+                    {{ 'UP' if orion_status else 'DOWN' }} - {{ last_execution_time }} 
                     </div>
                 </div>
             </div>
             <input type="checkbox" id="autoRefreshCheckbox" value="true" checked="checked" />
-            <span>Auto Refresh - 60 Sec</span>&nbsp;&nbsp;
+            <span>Auto Refresh - 120 Sec</span>&nbsp;&nbsp;
             <div id="searchCount">&nbsp;&nbsp;Search all:
                 <input type="text" id="filterInput" placeholder="Searching...">
             </div>
@@ -157,7 +157,7 @@
                                         <label><input type="radio" name="link_type_nodedownTable" value="Ringer">RingerOPS</label>
                                     </div>
                                 </th> 
-                                <th style="width:12%">Type</th>
+                                <!-- <th style="width:12%">Type</th> -->
                                 <th style="display:none">IPAddress</th>
                             </tr>
                         </thead>
@@ -207,7 +207,7 @@
 
                                 </div>
                             </th> 
-                            <th style="width:13%">Status</th>
+                            <!-- <th style="width:13%">Status</th> -->
                         </tr>
                     </thead>
                     <tbody>
@@ -326,7 +326,7 @@
                 if (document.getElementById('autoRefreshCheckbox').checked) {
                     location.reload();
                 }
-            }, 60000); // Refresh every 60 seconds
+            }, 120000); // Refresh every 120 seconds
 
 
             // JavaScript for dynamic table updates
@@ -422,17 +422,24 @@ function regroupAndColspan() {
     }
 
     // 2. Map and Sort Data
+    // 20260722 - Group by the stable data-site-key attribute (built server-side from
+    // normalized Site+Address) rather than the rendered cell text. The rendered text
+    // can differ row-to-row for the *same* site due to whitespace, a power-outage
+    // badge appearing on one row and not another, or live DownCount/TotalNodes
+    // changes between fetches - any of which used to silently split one site into
+    // two separate groups. Falls back to the old text-based key if an older cached
+    // page is missing the attribute.
     const siteStats = {};
     const data = rows.map(row => {
-        const siteLinkHTML = row.cells[2].innerHTML; 
-        const siteText = row.cells[2].innerText.trim();
+        const siteLinkHTML = row.cells[2].innerHTML;
+        const siteKey = row.dataset.siteKey || row.cells[2].innerText.trim();
         const seconds = toSeconds(row.cells[0].innerText);
-        if (!siteStats[siteText] || seconds < siteStats[siteText]) siteStats[siteText] = seconds;
-        return { el: row, siteText, siteHTML: siteLinkHTML, seconds };
+        if (!siteStats[siteKey] || seconds < siteStats[siteKey]) siteStats[siteKey] = seconds;
+        return { el: row, siteKey, siteHTML: siteLinkHTML, seconds };
     });
 
     data.sort((a, b) => {
-        if (siteStats[a.siteText] !== siteStats[b.siteText]) return siteStats[a.siteText] - siteStats[b.siteText];
+        if (siteStats[a.siteKey] !== siteStats[b.siteKey]) return siteStats[a.siteKey] - siteStats[b.siteKey];
         return a.seconds - b.seconds;
     });
 
@@ -442,19 +449,19 @@ function regroupAndColspan() {
     let currentSite = null;
 
     data.forEach(item => {
-        if (item.siteText !== currentSite) {
+        if (item.siteKey !== currentSite) {
             const header = document.createElement('tr');
             header.style.backgroundColor = "#f2f4f6";
             header.style.fontWeight = "bold";
-            header.innerHTML = `<td colspan="3" style="padding-left:10px;"><b>${item.siteHTML}</b></td>`;
+            header.innerHTML = `<td colspan="2" style="padding-left:10px;"><b>${item.siteHTML}</b></td>`;
             fragment.appendChild(header);
-            currentSite = item.siteText;
+            currentSite = item.siteKey;
         }
         
         // Modify row styles while they are "detached" from the screen
         // item.el.cells[1].style.paddingLeft = "5px"; 
         item.el.cells[2].style.display = 'none'; 
-        if(item.el.cells[4]) item.el.cells[4].style.display = 'none';
+        //if(item.el.cells[4]) item.el.cells[4].style.display = 'none';
         
         fragment.appendChild(item.el);
     });
