@@ -31,25 +31,52 @@ class OrionSession:
     def get_client(self):
         """Returns a persistent SwisClient instance."""
         session_id = get_deterministic_session_id(self.npm_server, self.username)
-        
+
+        # 20260729 Check if the session is already active and valid       
         if session_id in ACTIVE_SESSIONS:
-            client = ACTIVE_SESSIONS[session_id]
+            cached_item = ACTIVE_SESSIONS[session_id]
+            # Check if session was validated within the last 5 minutes (300 seconds)
+            if time() - cached_item.get("last_verified", 0) < 300:
+                return cached_item["client"], session_id
+            
+            # Re-verify only when TTL expires
             try:
-                # Quick heartbeat check
-                client.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
-                return client, session_id
+                cached_item["client"].query("SELECT TOP 1 NodeID FROM Orion.Nodes")
+                cached_item["last_verified"] = time()
+                return cached_item["client"], session_id
             except Exception:
                 logger.info(f"Session {session_id} stale, reconnecting...")
                 del ACTIVE_SESSIONS[session_id]
 
-        # Use requests.Session for Keep-Alive TCP pooling
+        # Connection setup
         http_session = requests.Session()
         http_session.verify = False 
         http_session.auth = (self.username, self.password)
         
         client = SwisClient(self.npm_server, self.username, self.password, session=http_session)
-        ACTIVE_SESSIONS[session_id] = client
-        return client, session_id
+        ACTIVE_SESSIONS[session_id] = {
+            "client": client,
+            "last_verified": time()
+        }
+        return client, session_id        
+        # if session_id in ACTIVE_SESSIONS:
+        #     client = ACTIVE_SESSIONS[session_id]
+        #     try:
+        #         # Quick heartbeat check
+        #         client.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
+        #         return client, session_id
+        #     except Exception:
+        #         logger.info(f"Session {session_id} stale, reconnecting...")
+        #         del ACTIVE_SESSIONS[session_id]
+
+        # # Use requests.Session for Keep-Alive TCP pooling
+        # http_session = requests.Session()
+        # http_session.verify = False 
+        # http_session.auth = (self.username, self.password)
+        
+        # client = SwisClient(self.npm_server, self.username, self.password, session=http_session)
+        # ACTIVE_SESSIONS[session_id] = client
+        # return client, session_id
 
     def connect(self, session_id=None):
         """Connects to Orion, reusing a secured session file if available."""
@@ -59,8 +86,8 @@ class OrionSession:
 
         try:
             # 1. Validation: Check if server is reachable with provided credentials
-            check_client = SwisClient(self.npm_server, self.username, self.password)
-            check_client.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
+            # check_client = SwisClient(self.npm_server, self.username, self.password)
+            # check_client.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
             
             # 2. Session Reuse: If validation passed, try to load existing session
             if os.path.exists(session_file):

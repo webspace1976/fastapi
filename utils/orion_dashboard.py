@@ -1,6 +1,6 @@
-import re,urllib3,urllib.parse,os,json,atexit, html, traceback
+import time,urllib3,urllib.parse,os,json,atexit, html, traceback
 
-from time import perf_counter,time,ctime
+# from time import perf_counter,time,ctime
 from datetime import datetime
 from typing import Any
 from fastapi.templating import Jinja2Templates
@@ -80,7 +80,7 @@ def close_log_handler():
 atexit.register(close_log_handler)
 
 def cleanup_old_sessions(session_dir, max_age=3600*12):  # Default max age: 12 hours
-    now = time()
+    now = time.time()
     for file in os.listdir(session_dir):
         # 20260219 ignore 'orion_session_log.json'
         if file == "orion_session_log.json":
@@ -423,112 +423,112 @@ def generate_interface_table(session):
     # """
     return results_html, results_data
 
-def generate_event_table(session):
-    query = swis_event
-    results = session.query(query)
-    table_rows = ""
-    for row in results.get("results", []):
+# def generate_event_table(session):
+#     query = swis_event
+#     results = session.query(query)
+#     table_rows = ""
+#     for row in results.get("results", []):
 
-        # event time:
-        timestamp=row['EventTime']
-        date=re.split("T",timestamp)[0]
-        time_utc=re.search(r"[0-9][0-9]\:[0-9][0-9]\:[0-9][0-9]",timestamp)[0]
-        t=re.split(":",time_utc)
-        utc_offset=datetime.utcnow().hour-datetime.now().hour
-        if utc_offset < 0 :
-            utc_offset=24 + datetime.utcnow().hour-datetime.now().hour
-        t[0]=int(t[0])-utc_offset
-        i=0 # for time debug
-        if t[0] < 0 :
-            t[0]=str(t[0] + 24)
-            i=1
-        elif t[0] < 10 :
-            t[0]="0"+str(t[0])
-            i=2
-        else:
-            i=3
-            t[0]=str(t[0])
-        time_cur=t[0]+":"+t[1]+":"+t[2]    
+#         # event time:
+#         timestamp=row['EventTime']
+#         date=re.split("T",timestamp)[0]
+#         time_utc=re.search(r"[0-9][0-9]\:[0-9][0-9]\:[0-9][0-9]",timestamp)[0]
+#         t=re.split(":",time_utc)
+#         utc_offset=datetime.utcnow().hour-datetime.now().hour
+#         if utc_offset < 0 :
+#             utc_offset=24 + datetime.utcnow().hour-datetime.now().hour
+#         t[0]=int(t[0])-utc_offset
+#         i=0 # for time debug
+#         if t[0] < 0 :
+#             t[0]=str(t[0] + 24)
+#             i=1
+#         elif t[0] < 10 :
+#             t[0]="0"+str(t[0])
+#             i=2
+#         else:
+#             i=3
+#             t[0]=str(t[0])
+#         time_cur=t[0]+":"+t[1]+":"+t[2]    
 
-        vendor=row['Vendor']
-        nodeip=row['IPAddress']
-        icon_gif = "/icons/Event-5.gif"
-        interface_name=row['InterfaceName']
+#         vendor=row['Vendor']
+#         nodeip=row['IPAddress']
+#         icon_gif = "/icons/Event-5.gif"
+#         interface_name=row['InterfaceName']
 
-        if "rebooted" in row['Message']:
-            row['Message']=str(re.split(" at",row['Message'])[0])
-        if "Node: " in row['Message']:
-            row['Message']=str(re.split("Node: ",row['Message'])[1])
-        if ":Node" in row['Message']:
-            row['Message']=str(re.split(":Node ",row['Message'])[1])
-		# check if the message contains any non-ASCII characters.
-        if re.search(r'[^\x00-\x7F]', row['Message']) :
-            row['Message']=re.sub(r'[^\x00-\x7F]','',row['Message'])
+#         if "rebooted" in row['Message']:
+#             row['Message']=str(re.split(" at",row['Message'])[0])
+#         if "Node: " in row['Message']:
+#             row['Message']=str(re.split("Node: ",row['Message'])[1])
+#         if ":Node" in row['Message']:
+#             row['Message']=str(re.split(":Node ",row['Message'])[1])
+# 		# check if the message contains any non-ASCII characters.
+#         if re.search(r'[^\x00-\x7F]', row['Message']) :
+#             row['Message']=re.sub(r'[^\x00-\x7F]','',row['Message'])
 
-        #filter option for "sanity check"   
-        if re.match(r"Windows|Eaton|Merlin|Northern",row['Vendor']) :
-            url="/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:"+str(row['NetworkNode'])
-            url_link=orion_prefix+url
+#         #filter option for "sanity check"   
+#         if re.match(r"Windows|Eaton|Merlin|Northern",row['Vendor']) :
+#             url="/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:"+str(row['NetworkNode'])
+#             url_link=orion_prefix+url
 
 
-            if "Down" in row['NodeStatus']:
-                icon_gif = "/icons/Event-10.gif"
-            table_rows += (            
-                    "<tr><td>{}</td><td></td><td><img src=\"{}\" alt=\"\"/><a href=\"{}\" target=\"_blank\" >{}</a></td></tr>"
-                ).format(
-                    time_cur, icon_gif, url_link if url_link is not None else "", row['Message']
-                )                
-            # table_rows +=("<tr><td>",time_cur,"</td><td></td><td><img src=\"",icon_gif,"\" alt=\"\"/><a href=\"",url_link,"\" target=\"_blank\" >"+row['Message'],"</a></td></tr>")
+#             if "Down" in row['NodeStatus']:
+#                 icon_gif = "/icons/Event-10.gif"
+#             table_rows += (            
+#                     "<tr><td>{}</td><td></td><td><img src=\"{}\" alt=\"\"/><a href=\"{}\" target=\"_blank\" >{}</a></td></tr>"
+#                 ).format(
+#                     time_cur, icon_gif, url_link if url_link is not None else "", row['Message']
+#                 )                
+#             # table_rows +=("<tr><td>",time_cur,"</td><td></td><td><img src=\"",icon_gif,"\" alt=\"\"/><a href=\"",url_link,"\" target=\"_blank\" >"+row['Message'],"</a></td></tr>")
 			
-        elif row['NetObjectType'] == "I" :
-            url="/Orion/NetPerfMon/NodeDetails.aspx?NetObject=I:"+str(row['NetObjectID'])
-            url_link=orion_prefix+url
+#         elif row['NetObjectType'] == "I" :
+#             url="/Orion/NetPerfMon/NodeDetails.aspx?NetObject=I:"+str(row['NetObjectID'])
+#             url_link=orion_prefix+url
                 
-            if row['InterfaceStatus'] is None:
-                table_rows += (
-                        f"<tr><td>{time_cur}</td><td></td><td><img src=\"{icon_gif}\" alt=\"\"/><a href=\"{url_link}\" target=\"_blank\">{row['Message']}</a></td></tr>"
-                )
-            elif "own" in row['InterfaceStatus']:
-                icon_gif = "/icons/Event-10.gif"
-                table_rows += (
-                    f"<tr><td>{time_cur}</td>"
-                    f"<td><input type=\"radio\" name=\"interface_info\" value=\"{vendor},{nodeip},{interface_name}\"></td>"
-                    f"<td><img src=\"{icon_gif}\" alt=\"\"/><a href=\"{url_link}\" target=\"_blank\">{row['Message']}</a></td></tr>"
-                )
-            elif "Up" in row['InterfaceStatus']:
-                icon_gif = "/icons/Event-5.gif"
-                table_rows += (f"<tr><td>{time_cur}</td><td><input type=\"radio\" name=\"interface_info\" value=\"{vendor,nodeip,interface_name}\"></td><td><img src=\"{icon_gif}\" alt=\"\"/><a href=\"{url_link}\" target=\"_blank\">{row['Message']}</a></td></tr>")
-        else : # radio option for sanith check
-            url="/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:"+str(row['NetworkNode'])
-            url_link=orion_prefix+url
-            if "Down" in row['NodeStatus']:
-                icon_gif = "/icons/Event-10.gif"
-            table_rows += (
-                f"<tr><td>{time_cur}</td><td><input type=\"radio\" name=\"node_info\" value=\"{vendor,nodeip}\"></td><td><img src=\"{icon_gif}\" alt=\"\"/><a href=\"{url_link}\" target=\"_blank\" >{row['Message']}</a></td></tr>")     
+#             if row['InterfaceStatus'] is None:
+#                 table_rows += (
+#                         f"<tr><td>{time_cur}</td><td></td><td><img src=\"{icon_gif}\" alt=\"\"/><a href=\"{url_link}\" target=\"_blank\">{row['Message']}</a></td></tr>"
+#                 )
+#             elif "own" in row['InterfaceStatus']:
+#                 icon_gif = "/icons/Event-10.gif"
+#                 table_rows += (
+#                     f"<tr><td>{time_cur}</td>"
+#                     f"<td><input type=\"radio\" name=\"interface_info\" value=\"{vendor},{nodeip},{interface_name}\"></td>"
+#                     f"<td><img src=\"{icon_gif}\" alt=\"\"/><a href=\"{url_link}\" target=\"_blank\">{row['Message']}</a></td></tr>"
+#                 )
+#             elif "Up" in row['InterfaceStatus']:
+#                 icon_gif = "/icons/Event-5.gif"
+#                 table_rows += (f"<tr><td>{time_cur}</td><td><input type=\"radio\" name=\"interface_info\" value=\"{vendor,nodeip,interface_name}\"></td><td><img src=\"{icon_gif}\" alt=\"\"/><a href=\"{url_link}\" target=\"_blank\">{row['Message']}</a></td></tr>")
+#         else : # radio option for sanith check
+#             url="/Orion/NetPerfMon/NodeDetails.aspx?NetObject=N:"+str(row['NetworkNode'])
+#             url_link=orion_prefix+url
+#             if "Down" in row['NodeStatus']:
+#                 icon_gif = "/icons/Event-10.gif"
+#             table_rows += (
+#                 f"<tr><td>{time_cur}</td><td><input type=\"radio\" name=\"node_info\" value=\"{vendor,nodeip}\"></td><td><img src=\"{icon_gif}\" alt=\"\"/><a href=\"{url_link}\" target=\"_blank\" >{row['Message']}</a></td></tr>")     
 
-        # table_rows += f"<tr><td>{row['EventID']}</td><td>{row['Message']}</td></tr>"
+#         # table_rows += f"<tr><td>{row['EventID']}</td><td>{row['Message']}</td></tr>"
 
-    return f"""
-    <table id="eventTable" style="font-size:11px">
-        <thead>
-            <tr>
-            <th>Time</th><th></th>
-            <th><div style="display:flex;justify-content:space-around;">
-                <div>Event</div>
-                    <label class="switch">
-                        <input id="linkToggleEvent" type="checkbox">
-                        <span class="slider round"></span>
-                    </label>
-                <span id="toggleStateEvent"><span style="background-color:lightgreen">Orion</span> <span style="background-color:lightblue">SNOW</span> </span>
-                <div style="padding:0;font-size:10px;"><spam><a id="sshLink" href="../xterm.html" target="_blank">Login via Web SSH</a></spam></div>
-            </div></th>
-            </tr>
-        </thead>
-        <tbody>
-            {table_rows}
-        </tbody>
-    </table>
-    """
+#     return f"""
+#     <table id="eventTable" style="font-size:11px">
+#         <thead>
+#             <tr>
+#             <th>Time</th><th></th>
+#             <th><div style="display:flex;justify-content:space-around;">
+#                 <div>Event</div>
+#                     <label class="switch">
+#                         <input id="linkToggleEvent" type="checkbox">
+#                         <span class="slider round"></span>
+#                     </label>
+#                 <span id="toggleStateEvent"><span style="background-color:lightgreen">Orion</span> <span style="background-color:lightblue">SNOW</span> </span>
+#                 <div style="padding:0;font-size:10px;"><spam><a id="sshLink" href="../xterm.html" target="_blank">Login via Web SSH</a></spam></div>
+#             </div></th>
+#             </tr>
+#         </thead>
+#         <tbody>
+#             {table_rows}
+#         </tbody>
+#     </table>
+#     """
 
 def generate_alert_table(session):
     query = swis_alert
@@ -824,32 +824,16 @@ def generate_login_audit_table(swis_client):
     return table_html, loginCount24H
 
 
-def sync_historical_tracing(session):
-    query = swis_nodesevent
-    results = session.query(query)
-    db_conn = OrionDatabaseManager(orion_config.DB_ORION_PATH)
-    db_conn.connect()
+_login_audit_cache = {"html": None, "count": 0, "ts": 0}
+LOGIN_AUDIT_TTL = 600  # 10 min — this data doesn't need to be as fresh as node/interface status
 
-    nodes_history = {}
-    # db_manager = OrionDatabaseManager(orion_config.DB_ORION_PATH)    
-    for row in results.get("results", []): 
-        node_id = row['NodeID']
-        event_type = row['EventType']
-        event_time = parse_swis_date(row['EventTime'])
-
-        if node_id not in nodes_history:
-            nodes_history[node_id] = []
-
-        # If it's a 'Down' event, store it as the start of an outage
-        if event_type == 1:
-            nodes_history[node_id].append({'down': event_time, 'desc': row['Message']})
-        
-        # If it's an 'Up' event, find the last 'Down' and calculate duration
-        elif event_type == 5 and nodes_history[node_id]:
-            last_outage = nodes_history[node_id][-1]
-            if 'up' not in last_outage:
-                last_outage['up'] = event_time
-                duration = (event_time - last_outage['down']).total_seconds()
+def get_login_audit_cached(swis_client):
+    now = time.time()
+    if _login_audit_cache["ts"] and (now - _login_audit_cache["ts"]) < LOGIN_AUDIT_TTL:
+        return _login_audit_cache["html"], _login_audit_cache["count"]
+    html, count = generate_login_audit_table(swis_client)
+    _login_audit_cache.update(html=html, count=count, ts=now)
+    return html, count
                 
 
 def parse_swis_date(date_str):
@@ -883,7 +867,25 @@ def safe_generate(func, session, default_val="<p class='text-danger'>Error loadi
         error_html = f"<div class='alert alert-danger'>Failed to load {func.__name__} data.</div>"
         return (error_html, [], [], [])
 
+_query_cache = {}  # {cache_key: {"data": ..., "ts": float}}
 
+def cached_generate(func, swis_client, ttl, cache_key=None):
+    """
+    Runs func(swis_client) and caches the result for `ttl` seconds.
+    Each distinct func (or cache_key override) gets its own independent TTL clock.
+    """
+    key = cache_key or func.__name__
+    now = time.time()
+    entry = _query_cache.get(key)
+
+    if entry and (now - entry["ts"]) < ttl:
+        logger.debug("Cache hit: %s (age=%.0fs, ttl=%ds)", key, now - entry["ts"], ttl)
+        return entry["data"]
+
+    logger.debug("Cache miss: %s — querying Orion", key)
+    data = safe_generate(func, swis_client)
+    _query_cache[key] = {"data": data, "ts": now}
+    return data
 
 def get_orion_dashboard_html(request, npm_server, username, swis_client, session_id):
     try:
@@ -932,13 +934,14 @@ def get_orion_dashboard_html(request, npm_server, username, swis_client, session
 
 
         # Wrap each call so one failure doesn't stop the others
-        node_table = safe_generate(generate_node_table, swis_client)
-        interface_table = safe_generate(generate_interface_table, swis_client)
-        alert_table = safe_generate(generate_alert_table, swis_client)
-        netpath_table = safe_generate(generate_netpath_table, swis_client)
-        apipoller_table = safe_generate(generate_apipoller_table, swis_client)
-        syslog_table = safe_generate(generate_syslog, swis_client)    
-        login_count = safe_generate(generate_login_audit_table, swis_client)
+        node_table = cached_generate(generate_node_table, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_node_table"])        
+        interface_table = cached_generate(generate_interface_table, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_interface_table"])
+        alert_table = cached_generate(generate_alert_table, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_alert_table"])
+        netpath_table = cached_generate(generate_netpath_table, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_netpath_table"])
+        apipoller_table = cached_generate(generate_apipoller_table, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_apipoller_table"])
+        syslog_table = cached_generate(generate_syslog, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_syslog"])    
+        # login_count = safe_generate(generate_login_audit_table, swis_client)
+        login_count = cached_generate(get_login_audit_cached, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_login_audit_table"])
 
         rendered_html = templates.get_template("orion_dashboard.html").render({
             "request": request,

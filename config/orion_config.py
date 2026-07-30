@@ -40,6 +40,17 @@ COOKIE_MAX_AGE_SECONDS = 86400  # 1 day
 # Optional: other environment configs
 DEBUG_MODE = True
 
+
+DASHBOARD_CACHE_TTL = {
+    "generate_node_table": int(os.getenv("TTL_NODE_TABLE", 120)),
+    "generate_interface_table": int(os.getenv("TTL_INTERFACE_TABLE", 120)),
+    "generate_alert_table": int(os.getenv("TTL_ALERT_TABLE", 120)),
+    "generate_netpath_table": int(os.getenv("TTL_NETPATH_TABLE", 600)),
+    "generate_apipoller_table": int(os.getenv("TTL_APIPOLLER_TABLE", 600)),
+    "generate_syslog": int(os.getenv("TTL_SYSLOG_TABLE", 120)),
+    "generate_login_audit_table": int(os.getenv("TTL_LOGIN_AUDIT", 1800)),
+}
+
 # orion settings
 orion_prefix = "https://orion.net.mgmt"
 OrionRCS_prefix = "https://samsw.phsa.ca"
