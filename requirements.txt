@@ -21,10 +21,12 @@ pandas==2.2.3                  # was 2.0.3 — no cp312 wheel, caused the build 
 numpy==1.26.4                  # was 1.24.4 — no cp312 wheel, caused the build failure
 SQLAlchemy==2.0.36             # used in database/db_manager.py
 
-# ── HTTP / Orion ───────────────────────────────────────────
+# ── LDAP / HTTP / Orion ───────────────────────────────────────────
 requests==2.31.0
 urllib3==1.26.18               # pinned to 1.x — orionsdk 0.4.0 not compatible with urllib3 2.x
 orionsdk==0.4.0
+ldap3==2.9.1
+itsdangerous==2.2.0
 
 # ── Scheduling ─────────────────────────────────────────────
 APScheduler==3.10.4            # 3.11+ has regression on older Python; 3.10.4 stable on 3.8–3.12
@@ -51,6 +53,9 @@ certifi==2024.2.2
 cryptography==42.0.5           # updated from 41.x for CVE patches
 python-dateutil==2.9.0.post0
 six==1.16.0
+
+
+
 
 # ============================================================
 # ⚠  netmiko v4 breaking change — update these imports:

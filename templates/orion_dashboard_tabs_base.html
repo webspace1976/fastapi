@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Scope styles to avoid breaking base layout */
+    .orion-tabs-shell {
+        max-width: 1400px;
+        margin: 20px auto;
+        padding: 20px;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .summary-tabs {
+        display: flex;
+        gap: 10px;
+        border-bottom: 2px solid #e9ecef;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+    }
+
+    .tab-btn {
+        padding: 10px 20px;
+        border: none;
+        background: #e9ecef;
+        color: #495057;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+        background: #dee2e6;
+    }
+
+    .tab-btn.active {
+        background: #04AA6D;
+        color: white;
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .tab-iframe {
+        width: 100%;
+        height: 750px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+    }
+</style>
+
+<div class="orion-tabs-shell">
+    <div class="summary-tabs">
+        <button class="tab-btn active" data-tab="login">🔐 Orion Login</button>
+        <button class="tab-btn" data-tab="topology">🗺️ Site Topology</button>
+    </div>
+
+    <div id="tab-login" class="tab-content active">
+        <iframe id="login-frame" class="tab-iframe" src="/api/orion/check_form"></iframe>
+    </div>
+
+    <div id="tab-topology" class="tab-content">
+        <iframe id="topology-frame" class="tab-iframe" src="about:blank"></iframe>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+'use strict';
+
+// ── Tab config — matches template_getdeviceoutput_form.html pattern ───────────
+// Each tab declares its iframe id and the URL to lazy-load on first visit.
+// 'login' is pre-loaded in HTML (src already set), so noLoad:true skips the
+// lazy-load logic for it — but it still participates in tab switching normally.
+//
+// FIX: this was pointing at /api/orion/orion_analysis (renders
+// orion_custom_properties.html — node custom properties, NOT topology).
+// The correct URL was sitting commented out below it. Corrected to
+// site_topology_page, which renders orion_site_topology.html.
+const TAB_CONFIG = {
+    login:    { frameId: 'login-frame',    url: '/api/orion/check_form',        noLoad: true },
+    topology: { frameId: 'topology-frame', url: '/api/orion/site_topology_page' },
+};
+
+const loaded = new Set(['login']); // login iframe src is set in HTML already
+
+function showTab(name) {
+    if (!TAB_CONFIG[name]) return;
+
+    // Deactivate all panels and buttons
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+    // Activate the selected panel and its button
+    document.getElementById('tab-' + name).classList.add('active');
+    document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
+
+    // Remember across page refreshes — same pattern as template_getdeviceoutput_form.html
+    localStorage.setItem('orion-tab', name);
+
+    // Lazy-load: set iframe src only on first visit
+    const cfg = TAB_CONFIG[name];
+    if (!cfg.noLoad && !loaded.has(name)) {
+        loaded.add(name);
+        const frame = document.getElementById(cfg.frameId);
+        if (frame) frame.src = cfg.url;
+    }
+}
+
+function reloadTab(name) {
+    const cfg = TAB_CONFIG[name];
+    if (!cfg) return;
+    const frame = document.getElementById(cfg.frameId);
+    // Only reload if the iframe has actually been loaded at least once
+    if (frame && loaded.has(name)) {
+        frame.src = frame.src;
+    }
+}
+
+// Wire tab buttons — no inline onclick, matches template_getdeviceoutput_form.html
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => showTab(btn.dataset.tab));
+});
+
+// On load: restore last active tab, default to 'login' — same as template file
+window.addEventListener('DOMContentLoaded', () => {
+    // const saved = localStorage.getItem('orion-tab') || 'login';
+    // showTab(saved);
+    showTab('login');
+});
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function updateTime() {
+    const now = new Date();
+    const el  = document.getElementById('lastUpdate');
+    if (el) el.textContent = now.toLocaleTimeString();
+}
+updateTime();
+setInterval(updateTime, 1000);
+</script>
+{% endblock %}

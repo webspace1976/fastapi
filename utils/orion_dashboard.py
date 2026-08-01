@@ -938,7 +938,7 @@ def get_orion_dashboard_html(request, npm_server, username, swis_client, session
         interface_table = cached_generate(generate_interface_table, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_interface_table"])
         alert_table = cached_generate(generate_alert_table, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_alert_table"])
         netpath_table = cached_generate(generate_netpath_table, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_netpath_table"])
-        apipoller_table = cached_generate(generate_apipoller_table, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_apipoller_table"])
+        # apipoller_table = cached_generate(generate_apipoller_table, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_apipoller_table"])
         syslog_table = cached_generate(generate_syslog, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_syslog"])    
         # login_count = safe_generate(generate_login_audit_table, swis_client)
         login_count = cached_generate(get_login_audit_cached, swis_client, ttl=orion_config.DASHBOARD_CACHE_TTL["generate_login_audit_table"])
@@ -955,7 +955,7 @@ def get_orion_dashboard_html(request, npm_server, username, swis_client, session
             # "syslog_table": syslog_table[0],  #-- html load from db
             "alert_table": alert_table[0],
             "netpath_table": netpath_table[0],
-            "apipoller_table": apipoller_table[0],
+            # "apipoller_table": apipoller_table[0],
             "login_count": login_count[1]
         })
         # Save the last good page
@@ -974,7 +974,7 @@ def get_orion_dashboard_html(request, npm_server, username, swis_client, session
             "interface_table": interface_table[1],
             "alert_table": alert_table[1],
             "netpath_table": netpath_table[1],
-            "apipoller_table": apipoller_table[1],
+            # "apipoller_table": apipoller_table[1],
             "sites_topology": node_table[3],
             "syslog_table": syslog_table[1]  # upsert_syslog filters new-only internally
         }

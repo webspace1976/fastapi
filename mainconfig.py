@@ -1,6 +1,6 @@
 # scripts/config.py
 
-import logging, os, re
+import logging, os, re, secrets
 from pathlib import Path
 # 202512 Import the concurrent handler instead of the standard one, fix RotatingFileHandler on Windows, rename to  to .log.1 falls issue
 # # from logging.handlers import RotatingFileHandler 
@@ -38,6 +38,28 @@ COOKIE_NAME = "session_id"
 COOKIE_PATH = "/"
 COOKIE_HTTPONLY = True
 COOKIE_MAX_AGE_SECONDS = 86400  # 1 day
+
+# LDAP/AD settings
+AD_SERVER = os.getenv("AD_SERVER", "spdc0009.healthbc.org")
+AD_DOMAIN_SUFFIX = os.getenv("AD_DOMAIN_SUFFIX", "HealthBC.org")
+
+_SECRET_KEY_FILE = DATA_DIR / ".app_secret_key"
+
+def _load_or_create_secret_key() -> str:
+    # Allow an explicit env var to override, for cases where you DO want to set it manually
+    env_key = os.getenv("APP_SECRET_KEY")
+    if env_key:
+        return env_key
+
+    if _SECRET_KEY_FILE.exists():
+        return _SECRET_KEY_FILE.read_text(encoding="utf-8").strip()
+
+    key = secrets.token_hex(32)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    _SECRET_KEY_FILE.write_text(key, encoding="utf-8")
+    return key
+
+APP_SECRET_KEY = _load_or_create_secret_key()
 
 # 20251113 regre pattern
 LOG_REGEX = r"(BGP|BFD|OSPF)(-|\/)\d+[-|\/]\w+|(BGP|BFD|OSPF)_\w+(-|\/)\d+"  # general log pattern for BGP/OSPF/BFD

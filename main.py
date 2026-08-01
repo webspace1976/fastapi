@@ -3,14 +3,14 @@ from typing import List
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
-from fastapi import FastAPI, Form, Request, Query, HTTPException
+from fastapi import FastAPI, Form, Request, Query, HTTPException, Depends
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import mainconfig as mainconfig
+from utils.auth import get_current_user
 
-# import from routers
-from routers import devices, monitor, orion, ringer
+
 
 ### Path Traversal guards for `/edit` and `/save`
 from pathlib import Path
@@ -64,6 +64,9 @@ app.mount("/icons", StaticFiles(directory=icons_dir), name="icons")
 app.mount("/data", StaticFiles(directory=data_dir), name="data")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# import from routers
+from routers import devices, monitor, orion, ringer, auth_login
+
 # Logging configuration
 logger = mainconfig.setup_module_logger(__name__)
 
@@ -89,6 +92,11 @@ for _h in list(logging_root.handlers):
         logging_root.addHandler(_rotating)
 
 # Include routers
+app.include_router(auth_login.router, tags=["Auth"])
+
+# app.include_router(devices.router, prefix="/api/devices", tags=["Devices"], dependencies=[Depends(get_current_user)])
+# app.include_router(monitor.router, prefix="/api/monitor", tags=["Monitoring"], dependencies=[Depends(get_current_user)])
+
 app.include_router(devices.router, prefix="/api/devices", tags=["Devices"])
 app.include_router(monitor.router, prefix="/api/monitor", tags=["Monitoring"])
 app.include_router(orion.router, prefix="/api/orion", tags=["Orion"])
@@ -99,6 +107,7 @@ app.include_router(ringer.router, prefix="/api/ringer", tags=["Ringer"])
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+    # return templates.TemplateResponse("index_base.html", {"request": request})
 
 
 @app.get("/health")

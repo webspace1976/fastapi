@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SOC Network-Tools Portal — Login</title>
+    <link rel="stylesheet" href="/static/css/bootstrap-5.3.8.min.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 50vh;
+            background: #f4f6f8;
+        }
+        .login-card {
+            max-width: 380px;
+            width: 100%;
+            padding: 2rem;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        .login-card h1 {
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h1>SOC Network-Tools Portal</h1>
+
+        {% if error %}
+        <div class="alert alert-danger py-2" role="alert">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="/login">
+            <div class="mb-3">
+                <label for="username" class="form-label">Domain Username</label>
+                <input type="text" class="form-control" id="username" name="username"
+                       placeholder="domain\username" required autofocus autocomplete="username">
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" name="password"
+                       required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Sign In</button>
+        </form>
+    </div>
+</body>
+</html>
