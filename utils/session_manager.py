@@ -14,6 +14,29 @@ logger = mainconfig.setup_module_logger(__name__)
 # 20260211 This lives in memory as long as the FastAPI app is running
 ACTIVE_SESSIONS = {}
 
+DEFAULT_SWIS_PORT = 17774  # used only if the user omits a port entirely
+
+def _bare_host_and_port(npm_server: str) -> str:
+    """Clean up scheme/whitespace and malformed double-ports, but PRESERVE
+    whatever port the user supplied — different Orion servers in this
+    environment use different ports (confirmed: 17774 vs 17778)."""
+    val = npm_server.strip().rstrip("/")
+    val = val.replace("https://", "").replace("http://", "")
+    parts = val.split(":")
+    host = parts[0]
+    port = parts[1] if len(parts) > 1 else str(DEFAULT_SWIS_PORT)
+    return f"{host}:{port}"
+
+def _make_swis_client(npm_server, username, password, session=None):
+    """orionsdk 0.5.0 hardcodes port 17774 internally regardless of input.
+    Build the client on the bare host, then force the correct URL/port."""
+    host_port = _bare_host_and_port(npm_server)
+    host = host_port.split(":")[0]
+    client = SwisClient(host, username, password, session=session)
+    client.url = f"https://{host_port}/SolarWinds/InformationService/v3/Json/"
+    return client
+
+
 class OrionSession:
     SESSION_DIR = mainconfig.SESSION_DIR 
 
@@ -30,7 +53,10 @@ class OrionSession:
     # 20260211 Returns a SwisClient, reusing the same HTTP session for performance
     def get_client(self):
         """Returns a persistent SwisClient instance."""
-        session_id = get_deterministic_session_id(self.npm_server, self.username)
+        # session_id = get_deterministic_session_id(self.npm_server, self.username)
+        session_id = get_deterministic_session_id(
+            _bare_host_and_port(self.npm_server).split(":")[0], self.username
+        )
 
         # 20260729 Check if the session is already active and valid       
         if session_id in ACTIVE_SESSIONS:
@@ -52,36 +78,23 @@ class OrionSession:
         http_session = requests.Session()
         http_session.verify = False 
         http_session.auth = (self.username, self.password)
-        
-        client = SwisClient(self.npm_server, self.username, self.password, session=http_session)
+
+        client = _make_swis_client(self.npm_server, self.username, self.password, session=http_session)
+        # client = SwisClient(self.npm_server, self.username, self.password, session=http_session)
         ACTIVE_SESSIONS[session_id] = {
             "client": client,
             "last_verified": time()
         }
         return client, session_id        
-        # if session_id in ACTIVE_SESSIONS:
-        #     client = ACTIVE_SESSIONS[session_id]
-        #     try:
-        #         # Quick heartbeat check
-        #         client.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
-        #         return client, session_id
-        #     except Exception:
-        #         logger.info(f"Session {session_id} stale, reconnecting...")
-        #         del ACTIVE_SESSIONS[session_id]
-
-        # # Use requests.Session for Keep-Alive TCP pooling
-        # http_session = requests.Session()
-        # http_session.verify = False 
-        # http_session.auth = (self.username, self.password)
-        
-        # client = SwisClient(self.npm_server, self.username, self.password, session=http_session)
-        # ACTIVE_SESSIONS[session_id] = client
-        # return client, session_id
 
     def connect(self, session_id=None):
         """Connects to Orion, reusing a secured session file if available."""
         # Use provided ID or generate deterministic hash based on credentials
-        self.session_id = session_id or get_deterministic_session_id(self.npm_server, self.username)
+        # self.session_id = session_id or get_deterministic_session_id(self.npm_server, self.username)
+        self.session_id = session_id or get_deterministic_session_id(
+            _bare_host_and_port(self.npm_server).split(":")[0], self.username
+        )
+
         session_file = os.path.join(self.SESSION_DIR, f"{self.session_id}.pickle")
 
         try:
@@ -97,7 +110,8 @@ class OrionSession:
                     
                     # Re-attach credentials to the loaded session (they aren't in the file)
                     self.session.auth = (self.username, self.password)
-                    self.swis = SwisClient(self.npm_server, self.username, self.password, session=self.session)
+                    self.swis = _make_swis_client(self.npm_server, self.username, self.password, session=self.session)
+                    # self.swis = SwisClient(self.npm_server, self.username, self.password, session=self.session)
                     logger.info(f"Reusing secured session file: {self.session_id}")
                 except Exception as e:
                     logger.warning(f"Failed to load session file {self.session_id}: {e}")
@@ -118,7 +132,8 @@ class OrionSession:
         self.session = requests.Session()
         self.session.verify = False
         self.session.auth = (self.username, self.password)
-        self.swis = SwisClient(self.npm_server, self.username, self.password, session=self.session)
+        self.swis = _make_swis_client(self.npm_server, self.username, self.password, session=self.session)
+        # self.swis = SwisClient(self.npm_server, self.username, self.password, session=self.session)
         self.last_activity = time()
         self.save_session()
         logger.debug(f"Created and saved new secured session: {self.session_id}")

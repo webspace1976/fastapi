@@ -929,7 +929,7 @@ def get_orion_dashboard_html(request, npm_server, username, swis_client, session
 
         # Get the current time as the last execution time
         # orion_status = check_orion_status(session)
-        orion_status = check_orion_status(swis_client)
+        # orion_status = check_orion_status(swis_client)
         last_execution_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -946,7 +946,8 @@ def get_orion_dashboard_html(request, npm_server, username, swis_client, session
         rendered_html = templates.get_template("orion_dashboard.html").render({
             "request": request,
             "last_execution_time": last_execution_time,
-            "orion_status": orion_status,
+            # "orion_status": orion_status,
+            "orion_status": "up",  # Placeholder for now
             "npm_server": npm_server,
             "npm_username": username,
             "stale": False,  # <--- Not stale

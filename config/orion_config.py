@@ -54,6 +54,7 @@ DASHBOARD_CACHE_TTL = {
 # orion settings
 orion_prefix = "https://orion.net.mgmt"
 OrionRCS_prefix = "https://samsw.phsa.ca"
+ORION_SWIS_PORT = int(os.getenv("ORION_SWIS_PORT", 17778))  # SWIS REST/JSON API port, 17774 (not works on KDC 10.248.x.x) or 17778
 
 swis_test='SELECT TOP 3 NodeID, DisplayName FROM Orion.Nodes'
 # swis_sitedown= 'SELECT SUM(1) as value, Site FROM (SELECT nodeid,DisplayName,CP.CustomProperties.Site,CP.CustomProperties.SiteType FROM Orion.Nodes CP WHERE CP.Status=2 ) GROUP by site order by value'
@@ -70,8 +71,9 @@ SELECT
     ISNULL(CP.CustomProperties.Address, 'None') AS Address,
     MAX(ISNULL(CP.CustomProperties.City, 'None')) AS City,
     COUNT(nodeid) AS TotalNodes,
-    SUM(CASE WHEN CP.Status NOT IN (1, 9, 11) THEN 1 ELSE 0 END) AS DownCount
+    SUM(CASE WHEN CP.Status NOT IN (1) THEN 1 ELSE 0 END) AS DownCount
 FROM Orion.Nodes CP
+WHERE CP.Status NOT IN (9,11) -- 1 up, 9 unmanager, 11 external
 GROUP BY 
     ISNULL(CP.CustomProperties.Site, 'Unknown'), 
     ISNULL(CP.CustomProperties.HA, 'Unknown'),
