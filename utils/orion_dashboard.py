@@ -201,9 +201,9 @@ def generate_node_table(session):
     logger.debug(f"Debug: sitedown_list: {sitedown_list}")
     # 20250106 update site down logic to check from site table
 
-    query_sitetopology = orion_config.swis_sitetopology
-    results_sitetopology = session.query(query_sitetopology)
-    results_sitetopology_data = results_sitetopology.get("results", [])
+    # query_sitetopology = orion_config.swis_sitetopology
+    # results_sitetopology = session.query(query_sitetopology)
+    # results_sitetopology_data = results_sitetopology.get("results", [])
 
     query = swis_nodeduration
     results = session.query(query)
@@ -347,7 +347,8 @@ def generate_node_table(session):
             #     row.get('IPAddress', "")
             # )
 
-    return table_rows, results_data, site_data, results_sitetopology_data
+    # return table_rows, results_data, site_data, results_sitetopology_data
+    return table_rows, results_data, site_data
 
 def generate_interface_table(session):
     query = swis_interfacdown
@@ -976,7 +977,7 @@ def get_orion_dashboard_html(request, npm_server, username, swis_client, session
             "alert_table": alert_table[1],
             "netpath_table": netpath_table[1],
             # "apipoller_table": apipoller_table[1],
-            "sites_topology": node_table[3],
+            # "sites_topology": node_table[3],
             "syslog_table": syslog_table[1]  # upsert_syslog filters new-only internally
         }
 

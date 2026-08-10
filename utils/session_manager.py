@@ -203,7 +203,8 @@ def get_any_active_client():
     Used by on-demand operations like topo/refresh that need a SWIS query
     outside the normal dashboard request cycle.
     """
-    for session_id, client in list(ACTIVE_SESSIONS.items()):
+    for session_id, entry in list(ACTIVE_SESSIONS.items()):
+        client = entry.get("client")          # unwrap the dict properly
         try:
             client.query("SELECT TOP 1 NodeID FROM Orion.Nodes")
             return client
