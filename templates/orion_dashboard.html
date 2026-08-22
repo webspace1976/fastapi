@@ -70,6 +70,101 @@
             border-radius: 30%;
         }
 
+        /* ===================================================================
+           Responsive layout for the .output panels
+           - Adjust the two breakpoint values below (1600px) to match the
+             ACTUAL CSS pixel width you measure for "half screen" vs
+             "full screen" on your 23-27" monitors, since that depends on
+             the monitor's native resolution and Windows/OS display scaling
+             (e.g. a 2560px-wide 27" monitor at 125% scaling reports
+             ~2048 CSS px, so half-screen there is ~1024px).
+           =================================================================== */
+
+        /* --- "Normal" view: half-screen window (or anything narrower
+               than the full-page breakpoint). Keeps the original simple
+               2-column layout, just made responsive so it doesn't
+               overflow/squish. --- */
+        @media (max-width: 1599px) {
+            .output {
+                display: flex !important;
+                flex-wrap: wrap !important;
+                align-items: flex-start !important;
+                gap: 1% !important;
+            }
+            #output-left,
+            #output-right {
+                display: block !important;
+                flex: 1 1 45% !important;
+                min-width: 420px !important; /* stacks to a single column below this */
+                width: auto !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+            }
+        }
+
+        /* --- Full-page view: break out of the left/right split into
+               4 equal 25%-wide columns:
+               1) output-nodes
+               2) output-interface
+               3) output-netpath + output-apipoller + power-outage-container + output-syslog (stacked)
+               4) output-alert-controls + output-alert
+           --- */
+        @media (min-width: 1600px) {
+            .output {
+                display: grid !important;
+                grid-template-columns: repeat(4, 1fr) !important;
+                grid-template-rows: 1fr !important;
+                gap: 1% !important;
+                align-items: start !important;
+            }
+
+            /* "Unwrap" the two column wrappers so their children (nodes,
+               interface, col3, col4) become direct grid items of .output —
+               each one is now exactly ONE item per column, so column
+               heights are never coupled to each other via shared rows. */
+            #output-left,
+            #output-right {
+                display: contents !important;
+            }
+
+            /* Hide the stray <br> spacer tags that live directly inside
+               output-left / output-right — not needed once unwrapped. */
+            #output-left > br,
+            #output-right > br {
+                display: none !important;
+            }
+
+            #output-nodes {
+                grid-column: 1 !important;
+                grid-row: 1 !important;
+                min-width: 0 !important;
+                width: auto !important;
+            }
+
+            #output-interface {
+                grid-column: 2 !important;
+                grid-row: 1 !important;
+                min-width: 0 !important;
+                width: auto !important;
+                max-height: 85vh !important;
+                overflow-y: auto !important;
+            }
+
+            #output-col3 {
+                grid-column: 3 !important;
+                grid-row: 1 !important;
+                min-width: 0 !important;
+                width: auto !important;
+            }
+
+            #output-col4 {
+                grid-column: 4 !important;
+                grid-row: 1 !important;
+                min-width: 0 !important;
+                width: auto !important;
+            }
+        }
+
     </style>      
 
     </head>
@@ -221,6 +316,8 @@
             </div>
 
             <div id="output-right">
+                <div id="output-col3">
+
                 <div id="output-netpath">
                     {% if "Event-10.gif" in netpath_table %}
                         {{ netpath_table | safe }}
@@ -285,9 +382,12 @@
                         </table>
                     </div>
                 </div>
+                </div>
 
                 <br>
-                <div style="font-size: 12px;box-sizing: border-box;display: flex;justify-content: space-between;">
+                <div id="output-col4">
+
+                <div id="output-alert-controls" style="font-size: 12px;box-sizing: border-box;display: flex;justify-content: space-between;">
                     <div style="width:5%;">
                         <label for="toggleAlertBtn"><button type="button" id="toggleAlertBtn">☰</button></label>
                     </div> 
@@ -311,6 +411,7 @@
 
                 <div id="output-alert">
                     {{ alert_table | safe }}
+                </div>
                 </div>
 
             </div>
