@@ -106,6 +106,40 @@ GROUP BY N.NodeID, N.Status,N.StatusDescription, NCP.Site,NCP.Address, NCP.City,
 ORDER BY Seconds 
 '''
 
+swis_nodeduration_with_stats='''
+SELECT N.NodeID,N.DetailsUrl,N.NodeName,N.Status,N.StatusDescription,N.IPAddress,
+    NCP.Site, NCP.Address, NCP.City, NCP.SiteType,
+    ISNULL(Summary.HA, 'Unknown') AS HA,
+    ISNULL(Summary.TotalNodes, 0) AS TotalNodes,
+    ISNULL(Summary.DownCount, 0) AS DownCount,
+    tolocal(MAX(E.EventTime)) AS DownTime,
+    ToString(DayDiff(0,GETUTCDATE() - MAX(E.EventTime))) + 'd '
+        + ToString(Ceiling((HourDiff(0, GETUTCDATE() - MAX(E.EventTime)) / 24.0 - Floor(HourDiff(0,GETUTCDATE() - MAX(E.EventTime)) / 24.0)) * 24)) + 'h '
+        + ToString(Ceiling((MinuteDiff(0, GETUTCDATE() - MAX(E.EventTime)) / 60.0 - Floor(MinuteDiff(0,GETUTCDATE() - MAX(E.EventTime)) / 60.0)) * 60)) + 'm ' AS Duration,
+    SecondDiff(0,GETUTCDATE() - MAX(E.EventTime)) as Seconds
+FROM orion.Nodes N
+INNER JOIN orion.Events E ON E.NetworkNode = N.NodeID
+INNER JOIN orion.NodesCustomProperties NCP ON NCP.NodeID = N.NodeID
+LEFT JOIN Orion.AlertSuppression AS asup ON N.Uri = asup.EntityUri
+LEFT JOIN (
+    SELECT
+        ISNULL(CP.CustomProperties.Site, 'Unknown') AS Site,
+        ISNULL(CP.CustomProperties.HA, 'Unknown') AS HA,
+        ISNULL(CP.CustomProperties.Address, 'None') AS Address,
+        COUNT(CP.NodeID) AS TotalNodes,
+        SUM(CASE WHEN CP.Status NOT IN (1) THEN 1 ELSE 0 END) AS DownCount
+    FROM Orion.Nodes CP
+    WHERE CP.Status NOT IN (9,11)
+    GROUP BY ISNULL(CP.CustomProperties.Site, 'Unknown'), ISNULL(CP.CustomProperties.HA, 'Unknown'), ISNULL(CP.CustomProperties.Address, 'None')
+) AS Summary ON ISNULL(Summary.Site,'') = ISNULL(NCP.Site,'') AND ISNULL(Summary.Address,'') = ISNULL(NCP.Address,'')
+WHERE N.status NOT IN (1,9,11) -- 1 up, 9 unmanager, 11 external, 12 Unreachable
+    AND E.eventtype IN (1,5,9,14)  --1 Down, 5 Up, added, reboot
+    AND asup.EntityUri IS NULL -- exclude suppressed/muted
+GROUP BY N.NodeID, N.Status, N.StatusDescription, NCP.Site, NCP.Address, NCP.City, N.Caption, NCP.SiteType, N.DetailsUrl, N.IPAddress,
+    Summary.HA, Summary.TotalNodes, Summary.DownCount
+ORDER BY Seconds
+'''
+
 swis_nodeduration_2026='''
 SELECT 
     ISNULL(Summary.TotalNodes, 0) AS TotalNodes,
@@ -113,8 +147,10 @@ SELECT
     N.NodeID, -- Added NodeID
     N.NodeName,
     N.IPAddress,
+    N.Status,
     N.StatusDescription,
     NCP.Site,
+    NCP.HA,
     NCP.Address,
     NCP.City,
     NCP.SiteType,
@@ -127,6 +163,7 @@ SELECT
 FROM Orion.Nodes N
 INNER JOIN Orion.NodesCustomProperties NCP ON NCP.NodeID = N.NodeID
 INNER JOIN Orion.Events E ON E.NetworkNode = N.NodeID
+LEFT JOIN Orion.AlertSuppression AS asup ON N.Uri = asup.EntityUri
 
 -- Summary Subquery to get Site Totals
 LEFT JOIN (
@@ -141,8 +178,10 @@ LEFT JOIN (
 ) AS Summary ON ISNULL(Summary.Site, '') = ISNULL(NCP.Site, '') 
              AND ISNULL(Summary.Address, '') = ISNULL(NCP.Address, '')
 
-WHERE N.Status NOT IN (1, 9, 11)
-  AND E.EventType IN (1, 5, 9, 14)
+WHERE N.Status NOT IN (1, 9, 11) -- 1 up , 9 unmanager, 11 external, 12 Unreachable.
+  AND E.EventType IN (1, 5, 9, 14)  --1 Down, 5 Up, added, reboot
+  AND asup.EntityUri IS NULL -- EXCLUSION LOGIC: Only show if NOT suppressed/muted
+
 GROUP BY 
     N.NodeID, -- Added to Group By
     Summary.TotalNodes, 
@@ -153,6 +192,7 @@ GROUP BY
     N.StatusDescription, 
     N.DetailsUrl, 
     NCP.Site, 
+    NCP.HA,
     NCP.Address, 
     NCP.City, 
     NCP.SiteType
@@ -231,7 +271,7 @@ swis_netpath='''SELECT ProbeID, EndpointServiceID, Enabled, LastStatus, Status, 
 
 # 20260412 : add nodes status was not in unmanage/external (interface showing down could be due to node down, so filter out unmanaged/external nodes), and event time filter to 1000 days to cover long duration down case. 
 swis_interfacdown='''
-SELECT
+SELECT TOP 500
     i.NodeID, i.InterfaceID,
     I.DetailsUrl, n.IPAddress,i.Status,i.StatusDescription,
     n.NodeName + ' ' + i.InterfaceCaption AS NodeName,
@@ -254,46 +294,7 @@ LEFT JOIN
 WHERE
     i.Status NOT IN (1,9,11) -- 1 up, 9 unmanager, 11 external
     AND N.status  NOT IN (9,11) -- 9 unmanager, 11 external
-    AND e.EventTime > GETDATE() - 1000
-    AND asup.EntityUri IS NULL -- EXCLUSION LOGIC: Only show if NOT suppressed/muted
-
-GROUP BY
-    n.NodeName + ' ' + i.InterfaceCaption,
-    NCP.SiteType,N.status,
-    n.IPAddress,
-    i.NodeID,i.InterfaceID,i.Status,
-    i.StatusDescription,
-    I.DetailsUrl
-ORDER BY
-    Seconds
-'''
-
-#20260412 update interface query to include node status filter and event time filter, also add alert suppression join and filter to exclude suppressed/muted interfaces.
-swis_interface=  '''
-SELECT
-    i.NodeID, i.InterfaceID,
-    I.DetailsUrl, n.IPAddress,i.Status,i.StatusDescription,
-    n.NodeName + ' ' + i.InterfaceCaption AS NodeName,
-    NCP.SiteType,
-    ToString(DayDiff(0, GETUTCDATE() - MAX(e.EventTime))) + 'd ' +
-    ToString(Ceiling((HourDiff(0, GETUTCDATE() - MAX(e.EventTime)) / 24.0 - Floor(HourDiff(0, GETUTCDATE() - MAX(e.EventTime)) / 24.0)) * 24)) + 'h ' +
-    ToString(Ceiling((MinuteDiff(0, GETUTCDATE() - MAX(e.EventTime)) / 60.0 - Floor(MinuteDiff(0, GETUTCDATE() - MAX(e.EventTime)) / 60.0)) * 60)) + 'm ' AS Duration,
-    SecondDiff(0, GETUTCDATE() - MAX(e.EventTime)) AS Seconds,
-    tolocal(MAX(e.EventTime)) AS DownTime
-FROM
-    Orion.NPM.Interfaces AS i
-INNER JOIN
-    Orion.Events AS e ON e.NetObjectID = i.InterfaceID
-INNER JOIN
-    Orion.Nodes AS n ON n.NodeID = i.NodeID
-INNER JOIN
-    Orion.NodesCustomProperties AS NCP ON NCP.NodeID = N.NodeID
-LEFT JOIN 
-    Orion.AlertSuppression AS asup ON n.Uri = asup.EntityUri    
-WHERE
-    i.Status NOT IN (9,11) -- 1 up, 9 unmanager, 11 external
-    AND N.status  NOT IN (9,11) -- 9 unmanager, 11 external
-    AND e.EventTime > GETDATE() - 1000
+    AND e.EventTime > GETDATE() - 500
     AND asup.EntityUri IS NULL -- EXCLUSION LOGIC: Only show if NOT suppressed/muted
 
 GROUP BY

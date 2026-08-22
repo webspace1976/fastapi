@@ -407,6 +407,7 @@
             applyFilters();
         });
 
+
 function regroupAndColspan() {
     const table = document.getElementById('nodedownTable');
     if (!table) return;
@@ -440,7 +441,28 @@ function regroupAndColspan() {
 
     data.sort((a, b) => {
         if (siteStats[a.siteKey] !== siteStats[b.siteKey]) return siteStats[a.siteKey] - siteStats[b.siteKey];
+        // 20260814 - Tiebreak on siteKey itself. Without this, two *different* sites
+        // that happen to share the same minimum duration (a common coincidence when
+        // several sites all just went down) sort as "equal" and Array.sort's
+        // stability then falls back to server order - splitting/interleaving groups
+        // even though the siteKey grouping key itself was correct.
+        if (a.siteKey !== b.siteKey) return a.siteKey < b.siteKey ? -1 : 1;
         return a.seconds - b.seconds;
+    });
+
+    // 20260814 - Aggregate the outage badge per siteKey across ALL rows in the group
+    // before building headers. The badge (⚡OUTAGE) is attached per-node server-side,
+    // so it's possible for one node at a site to match the power-outage lookup while
+    // a sibling node at the same site doesn't. Previously the header borrowed
+    // siteHTML from whichever single row happened to trigger it - if that row lacked
+    // the badge, the whole group's header silently lost it even when another row in
+    // the same group had it.
+    const siteBadge = {};
+    data.forEach(item => {
+        if (!siteBadge[item.siteKey]) {
+            const match = item.siteHTML.match(/<a[^>]*>\s*<span[^>]*>[^<]*OUTAGE[^<]*<\/span>\s*<\/a>/i);
+            if (match) siteBadge[item.siteKey] = match[0];
+        }
     });
 
     // 3. Create a Document Fragment (This is the "Secret Sauce")
@@ -453,7 +475,12 @@ function regroupAndColspan() {
             const header = document.createElement('tr');
             header.style.backgroundColor = "#f2f4f6";
             header.style.fontWeight = "bold";
-            header.innerHTML = `<td colspan="2" style="padding-left:10px;"><b>${item.siteHTML}</b></td>`;
+            let headerSiteHTML = item.siteHTML;
+            const badge = siteBadge[item.siteKey];
+            if (badge && !headerSiteHTML.includes('OUTAGE')) {
+                headerSiteHTML += badge;
+            }
+            header.innerHTML = `<td colspan="2" style="padding-left:10px;"><b>${headerSiteHTML}</b></td>`;
             fragment.appendChild(header);
             currentSite = item.siteKey;
         }

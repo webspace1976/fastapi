@@ -893,44 +893,6 @@ def get_orion_dashboard_html(request, npm_server, username, swis_client, session
         logger.debug("Debug: Starting main_all function")
         session_path = os.path.join(session_dir, f"{session_id}.json")
 
-        # Initialize and attempt to connect
-        # session = OrionSession(npm_server, username, password)
-        # # connect() MUST throw an error if UN/PW is wrong or IP is down
-        # session.connect(session_id)
-
-        # # Try to reuse OrionSession from file
-        # if os.path.exists(session_path):
-        #     with open(session_path, "r") as f:
-        #         session_data = json.load(f)
-        #         if session_data.get("npm_server") == npm_server and session_data.get("username") == username:
-        #             session = OrionSession(npm_server, username, password)
-        #             session.session_id = session_id  # Reuse ID
-        #             session.reuse = True
-        #             logger.debug(f"Reusing session: {session_id}")
-        #         else:
-        #             logger.warning("Mismatch in session, starting fresh")
-        #             session = OrionSession(npm_server, username, password)
-        #             session.connect(session_id=session_id)
-        # else:
-        #     session = OrionSession(npm_server, username, password)
-        #     # session.connect(session_id=session_id)
-
-        # # Save session metadata (once)
-        # if not os.path.exists(session_path):
-        #     session_meta = {
-        #         "session_id": session_id,
-        #         "username": username,
-        #         "npm_server": npm_server,
-        #         "ip": request.client.host,
-        #         "timestamp": datetime.now().isoformat()
-        #     }
-        #     with open(session_path, "w") as f:
-        #         json.dump(session_meta, f)    
-
-
-        # Get the current time as the last execution time
-        # orion_status = check_orion_status(session)
-        # orion_status = check_orion_status(swis_client)
         last_execution_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
