@@ -63,6 +63,8 @@ swis_endpoint = orion_config.swis_endpoint
 swis_nodesevent = orion_config.swis_nodesevent
 swis_nodes_eventhistory = orion_config.swis_nodes_eventhistory
 swis_nodeduration = orion_config.swis_nodeduration
+swis_nodeduration_2026 = orion_config.swis_nodeduration_2026
+
 
 def cleanup_session(session_file):
     if os.path.exists(session_file):
@@ -170,9 +172,15 @@ def generate_node_table(session):
             logger.error(f"Error loading power data for tags: {e}")
     # ----------------------------------------------------
 
-    query_site = swis_site
-    results_site = session.query(query_site)
-    site_data = results_site.get("results", [])
+    query_sitenodes = swis_nodeduration_2026
+    results_sitenodes = session.query(query_sitenodes)
+    site_data = results_sitenodes.get("results", [])
+
+    # query_site = swis_site
+    # results_site = session.query(query_site)
+    # site_data = results_site.get("results", [])
+
+
     for row_site in site_data:  # FIX: reuse .get() result, don't double-fetch with ['results']
         site_name = row_site.get('Site', '').strip()
         site_ha = row_site.get('HA', '').strip()
@@ -205,9 +213,11 @@ def generate_node_table(session):
     # results_sitetopology = session.query(query_sitetopology)
     # results_sitetopology_data = results_sitetopology.get("results", [])
 
-    query = swis_nodeduration
-    results = session.query(query)
-    results_data = results.get("results", [])
+    # query = swis_nodeduration
+    # results = session.query(query)
+    # results_data = results.get("results", [])
+
+    results_data = results_sitenodes.get("results", [])  # Reuse the already fetched site_data
 
     for row in results_data:
         if row.get("Status") in [2,12]: # Only process nodes that are down 2 or unreachable 12
