@@ -182,17 +182,17 @@ def generate_node_table(session):
 
 
     for row_site in site_data:  # FIX: reuse .get() result, don't double-fetch with ['results']
-        site_name = row_site.get('Site', '').strip()
-        site_ha = row_site.get('HA', '').strip()
-        site_address = row_site.get('Address', '').strip()
-        site_city = row_site.get('City', '').strip()
+        site_name = str(row_site.get('Site') or '').strip()
+        site_ha = str(row_site.get('HA') or '').strip()
+        site_address = str(row_site.get('Address') or '').strip()
+        site_city = str(row_site.get('City') or '').strip()
         nodedown_list.append({
             'Site': site_name,
             'HA': site_ha,
             'Address': site_address,
             'City': site_city,
-            'DownCount': row_site.get('DownCount'),
-            'TotalNodes': row_site.get('TotalNodes'),
+            'DownCount': int(row_site.get('DownCount') or 0),
+            'TotalNodes': int(row_site.get('TotalNodes') or 0),
             'FullDisplay': f"{site_ha} - {site_name}, {site_address}, {site_city}, {row_site.get('DownCount')}/{row_site.get('TotalNodes')}"
         })
         if row_site.get('DownCount') and row_site.get('DownCount') == row_site.get('TotalNodes'):
