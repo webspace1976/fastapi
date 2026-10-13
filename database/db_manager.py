@@ -1,5 +1,6 @@
 
 import os
+import threading
 from typing import List, Dict   # "Python version" quirk. The syntax list[dict] is only valid in Python 3.9+. 
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
@@ -58,11 +59,15 @@ class DatabaseManager:
             try:
                 result = session.execute(text(sql), params)
                 # If it's a SELECT, return the dictionary-like rows
-                if sql.strip().upper().startswith("SELECT"):
-                    return result.mappings().all()
+                # if sql.strip().upper().startswith("SELECT"):
+                #     return result.mappings().all()
+
+                # Decide by what the driver says, not by the first word of the SQL
+                # (WITH ..., PRAGMA ..., or a leading comment used to return None).
+                rows = result.mappings().all() if result.returns_rows else None
                 
                 session.commit()
-                return None
+                return rows
             except Exception as e:
                 session.rollback()
                 logger.error(f"Database error: {e}")
@@ -132,9 +137,9 @@ class DatabaseManager:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 hostname TEXT, host_ip TEXT, vpn_instance TEXT,
                 neighbor_address TEXT, from_state TEXT, to_state TEXT,
-                last_updated_ts TEXT, log_file TEXT, message TEXT,
-                FOREIGN KEY (host_ip, neighbor_address) REFERENCES bgp_peer_status (host_ip, neighbor_address)
+                last_updated_ts TEXT, log_file TEXT, message TEXT
             )""",
+            # , FOREIGN KEY (host_ip, neighbor_address) REFERENCES bgp_peer_status (host_ip, neighbor_address)
 
             # OSPF Peer Status — current state snapshot
             """CREATE TABLE IF NOT EXISTS ospf_peer_status (
@@ -152,8 +157,7 @@ class DatabaseManager:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 hostname TEXT, host_ip TEXT, process TEXT,
                 neighbor_address TEXT, interface TEXT, from_state TEXT,
-                to_state TEXT, last_updated_ts TEXT, log_file TEXT, message TEXT,
-                FOREIGN KEY (host_ip, neighbor_address) REFERENCES ospf_peer_status (host_ip, neighbor_address)
+                to_state TEXT, last_updated_ts TEXT, log_file TEXT, message TEXT
             )""",
 
             # Named unique indexes — single source of truth for uniqueness
@@ -188,3 +192,22 @@ class DatabaseManager:
 #     except sqlite3.Error as e:
 #         logger.error(f"Database connection error: {e}")
 #         return None
+
+
+# ---------------------------------------------------------------------------
+# Shared instances.  Every DatabaseManager(...) builds a NEW engine + connection pool;
+# creating one per web request leaks pools/file handles.  Use get_db(path) instead.
+# ---------------------------------------------------------------------------
+_DB_REGISTRY: Dict[str, DatabaseManager] = {}
+_DB_REGISTRY_LOCK = threading.Lock()
+
+
+def get_db(db_path: str) -> DatabaseManager:
+    key = os.path.abspath(str(db_path))
+    db = _DB_REGISTRY.get(key)
+    if db is None:
+        with _DB_REGISTRY_LOCK:
+            db = _DB_REGISTRY.get(key)
+            if db is None:
+                db = _DB_REGISTRY[key] = DatabaseManager(str(db_path))
+    return db

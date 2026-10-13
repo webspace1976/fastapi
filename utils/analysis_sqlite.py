@@ -1,5 +1,5 @@
 import os, sys, json, re, logging, sqlite3, traceback
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from multiprocessing.pool import ThreadPool as Pool
 from functools import lru_cache
 from logging.handlers import RotatingFileHandler
@@ -12,120 +12,124 @@ import mainconfig as mainconfig
 from database.db_manager import DatabaseManager
 logger = mainconfig.setup_module_logger(__name__)
 
-def cleanup_bgp_peer_status(db): #(One-time Run)
-    """
-    Cleans up the bgp_peer_status table, keeping only the record 
-    with the latest last_updated_ts for each unique peer 
-    (host_ip, vpn_instance, neighbor_address).
-    """
-    # conn = sqlite3.connect(db_path)
-    # cursor = conn.cursor()
-    logger.info("Starting BGP peer status cleanup for historical duplicates...")
+SYSLOG_IS_UTC = os.getenv("SYSLOG_IS_UTC", "false").lower() == "true"   # Orion syslog DateTime is UTC?
+SYSLOG_MAX_ROWS = int(os.getenv("SYSLOG_MAX_ROWS", "20000"))
 
-    # Robust SQL to find the single rowid with the latest last_updated_ts (MAX(last_updated_ts)) 
-    # for each unique peer key, and delete all other rows.
-    cleanup_sql = '''
-        DELETE FROM bgp_peer_status
-        WHERE rowid NOT IN (
-            SELECT t.rowid
-            FROM bgp_peer_status t
-            INNER JOIN (
-                SELECT 
-                    host_ip, 
-                    vpn_instance, 
-                    neighbor_address, 
-                    MAX(last_updated_ts) AS max_ts
-                FROM bgp_peer_status
-                GROUP BY host_ip, vpn_instance, neighbor_address
-            ) AS latest_data
-            ON t.host_ip = latest_data.host_ip
-               AND t.vpn_instance = latest_data.vpn_instance
-               AND t.neighbor_address = latest_data.neighbor_address
-               AND t.last_updated_ts = latest_data.max_ts
-        );
-    '''
-    
+_BGP_CANON = {"established": "Established", "idle": "Idle", "active": "Active", "connect": "Connect",
+              "opensent": "OpenSent", "openconfirm": "OpenConfirm"}
+
+
+def _canon_bgp_state(s):
+    """Syslog gives ESTABLISHED, device snapshots give Established -> one spelling."""
+    return _BGP_CANON.get(str(s).strip().lower(), str(s).strip())
+
+
+_TS_GLOB = "20[0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]"
+_SNAP_AS_TS = ("substr(last_snapshot_id,1,4)||'-'||substr(last_snapshot_id,5,2)||'-'||substr(last_snapshot_id,7,2)"
+               "||'T'||substr(last_snapshot_id,10,2)||':'||substr(last_snapshot_id,12,2)||':'||substr(last_snapshot_id,14,2)")
+
+
+def repair_bad_timestamps(db):
+    """Rows written by the old parser hold values like 'JulT22T21:11:38TPDT'.  Rebuild them from the
+    snapshot id (YYYYMMDD_HHMMSS = poll time) so they sort and update normally again."""
+    for table in ("bgp_peer_status", "ospf_peer_status"):
+        db.execute_write(f"""
+            UPDATE {table}
+            SET last_updated_ts = CASE WHEN last_snapshot_id GLOB '[0-9]*_[0-9]*' THEN {_SNAP_AS_TS}
+                                       ELSE '1970-01-01T00:00:00' END
+            WHERE last_updated_ts IS NULL OR last_updated_ts NOT GLOB '{_TS_GLOB}'
+        """)
+
+
+def cleanup_bgp_peer_status(db):
+    """
+    Keep ONE row per (host_ip, vpn_instance, neighbor_address): newest last_updated_ts,
+    ties -> highest rowid.  NULL vpn_instance is normalised to 'Global' first because
+    NULLs never conflict in a UNIQUE index (they pile up one row per run) and the old
+    join on vpn_instance silently dropped them.
+    """
+    logger.info("BGP peer status cleanup...")
     try:
-        # cursor.execute(cleanup_sql)
-        # deleted_rows = cursor.rowcount
-        # conn.commit()
-        db.execute_write(cleanup_sql, debug=True)
-        # logger.info(f"Cleanup complete. Deleted {deleted_rows} older duplicate BGP peer records.")
-        # return deleted_rows
-    except sqlite3.Error as e:
-        logger.error(f"SQLite error during cleanup: {e}")
-        # conn.rollback()
+        repair_bad_timestamps(db)
+        db.execute_write("""
+            DELETE FROM bgp_peer_status WHERE rowid IN (
+                SELECT rowid FROM (
+                    SELECT rowid, ROW_NUMBER() OVER (
+                        PARTITION BY host_ip, IFNULL(vpn_instance,''), neighbor_address
+                        ORDER BY last_updated_ts DESC, rowid DESC) AS rn
+                    FROM bgp_peer_status)
+                WHERE rn > 1)
+        """)
+        db.execute_write("UPDATE OR IGNORE bgp_peer_status SET vpn_instance = 'Global' "
+                         "WHERE vpn_instance IS NULL OR vpn_instance = ''")
+        db.execute_write("DELETE FROM bgp_peer_status WHERE vpn_instance IS NULL OR vpn_instance = ''")
+    except Exception as e:
+        logger.error(f"BGP cleanup failed: {e}")
         return -1
-    
-def cleanup_ospf_peer_status(db): #(One-time Run)
-    """
-    Cleans up the ospf_peer_status table, keeping only the record 
-    with the latest last_updated_ts for each unique peer 
-    (host_ip, vpn_instance, neighbor_address).
-    """
-    # cursor = conn.cursor()
-    logger.info("Starting ospf peer status cleanup for historical duplicates...")
 
-    # Robust SQL to find the single rowid with the latest last_updated_ts (MAX(last_updated_ts)) 
-    # for each unique peer key, and delete all other rows.
+
+def cleanup_ospf_peer_status(db):
+    """De-duplicate OSPF history, then let a NEWER history event update the status row."""
+    logger.info("OSPF peer status cleanup...")
     cleanup_sql = '''
-        DELETE FROM ospf_state_changes 
+        DELETE FROM ospf_state_changes
         WHERE rowid NOT IN (
-            SELECT MIN(rowid) 
-            FROM ospf_state_changes 
-            GROUP BY hostname, neighbor_address, last_updated_ts, to_state
+            SELECT MIN(rowid) FROM ospf_state_changes
+            GROUP BY hostname, host_ip, process, neighbor_address, last_updated_ts, to_state
         );
     '''
-    update_sql = '''
+    # Matches on process too (it used to copy state across processes), only applies a
+    # STRICTLY newer event, and clears verbose_uptime because the old uptime no longer
+    # describes the new state.
+    latest = '''
+        SELECT {col} FROM ospf_state_changes h
+        WHERE h.hostname = ospf_peer_status.hostname
+          AND h.neighbor_address = ospf_peer_status.neighbor_address
+          AND CAST(h.process AS TEXT) = CAST(ospf_peer_status.process AS TEXT)
+        ORDER BY h.last_updated_ts DESC, h.ROWID DESC LIMIT 1'''
+    update_sql = f'''
         UPDATE ospf_peer_status
-        SET 
-            state = (
-                SELECT to_state 
-                FROM ospf_state_changes h
-                WHERE h.neighbor_address = ospf_peer_status.neighbor_address
-                AND h.hostname = ospf_peer_status.hostname
-                ORDER BY last_updated_ts DESC, ROWID DESC LIMIT 1
-            ),
-            last_updated_ts = (
-                SELECT last_updated_ts 
-                FROM ospf_state_changes h
-                WHERE h.neighbor_address = ospf_peer_status.neighbor_address
-                AND h.hostname = ospf_peer_status.hostname
-                ORDER BY last_updated_ts DESC, ROWID DESC LIMIT 1
-            )
+        SET state = ({latest.format(col="to_state")}),
+            last_updated_ts = ({latest.format(col="last_updated_ts")}),
+            verbose_uptime = NULL
         WHERE EXISTS (
-            SELECT 1 
-            FROM ospf_state_changes h 
-            WHERE h.neighbor_address = ospf_peer_status.neighbor_address 
-            AND h.hostname = ospf_peer_status.hostname
-            -- CRITICAL: Only update if the history record is newer than current DB
-            AND h.last_updated_ts >= ospf_peer_status.last_updated_ts
+            SELECT 1 FROM ospf_state_changes h
+            WHERE h.hostname = ospf_peer_status.hostname
+              AND h.neighbor_address = ospf_peer_status.neighbor_address
+              AND CAST(h.process AS TEXT) = CAST(ospf_peer_status.process AS TEXT)
+              AND h.last_updated_ts > ospf_peer_status.last_updated_ts
         );
-        '''
-    
+    '''
     try:
-        # cursor.execute(cleanup_sql)
-        # cursor.execute(update_sql)
-        # deleted_rows = cursor.rowcount
-        # conn.commit()
-        db.execute_write(cleanup_sql, debug=True)
-        db.execute_write(update_sql, debug=True)
-        # logger.info(f"Cleanup complete. Deleted {deleted_rows} older duplicate BGP peer records.")
-        # return deleted_rows
-    except sqlite3.Error as e:
-        logger.error(f"SQLite error during cleanup: {e}")
-        # conn.rollback()
+        db.execute_write(cleanup_sql)
+        db.execute_write(update_sql)
+    except Exception as e:
+        logger.error(f"OSPF cleanup failed: {e}")
         return -1
 
 
-@lru_cache(maxsize=128)    # Cache results of this function to speed up repeated calls with the same input
+@lru_cache(maxsize=4096)
 def parse_last_updated_ts(raw_ts_str, log_year):
+    """Parse, then undo year-less syslog roll-over (a timestamp >1 day in the future is last year's)."""
+    ts = _parse_last_updated_ts_raw(raw_ts_str, log_year)
+    try:
+        dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S")
+        if dt > datetime.now() + timedelta(days=1):
+            return dt.replace(year=dt.year - 1).strftime("%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        pass
+    return ts
+
+
+def _parse_last_updated_ts_raw(raw_ts_str, log_year):
     """
     Standardizes all timestamps to the 'T' ISO format: 2026-04-11T02:15:16
     This ensures lexicographical string comparison works perfectly in SQLite.
     """
     if not raw_ts_str or str(raw_ts_str).lower() == 'none':
         return "1970-01-01T00:00:00"
+    # Cisco: "*Apr 30 18:46:30 PST" / "Apr 30 18:46:30.123 PDT" -> drop flag chars and the TZ abbreviation
+    raw_ts_str = re.sub(r'\s+[A-Za-z]{2,5}$', '', str(raw_ts_str).strip()).lstrip('*.')
 
     # Normalize: Convert spaces to 'T' and clean string
     clean_ts = str(raw_ts_str).strip().replace(' ', 'T')
@@ -155,8 +159,13 @@ def parse_last_updated_ts(raw_ts_str, log_year):
         return dt_obj.strftime("%Y-%m-%dT%H:%M:%S")
 
     except Exception:
-        # If specific parsing fails, try to return a normalized string at least
-        return clean_ts if len(clean_ts) >= 19 else "1970-01-01T00:00:00"
+        # NEVER return an unparsed string: letters sort after digits, so a garbage value such as
+        # 'JulT22T21:11:38TPDT' beats every real timestamp in `excluded.ts > existing.ts` and the
+        # row can never be updated again.
+        if re.match(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", clean_ts):
+            return clean_ts[:19]
+        logger.warning(f"Unparsable timestamp {raw_ts_str!r}; using epoch sentinel")
+        return "1970-01-01T00:00:00"
 
 def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
     routing_info = {"hostname": None, "vendor": vendor, "host_ip": None, "BGP": [], "OSPF": []}
@@ -182,12 +191,19 @@ def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
     in_ospf_section = False
     current_vpn_instance = "Global"
     cisco_vpn_name = "Global"
-    current_ospf_process = "0"
+    current_ospf_process = None
     current_ospf_area = None
     current_interface = None
     current_neighbor = None
     local_as = None
     last_down_event = {}
+    # Previously unset until a matching line was seen -> UnboundLocalError (not caught) -> whole
+    # host snapshot discarded and retried forever, so that host's rows never refreshed.
+    router_id = local_as_number = current_process = None
+    neighbor_address = remote_router_id = remote_as = None
+    vpn_instance = "Global"
+    current_address_family = None
+    arista_current_neighbor = arista_current_ospf_process = None
 
     logger.debug(f"Parsing file: {temp_file_path} for vendor: {vendor}")
     for idx, line in enumerate(lines):
@@ -392,7 +408,7 @@ def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
                     address_family_match = re.match(r"For address family: (\w+ \w+)", line)
                     if address_family_match:
                         current_address_family = address_family_match.group(1)
-                        logger.debug(temp_file_path,routing_info["BGP"])
+                        logger.debug("parsing %s", temp_file_path)
                         continue
                     else:
                         current_address_family = None
@@ -419,7 +435,7 @@ def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
                     )
                     if bgp_vpnv4_match:
                         neighbor_address = bgp_vpnv4_match.group(1)
-                        vpn_instance =  bgp_vpnv4_match.group(2)
+                        vpn_instance =  bgp_vpnv4_match.group(2) or "Global"
                         remote_as = bgp_vpnv4_match.group(3)    
                         local_as = bgp_vpnv4_match.group(4)                   
 
@@ -431,7 +447,7 @@ def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
                             "Peer": []
                             }
                         routing_info["BGP"].append(bgp_peer)
-                        logger.debug(temp_file_path,routing_info,neighbor_address)
+                        logger.debug("parsing %s", temp_file_path)
                         continue
 
                     if line.startswith("BGP version"):
@@ -439,7 +455,7 @@ def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
                         #   BGP version 4, remote router ID 10.26.101.1
                         remote_router_id_match = re.search(r"remote router ID (\d+\.\d+\.\d+\.\d+)", line)
                         remote_router_id = remote_router_id_match.group(1)
-                        logger.debug(temp_file_path, routing_info, remote_router_id)
+                        logger.debug("parsing %s", temp_file_path)
 
                     # Extract state and uptime
                     elif line.startswith("BGP state"):
@@ -463,7 +479,7 @@ def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
                                 "peer_uptime": "N/A"
                             }
                         routing_info["BGP"][-1]["Peer"].append(current_neighbor)
-                        logger.debug(temp_file_path,routing_info["BGP"])                        
+                        logger.debug("parsing %s", temp_file_path)
 
                 # Handle OSPF section (unchanged, included for context)
 
@@ -544,14 +560,13 @@ def parse_routing_info(temp_file_path, lines, vendor, json_file=None):
                             routing_info["OSPF"].append(arista_current_ospf_process)                          
                             arista_current_ospf_process["neighbors"].append(arista_current_neighbor)
                             # arista_current_neighbor = None
-                            logger.debug(temp_file_path,vendor,routing_info["OSPF"])
+                            logger.debug("parsing %s", temp_file_path)
                         elif line.strip() == "":
                             arista_current_neighbor = None             
 
-        except AttributeError as e:
-            # This catches the 'NoneType' has no attribute 'group' specifically
-            print(f"Regex match failed on line: '{line}' in file: {temp_file_path} for vendor: {vendor}. Error: {e}")
-            raise Exception(f"Protocol: {vendor} | Failed on Line: '{line}' | Error: {e}")                                       
+        except (AttributeError, TypeError, KeyError, IndexError, ValueError, NameError) as e:
+            logger.warning(f"Skipping unparsable line in {temp_file_path} ({vendor}): '{line}' | {type(e).__name__}: {e}")
+            continue                                       
 
     # if json_file and isinstance(json_file, (str, os.PathLike)):
     #     try:
@@ -574,13 +589,30 @@ def parse_uptime_to_seconds(uptime_str):
         logger.warning(f"Invalid uptime format '{uptime_str}', defaulting to 0 seconds")
         return 0
 
+def _normalize_syslog_ts(value):
+    """ISO 'T' timestamp in LOCAL time, never in the future (a future ts makes every later
+    snapshot lose the `excluded.ts > existing.ts` guard, freezing the row)."""
+    s = str(value).replace('Z', '').split('.')[0].replace(' ', 'T')
+    try:
+        dt = datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        return s
+    if SYSLOG_IS_UTC:
+        dt = dt.replace(tzinfo=timezone.utc).astimezone().replace(tzinfo=None)
+    now = datetime.now()
+    if dt > now + timedelta(minutes=5):
+        logger.debug("Clamping future syslog ts %s", s)
+        dt = now
+    return dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+
 def sync_syslog_to_routing_db(orion_db_path, core_db_path):
     # 1. Connect to both databases
     orion_db = DatabaseManager(orion_db_path)
     core_db = DatabaseManager(core_db_path)
 
     # 2. Fetch recent Syslogs (e.g., last 200 or by a specific ID)
-    logs = orion_db.execute_query("SELECT * FROM [Orion.SyslogTracking] ORDER BY LogEntryID DESC")
+    logs = orion_db.execute_query(f"SELECT * FROM [Orion.SyslogTracking] ORDER BY LogEntryID DESC LIMIT {SYSLOG_MAX_ROWS}")
 
     # Patterns for HPE/Cisco Syslogs
     RE_BGP = re.compile(
@@ -596,17 +628,15 @@ def sync_syslog_to_routing_db(orion_db_path, core_db_path):
         node_name = log['NodeName']
         host_ip = log['IPAddress']
         # Standardize DateTime to ISO "T" format: 2026-04-11T02:15:16
-        raw_dt = log['DateTime'].replace('Z', '').split('.')[0]
-        # raw_dt = utc_convert(log['DateTime'])
-        syslog_ts = raw_dt.replace(' ', 'T')
+        syslog_ts = _normalize_syslog_ts(log['DateTime'])
 
         # --- PROCESS BGP ---
         bgp_match = RE_BGP.search(msg)
         if bgp_match:
             # neighbor, from_st, to_st = bgp_match.group(1), bgp_match.group(2), bgp_match.group(3)
             neighbor = bgp_match.group('nbr')
-            from_st  = bgp_match.group('from').upper()
-            to_st    = bgp_match.group('to').upper()
+            from_st  = _canon_bgp_state(bgp_match.group('from'))
+            to_st    = _canon_bgp_state(bgp_match.group('to'))
             vpn      = bgp_match.group('vpn') or 'Global'            
             # Step A: Update Status Table (Latest Wins)
             core_db.execute_write('''
@@ -615,7 +645,8 @@ def sync_syslog_to_routing_db(orion_db_path, core_db_path):
                 ON CONFLICT(host_ip, vpn_instance, neighbor_address) DO UPDATE SET
                     state = excluded.state,
                     last_updated_ts = excluded.last_updated_ts,
-                    log_file = 'SyslogDB'
+                    log_file = 'SyslogDB',
+                    up_down_time = NULL
                 WHERE excluded.last_updated_ts > bgp_peer_status.last_updated_ts
             ''', {
                 'hostname': node_name,
@@ -658,7 +689,8 @@ def sync_syslog_to_routing_db(orion_db_path, core_db_path):
                 VALUES (:hostname, :host_ip, :neighbor_address, :state, :last_updated_ts, :process, :interface, :log_file)
                 ON CONFLICT(host_ip, process, neighbor_address) DO UPDATE SET
                     state = excluded.state,
-                    last_updated_ts = excluded.last_updated_ts
+                    last_updated_ts = excluded.last_updated_ts,
+                    verbose_uptime = NULL
                 WHERE excluded.last_updated_ts > ospf_peer_status.last_updated_ts
             ''', {
                 'hostname': node_name,
@@ -736,6 +768,9 @@ def process_log_file(db, log_file_path, file_id, log_dir_base):
     elif "show log " in content:
         vendor = 'cisco'
 
+    if vendor is None:
+        logger.warning(f"Unknown vendor (no hpe/arista/cisco marker) in {filename_only}; no peers will be extracted")
+
     # Call parse_routing_info directly and get the routing_info dictionary
     try:
         routing_info = parse_routing_info(log_file_path, lines, vendor, None)  # Pass None for json_file to avoid writing
@@ -744,7 +779,7 @@ def process_log_file(db, log_file_path, file_id, log_dir_base):
         logger.error(f"Error parse_routing from '{log_file_path}':\n{error_details}")
         return False
     
-    print(f"Parsed routing info for {log_file_path}: OSPF {len(routing_info['OSPF'])} processes, BGP {len(routing_info['BGP'])} entries", routing_info['BGP'])
+    logger.debug(f"Parsed {log_file_path}: OSPF {len(routing_info['OSPF'])} processes, BGP {len(routing_info['BGP'])} entries")
     
     # print(f"Parsed routing info for {log_file_path}: BGP {routing_info['BGP']}")
     if not hostname: hostname = routing_info.get("hostname", None)
@@ -849,6 +884,7 @@ def process_log_file(db, log_file_path, file_id, log_dir_base):
             message = match.group(0)  # Capture the entire log line
             g = match.groupdict()
             neighbor = g['neighbor']
+            vpn = g.get('vrf') or g.get('vpn') or 'Global'
             from_state = g['status_mode']
             to_state = g['action']
             last_updated_ts = parse_last_updated_ts(g['timestamp'], log_year)
@@ -856,6 +892,7 @@ def process_log_file(db, log_file_path, file_id, log_dir_base):
             bgp_changes_list.append({
                 'hostname': hostname,
                 'host_ip': host_ip,
+                'vpn_instance': vpn,      # was missing -> 'no value for binding :vpn_instance'
                 'neighbor_address': neighbor,
                 'from_state': from_state,
                 'to_state': to_state,
@@ -878,6 +915,7 @@ def process_log_file(db, log_file_path, file_id, log_dir_base):
                 bgp_status_list.append({
                     'hostname': hostname,
                     'host_ip': host_ip,
+                    'vpn_instance': vpn,
                     'neighbor_address': neighbor,
                     'state': to_state,
                     'last_updated_ts': last_updated_ts,
@@ -892,7 +930,7 @@ def process_log_file(db, log_file_path, file_id, log_dir_base):
                     g = match.groupdict()
                     last_updated_ts = parse_last_updated_ts(g['timestamp'], log_year)
                     if "ESTABLISHED" in match.group('action').upper():
-                        g['new_state'] = "established"
+                        g['new_state'] = "FULL"   # same vocabulary as the snapshot rows
                     elif "DROPPED" in match.group('action').upper():
                         g['new_state'] = "DOWN"
                     else:
@@ -918,7 +956,7 @@ def process_log_file(db, log_file_path, file_id, log_dir_base):
     bgp_data = []
     if isinstance(routing_info.get("BGP"), list):
         for bgp_instance in routing_info["BGP"]:
-            vpn_instance = bgp_instance.get("VPN_instance", "Global")
+            vpn_instance = bgp_instance.get("VPN_instance") or "Global"
             local_router_id = bgp_instance.get("local_router_id")
             local_as_number = bgp_instance.get("local_as_number")            
             for peer in bgp_instance.get("Peer", []):
@@ -1013,7 +1051,8 @@ def process_db_updates(db, db_info):
         ON CONFLICT(host_ip, vpn_instance, neighbor_address) DO UPDATE SET
             state = excluded.state,
             last_updated_ts = excluded.last_updated_ts,
-            log_file = excluded.log_file
+            log_file = excluded.log_file,
+            up_down_time = NULL          -- uptime of the previous state is meaningless now
         WHERE excluded.last_updated_ts > bgp_peer_status.last_updated_ts
     '''
     ospf_changes_stmt = '''
@@ -1024,7 +1063,7 @@ def process_db_updates(db, db_info):
     ospf_status_stmt = '''
         UPDATE ospf_peer_status 
         SET last_down_time = :last_down_time, last_routerid = :last_routerid, last_local = :last_local, last_remote = :last_remote, last_reason = :last_reason
-        WHERE hostname = :hostname AND (process = :process OR neighbor_address = :neighbor_address)
+        WHERE hostname = :hostname AND process = :process AND neighbor_address = :neighbor_address   -- was OR: hit every neighbour
     '''
     bgp_upsert_query = '''
         INSERT INTO bgp_peer_status (hostname, host_ip, vpn_instance, local_router_id, local_as_number, neighbor_address, remote_router_id, remote_as, up_down_time, state, last_updated_ts, last_snapshot_id, log_file) 
@@ -1040,8 +1079,11 @@ def process_db_updates(db, db_info):
             remote_as = excluded.remote_as,
             last_updated_ts = excluded.last_updated_ts,
             last_snapshot_id = excluded.last_snapshot_id,
-            log_file = excluded.log_file
-        WHERE excluded.last_updated_ts > bgp_peer_status.last_updated_ts
+            log_file = excluded.log_file,
+            hostname = COALESCE(excluded.hostname, hostname),
+            local_router_id = COALESCE(excluded.local_router_id, local_router_id),
+            local_as_number = COALESCE(excluded.local_as_number, local_as_number)
+        WHERE excluded.last_updated_ts >= bgp_peer_status.last_updated_ts
     '''
     ospf_upsert_query = '''
         INSERT INTO ospf_peer_status (
@@ -1079,37 +1121,48 @@ def process_db_updates(db, db_info):
         WHERE excluded.last_updated_ts >= ospf_peer_status.last_updated_ts
     '''        
 
+    # Order matters: snapshots first (authoritative detail), then log/event rows, which only win
+    # when strictly newer.  OSPF last-down UPDATE goes after the rows it updates exist.
+    steps = [
+        ("bgp snapshot",   bgp_upsert_query,  "all_bgp_data"),
+        ("bgp status",     bgp_status_stmt,   "all_bgp_status_list"),
+        ("bgp changes",    bgp_changes_stmt,  "all_bgp_changes_list"),
+        ("ospf changes",   ospf_changes_stmt, "all_ospf_changes_list"),
+        ("ospf snapshot",  ospf_upsert_query, "all_ospf_data"),
+        ("ospf last-down", ospf_status_stmt,  "all_ospf_status_list"),
+    ]
+    errors = []
+    for name, stmt, key in steps:
+        rows = db_info.get(key)
+        if not rows:
+            continue
+        try:
+            db.execute_many(stmt, rows)
+        except Exception:
+            errors.append(name)
+            logger.error(f"DB update step '{name}' failed ({len(rows)} rows):\n{traceback.format_exc()}")
+
+    # Mark files processed ONLY if every step succeeded.  Previously this ran first, so a failing
+    # statement left the files flagged as done and their data was lost for good.
     if db_info.get("filename_list"):
-        # Mark the file as processed in the database
-        filename_dicts = [{"filename": f} for f in db_info["filename_list"]]
-        db.execute_many(
-            "INSERT OR IGNORE INTO processed_files (filename) VALUES (:filename)", 
-            filename_dicts
-        )
+        if errors:
+            logger.error(f"Not marking {len(db_info['filename_list'])} files processed; failed steps: {errors}")
+        else:
+            db.execute_many("INSERT OR IGNORE INTO processed_files (filename) VALUES (:filename)",
+                            [{"filename": f} for f in db_info["filename_list"]])
 
-    """Execute the database updates for BGP and OSPF based on the process_info."""
-    # 1. Apply log-based status updates first (less detailed)
-    if db_info.get("all_bgp_data"):
-        db.execute_many(bgp_upsert_query, db_info["all_bgp_data"])
+    for fn, label in ((cleanup_bgp_peer_status, "bgp cleanup"), (cleanup_ospf_peer_status, "ospf cleanup")):
+        try:
+            fn(db)
+        except Exception:
+            logger.error(f"{label} failed:\n{traceback.format_exc()}")
+    try:
+        sync_syslog_to_routing_db(mainconfig.DB_ORION_PATH, mainconfig.DB_PATH)
+    except Exception:
+        logger.error(f"Syslog sync failed:\n{traceback.format_exc()}")
 
-    if db_info.get("all_bgp_status_list"):
-        db.execute_many(bgp_status_stmt, db_info["all_bgp_status_list"])
-    if db_info.get("all_bgp_changes_list"):
-        db.execute_many(bgp_changes_stmt, db_info["all_bgp_changes_list"])
+    return not errors
 
-    if db_info.get("all_ospf_changes_list"):
-        db.execute_many(ospf_changes_stmt, db_info["all_ospf_changes_list"])
-    if db_info.get("all_ospf_status_list"):
-        db.execute_many(ospf_status_stmt, db_info["all_ospf_status_list"])
-    # 2. Apply snapshot-based updates second (more detailed)
-    # This will fill in the missing AS numbers and Router IDs
-
-    if db_info.get("all_ospf_data"):
-        db.execute_many(ospf_upsert_query, db_info["all_ospf_data"])
-
-    cleanup_bgp_peer_status(db)  
-    cleanup_ospf_peer_status(db) 
-    sync_syslog_to_routing_db(mainconfig.DB_ORION_PATH, mainconfig.DB_PATH) 
 
 def main(log_file_path=None, json_file=None):
     """Main entry point: Process all logs in directory (default) or a single file (if provided)."""
@@ -1119,7 +1172,7 @@ def main(log_file_path=None, json_file=None):
     db = DatabaseManager(database_path)
 
     if not os.path.exists(mainconfig.DB_PATH):
-        logger.info("Database path ", database_path, " not configured. Initializing...")
+        logger.info(f"Database path {database_path} not found. Initializing...")
 
     db.setup_core_tables()
         
@@ -1131,7 +1184,7 @@ def main(log_file_path=None, json_file=None):
 
     stmt = "SELECT filename FROM processed_files"
     processed_filenames_db = {row['filename'] for row in db.execute_query(stmt)}
-    logging.info(f"Found {len(processed_filenames_db)} files already processed in the database.")
+    logger.info(f"Found {len(processed_filenames_db)} files already processed in the database.")
 
     log_file_regex = re.compile(r"^\d{8}_\d{6}_[\d\.]+_[\w-]+_sa\.txt$")
     files_to_process = []
@@ -1159,7 +1212,7 @@ def main(log_file_path=None, json_file=None):
         cleanup_bgp_peer_status(db)  
         cleanup_ospf_peer_status(db) 
         sync_syslog_to_routing_db(mainconfig.DB_ORION_PATH, mainconfig.DB_PATH) 
-        exit(0)  # Or return False if imported
+        sys.exit(0)
     else:
         logger.info(f"Found {len(files_to_process)} new, valid log files to process.")
         files_to_process.sort()
@@ -1168,6 +1221,8 @@ def main(log_file_path=None, json_file=None):
     
     pool = Pool(processes=20)  # Adjust the number of processes as needed
     all_results = pool.map(lambda fp: process_log_file(db, fp, None, log_directory), files_to_process)
+    pool.close()
+    pool.join()
 
     db_info = {
         "filename_list": [],
@@ -1237,4 +1292,4 @@ if __name__ == "__main__":
             logger.error(f"Syslog sync failed: {e}")
 
         # 3. Exit based on the main process result
-        sys.exit(0 if main_success else 1)    
+        sys.exit(0 if main_success else 1)

@@ -32,6 +32,7 @@
         .no-problems { padding: 20px; text-align: center; color: #6c757d; font-style: italic; }
         .filter-row { background-color: #f1f1f1; position: sticky; margin: 0; }
         .filter-row input { width: 100%; padding: 0px; margin: 0; box-sizing: border-box; border: 1px solid #dee2e6; border-radius: 4px; }   
+        .log-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     </style>    
 <!-- <script>{{ html_java_script | safe }} </script> -->
 </head>
@@ -109,6 +110,7 @@
                         <th>State</th>
                         <th>Up/Down Time</th>
                         <th>Last Updated</th>
+                        <th>Log Source</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -121,10 +123,17 @@
                                 <td>{{ peer.state | e }}</td>
                                 <td>{{ peer.up_down_time | e }}</td>
                                 <td>{{ peer.last_updated_ts | e }}</td>
+                                <td class="log-cell">
+                                {% if peer.log_file %}
+                                    <a href="../logs/core_logs/{{ peer.log_file }}" target="_blank" rel="noopener" title="{{ peer.log_file }}">{{ peer.log_file }}</a>
+                                {% elif peer.log_file %}
+                                    <span title="Updated from syslog (no log file)">Syslog</span>
+                                {% else %}&mdash;{% endif %}
+                                </td>                                
                             </tr>
                         {% endfor %}
                     {% else %}
-                        <tr><td colspan="6" class="no-problems">No BGP problem peers detected.</td></tr>
+                        <tr><td colspan="7" class="no-problems">No BGP problem peers detected.</td></tr>
                     {% endif %}
                 </tbody>
             </table>
@@ -142,6 +151,7 @@
                         <th>State</th>
                         <th>Up/Down Time</th>
                         <th>Last Updated</th>
+                        <th>Log Source</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -154,10 +164,17 @@
                                 <td>{{ peer.state | e }}</td>
                                 <td>{{ peer.verbose_uptime | e }}</td>
                                 <td>{{ peer.last_updated_ts | e }}</td>
+                                <td class="log-cell">
+                                {% if peer.log_file %}
+                                    <a href="../logs/core_logs/{{ peer.log_file }}" target="_blank" rel="noopener" title="{{ peer.log_file }}">{{ peer.log_file }}</a>
+                                {% elif peer.log_file %}
+                                    <span title="Updated from syslog (no Log Source)">Syslog</span>
+                                {% else %}&mdash;{% endif %}
+                                </td>
                             </tr>
                         {% endfor %}
                     {% else %}
-                        <tr><td colspan="6" class="no-problems">No OSPF problem peers detected.</td></tr>
+                        <tr><td colspan="7" class="no-problems">No OSPF problem peers detected.</td></tr>
                     {% endif %}
                 </tbody>
             </table>
@@ -185,6 +202,7 @@
                     <th>Up/Down Time</th>
                     <th>State</th>
                     <th>Last Updated</th>
+                    <th>Log Source</th>
                     <th>Flags</th>
                 </tr>
             </thead>
@@ -197,6 +215,13 @@
                         <td>{{ peer.up_down_time | e }}</td>
                         <td>{{ peer.state | e }}</td>
                         <td>{{ peer.last_updated_ts | e }}</td>
+                        <td class="log-cell">
+                        {% if peer.log_file %}
+                            <a href="../logs/core_logs/{{ peer.log_file }}" target="_blank" rel="noopener" title="{{ peer.log_file }}">{{ peer.log_file }}</a>
+                        {% elif peer.log_file %}
+                            <span title="Updated from syslog (no Log Source)">Syslog</span>
+                        {% else %}&mdash;{% endif %}
+                        </td>
                         <td>{% if peer.is_flap %}Flap{% endif %}{% if peer.is_problem %}{% if peer.is_flap %}, {% endif %}Problem{% endif %}</td>
                     </tr>
                 {% endfor %}
@@ -225,6 +250,7 @@
                     <th>Up/Down Time</th>
                     <th>State</th>
                     <th>Last Updated</th>
+                    <th>Log Source</th>
                 </tr>
             </thead>
             <tbody>
@@ -236,6 +262,13 @@
                         <td>{{ peer.verbose_uptime | e }}</td>
                         <td>{{ peer.state | e }}</td>
                         <td>{{ peer.last_updated_ts | e }}</td>
+                        <td class="log-cell">
+                        {% if peer.log_file %}
+                            <a href="../logs/core_logs/{{ peer.log_file }}" target="_blank" rel="noopener" title="{{ peer.log_file }}">{{ peer.log_file }}</a>
+                        {% elif peer.log_file %}
+                            <span title="Updated from syslog (no log file)">Syslog</span>
+                        {% else %}&mdash;{% endif %}
+                        </td>
                     </tr>
                 {% endfor %}
             </tbody>
