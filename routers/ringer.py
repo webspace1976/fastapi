@@ -217,98 +217,102 @@ def get_ha_power_alerts(raw_data):
         reverse=True
     )
 
+REAL_OUTAGE_SOURCES = ("bchydro", "fortis")
+
+def is_real_outage(event: dict) -> bool:
+    """Real alert = utility source AND event Name starts with 'Power Outage'
+    (covers 'Power Outage', 'Power Outage Nearby', 'Power Outage Restored')."""
+    src = (event.get("Source") or "").strip().lower()
+    name = (event.get("Name") or "").strip().lower()
+    return any(s in src for s in REAL_OUTAGE_SOURCES) and name.startswith("power outage")
+
+async def _fetch_case(base_url: str, case_id) -> dict | None:
+    """Fetch one case's details. Retry once; return None if it still fails."""
+    params = {"method": "fetchOpsTrackingById", "id": case_id}
+    for attempt in (1, 2):
+        try:
+            r = await asyncio.to_thread(_http_get, base_url, params, 10)
+            r.raise_for_status()
+            data = r.json()
+            case = data[0] if isinstance(data, list) and data else data
+            return case if isinstance(case, dict) else None
+        except Exception as e:
+            if attempt == 2:
+                logger.warning(f"Case {case_id} detail fetch failed: {e}")
+    return None
+
+
 @router.get("/opsapi/poweroutage", response_class=HTMLResponse)
 async def get_poweroutage(request: Request):
     base_url = "https://ringer.healthbc.org/opsapi"
-    # now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # 1. Setup Exact 48-Hour Window
     now = datetime.now()
     yesterday = now - timedelta(hours=48)
+    search_str = (
+        f"power outage|{yesterday.strftime('%Y-%m-%d')}|{yesterday.strftime('%H:%M:%S')}"
+        f"|{now.strftime('%Y-%m-%d')}|{now.strftime('%H:%M:%S')}"
+    )
+    params = {"method": "fetchOpsTracking", "search": search_str, "open": 0}
 
-    # 2. Format components for the Ringer search string
-    # Format: YYYY-MM-DD|HH:MM:SS
-    end_date_str = now.strftime("%Y-%m-%d")
-    end_time_str = now.strftime("%H:%M:%S")
-
-    start_date_str = yesterday.strftime("%Y-%m-%d")
-    start_time_str = yesterday.strftime("%H:%M:%S")
-
-    # 3. Construct the Ringer-specific search string
-    # Pattern: query|start_date|start_time|end_date|end_time
-    search_str = f"power outage|{start_date_str}|{start_time_str}|{end_date_str}|{end_time_str}"
-
-
-    params = {
-        "method": "fetchOpsTracking",
-        "search": search_str,
-        "open": 0
-    }
-    is_offline = False  # Flag to trigger the popup/warning
+    is_offline = False
+    failed_cases = 0
+    display_cases = []          # always defined, so the final return can't fail
     debug_path = os.path.join(mainconfig.DATA_DIR, "debug_active_poweroutages.json")
 
     try:
-        # Initial search call
-        search_response = await asyncio.to_thread(_http_get, base_url, params, 10)
+        search_response = await asyncio.to_thread(_http_get, base_url, params, 15)
         search_response.raise_for_status()
         case_summaries = search_response.json()
-        
+
+        case_ids = [
+            s["record_id"] for s in (case_summaries if isinstance(case_summaries, list) else [])
+            if isinstance(s, dict) and s.get("record_id")
+        ]
+
+        sem = asyncio.Semaphore(5)   # at most 5 detail calls to Ringer at once
+
+        async def bounded(cid):
+            async with sem:
+                return await _fetch_case(base_url, cid)
+
+        results = await asyncio.gather(*(bounded(c) for c in case_ids))
+        failed_cases = sum(1 for r in results if r is None)
+
+        # Every detail call failed: Ringer is effectively down, so use the cache
+        if case_ids and failed_cases == len(case_ids):
+            raise RuntimeError("all case detail fetches failed")
+
         all_detailed_cases = []
-
-        # STEP 2: Loop through each case to fetch full event details
-        for summary in (case_summaries if isinstance(case_summaries, list) else []):
-            case_id = summary.get("record_id")
-            if not case_id:
+        for case in results:
+            if not case:
                 continue
-                
-            # Second API call for the specific Case ID
-            detail_params = {"method": "fetchOpsTrackingById", "id": case_id}
-            detail_response = await asyncio.to_thread(_http_get, base_url, detail_params, 5)
-            full_case_data = detail_response.json()
+            real_events = [e for e in case.get("Events", []) if is_real_outage(e)]
+            if not real_events:
+                continue
+            case["Events"] = real_events
+            all_detailed_cases.append(case)
 
-            # Ringer returns a list for ById; append the actual case object
-            if isinstance(full_case_data, list) and len(full_case_data) > 0:
-                all_detailed_cases.append(full_case_data[0])
-            else:
-                all_detailed_cases.append(full_case_data)
+        display_cases = get_ha_power_alerts(all_detailed_cases)
 
-        # Now pass the full detailed data to your existing filter logic
-        # This ensures get_ha_power_alerts can actually see the 'Events' array
-        final_active_events = get_ha_power_alerts(all_detailed_cases)
-
-        # Save to JSON for debugging as you requested
         with open(debug_path, "w", encoding="utf-8") as f:
-            json.dump(final_active_events, f, indent=4)
-
-        return templates.TemplateResponse("ops_poweroutage.html", {
-            "request": request, 
-            "cases": final_active_events,
-            "search_str": search_str,
-            "last_check": now.strftime("%Y-%m-%d %H:%M:%S")
-        })
-    
-        # if os.path.exists(debug_path):
-        #     with open(debug_path, "r", encoding="utf-8") as f:
-        #         data = json.load(f)
-        #     return {"cases": data}
-        # return {"cases": []}
+            json.dump(display_cases, f, indent=4)
 
     except Exception as e:
         logger.error(f"Ringer API Offline. Loading cache: {e}")
         is_offline = True
-        # Failover: Load from JSON
         if os.path.exists(debug_path):
             with open(debug_path, "r", encoding="utf-8") as f:
                 display_cases = json.load(f)
-        else:
-            display_cases = []
 
-    # return templates.TemplateResponse("ops_poweroutage.html", {
-    #     "request": request, 
-    #     "cases": display_cases,
-    #     "is_offline": is_offline, # Pass this to HTML
-    #     "last_check": now.strftime("%Y-%m-%d %H:%M:%S")
-    # })
+    return templates.TemplateResponse("ops_poweroutage.html", {
+        "request": request,
+        "cases": display_cases,
+        "is_offline": is_offline,
+        "failed_cases": failed_cases,
+        "search_str": search_str,
+        "last_check": now.strftime("%Y-%m-%d %H:%M:%S"),
+    })
+
 
 # --- New Endpoint to add to ignore list ---
 @router.post("/opsapi/ignore-id/{h_id}")
