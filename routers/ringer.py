@@ -27,6 +27,34 @@ def load_ignore_list():
             return json.load(f).get("ignore_list", [])
     return ["bchydro2752838","bchydro2753010"] # Fallback
 
+
+# ---------------------------------------------------------------------------
+# Ringer response unwrapping (2026-11 fix)
+# Ringer used to return a bare JSON list:  [ {case}, {case}, ... ]
+# It now returns a wrapped object:         {"api_ts": ..., "cases": [...], "ts": ...}
+# Every isinstance(..., list) check in this file silently produced an empty
+# page against the wrapped shape -- no error, no log line, just "no outages".
+# Always run Ringer payloads through these helpers first. They accept BOTH
+# shapes, so the code survives if Ringer ever switches back.
+def _unwrap_cases(payload):
+    """Return the case list from a Ringer payload of either shape."""
+    if isinstance(payload, list):
+        return [c for c in payload if isinstance(c, dict)]
+    if isinstance(payload, dict):
+        cases = payload.get("cases")
+        if isinstance(cases, list):
+            return [c for c in cases if isinstance(c, dict)]
+        # A single-case object (detail response in the old shape)
+        if "record_id" in payload or "Events" in payload:
+            return [payload]
+    return []
+
+
+def _unwrap_single_case(payload):
+    """Return one case dict from a fetchOpsTrackingById payload, or None."""
+    cases = _unwrap_cases(payload)
+    return cases[0] if cases else None
+
 @router.get("/opsapi")
 async def get_ops_tracking(
     request: Request,
@@ -43,11 +71,11 @@ async def get_ops_tracking(
         params = {"method": "fetchOpsTrackingById", "id": caseid}
         try:
             response = await asyncio.to_thread(_http_get, base_url, params, 10)
-            detail_data = response.json()
+            detail_case = _unwrap_single_case(response.json())
             # Return a specific small template for the inside of the card
             return templates.TemplateResponse("ops_detail_snippet.html", {
                 "request": request,
-                "case": detail_data[0] if isinstance(detail_data, list) else detail_data
+                "case": detail_case or {}
             })
         except Exception as e:
             return HTMLResponse(content=f"<p style='color:red;'>Error: {e}</p>")
@@ -56,7 +84,7 @@ async def get_ops_tracking(
     params = {"method": "fetchOpsTracking", "search": search or "", "open": open}
     try:
         response = await asyncio.to_thread(_http_get, base_url, params, 10)
-        cases = response.json()
+        cases = _unwrap_cases(response.json())
         
         # Apply your duration fix
         #    raw_time = case.get('create_datetime')
@@ -77,13 +105,8 @@ async def get_case_detail(request: Request, caseid: str):
 
     try:
         response = await asyncio.to_thread(_http_get, base_url, params, 10)
-        raw_data = response.json()
-        
-        # Ringer returns a list for this method; we need the first item
-        if isinstance(raw_data, list) and len(raw_data) > 0:
-            case_data = raw_data[0]
-        else:
-            case_data = raw_data # Handle case where it might be a single dict
+        # Ringer may return [case], a bare case, or {"cases": [case]} -- unwrap all three
+        case_data = _unwrap_single_case(response.json()) or {}
             
     except Exception as e:
         logger.error(f"Detail Fetch Error for {caseid}: {e}")
@@ -226,20 +249,46 @@ def is_real_outage(event: dict) -> bool:
     name = (event.get("Name") or "").strip().lower()
     return any(s in src for s in REAL_OUTAGE_SOURCES) and name.startswith("power outage")
 
-async def _fetch_case(base_url: str, case_id) -> dict | None:
+async def _fetch_case(base_url: str, case_id, timeout: int = 10) -> dict | None:
     """Fetch one case's details. Retry once; return None if it still fails."""
     params = {"method": "fetchOpsTrackingById", "id": case_id}
     for attempt in (1, 2):
         try:
-            r = await asyncio.to_thread(_http_get, base_url, params, 10)
+            r = await asyncio.to_thread(_http_get, base_url, params, timeout)
             r.raise_for_status()
-            data = r.json()
-            case = data[0] if isinstance(data, list) and data else data
-            return case if isinstance(case, dict) else None
+            return _unwrap_single_case(r.json())
         except Exception as e:
             if attempt == 2:
                 logger.warning(f"Case {case_id} detail fetch failed: {e}")
     return None
+
+
+def _collect_case_events(case: dict) -> list:
+    """All alarm/event objects attached to a case dict.
+    The full case (fetchOpsTrackingById) carries its alarms in "Events";
+    accept an "Alarms" list too, in case Ringer ever splits them."""
+    events = []
+    for key in ("Events", "Alarms"):
+        items = case.get(key)
+        if isinstance(items, list):
+            events.extend(e for e in items if isinstance(e, dict) and "Name" in e)
+    return events
+
+
+def _merge_events(*event_lists) -> list:
+    """Union of event lists, de-duplicated (by event record_id when present,
+    else by Name+Node+Start) so merging a search summary with its full case
+    never double-counts the primary event."""
+    merged, seen = [], set()
+    for lst in event_lists:
+        for e in lst or []:
+            rid = e.get("record_id")
+            key = ("id", rid) if rid else ("sig", e.get("Name"), e.get("Node"), e.get("Start"))
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(e)
+    return merged
 
 
 @router.get("/opsapi/poweroutage", response_class=HTMLResponse)
@@ -247,9 +296,12 @@ async def get_poweroutage(request: Request):
     base_url = "https://ringer.healthbc.org/opsapi"
 
     now = datetime.now()
-    yesterday = now - timedelta(hours=48)
+    # NOTE: the window is 48 hours. An outage whose case was created more
+    # than 48h ago will not appear here even if it is still open -- if a
+    # long outage "disappears", widen this first before debugging further.
+    window_start = now - timedelta(hours=48)
     search_str = (
-        f"power outage|{yesterday.strftime('%Y-%m-%d')}|{yesterday.strftime('%H:%M:%S')}"
+        f"power outage|{window_start.strftime('%Y-%m-%d')}|{window_start.strftime('%H:%M:%S')}"
         f"|{now.strftime('%Y-%m-%d')}|{now.strftime('%H:%M:%S')}"
     )
     params = {"method": "fetchOpsTracking", "search": search_str, "open": 0}
@@ -262,25 +314,70 @@ async def get_poweroutage(request: Request):
     try:
         search_response = await asyncio.to_thread(_http_get, base_url, params, 15)
         search_response.raise_for_status()
-        case_summaries = search_response.json()
+        # FIX (2026-11): Ringer now wraps the list as {"cases": [...]}.
+        # The old isinstance(list) check made case_ids == [] and the page
+        # silently rendered zero outages. Unwrap first.
+        case_summaries = _unwrap_cases(search_response.json())
+        logger.warning(
+            "PowerOutage: Ringer search returned %d case(s) for window %s",
+            len(case_summaries), search_str,
+        )
 
-        case_ids = [
-            s["record_id"] for s in (case_summaries if isinstance(case_summaries, list) else [])
-            if isinstance(s, dict) and s.get("record_id")
-        ]
+        # CRITICAL (v2, 2026-11-07): the search payload is a SUMMARY. Its
+        # "Events" holds exactly ONE event per case -- the primary/trigger
+        # event -- while alarm_count says how many alarms the case really
+        # has (e.g. the standing "BC Hydro" case: alarm_count 774, Events 1).
+        # Every other alarm, including tonight's wind-storm sites grouped
+        # into that case, exists ONLY in the fetchOpsTrackingById response.
+        # An earlier version of this fix skipped the ById call whenever
+        # Events was non-empty, which made the page show one event per case.
+        # So: ALWAYS fetch the full case, then merge.
+        fetch_ids = [s["record_id"] for s in case_summaries if s.get("record_id")]
 
         sem = asyncio.Semaphore(5)   # at most 5 detail calls to Ringer at once
 
         async def bounded(cid):
             async with sem:
-                return await _fetch_case(base_url, cid)
+                # 30s, not 10s: the "BC Hydro" case is huge (700+ alarms)
+                # and is exactly the one that must not time out.
+                return await _fetch_case(base_url, cid, timeout=30)
 
-        results = await asyncio.gather(*(bounded(c) for c in case_ids))
-        failed_cases = sum(1 for r in results if r is None)
+        fetched = await asyncio.gather(*(bounded(c) for c in fetch_ids)) if fetch_ids else []
+        failed_ids = [cid for cid, r in zip(fetch_ids, fetched) if r is None]
+        failed_cases = len(failed_ids)
+        if failed_ids:
+            logger.warning("PowerOutage: ById fetch failed for case id(s): %s", failed_ids)
 
-        # Every detail call failed: Ringer is effectively down, so use the cache
-        if case_ids and failed_cases == len(case_ids):
+        # Every detail call failed AND we have no cases at all to fall back
+        # on: Ringer is effectively down, so use the cache
+        if fetch_ids and failed_cases == len(fetch_ids):
             raise RuntimeError("all case detail fetches failed")
+
+        # Merge each full case with its search summary: full-case events
+        # first, plus the summary's primary event if the full case somehow
+        # lacks it. If a ById fetch failed, the summary case is the fallback
+        # (its one primary event is better than dropping the case entirely).
+        summary_by_id = {s["record_id"]: s for s in case_summaries if s.get("record_id")}
+        results = []
+        total_events = 0
+        for cid, full_case in zip(fetch_ids, fetched):
+            summary = summary_by_id.get(cid, {})
+            if full_case:
+                events = _merge_events(
+                    _collect_case_events(full_case),
+                    _collect_case_events(summary),
+                )
+                merged_case = dict(full_case)
+                merged_case["Events"] = events
+                results.append(merged_case)
+                total_events += len(events)
+            else:
+                results.append(summary)
+                total_events += len(_collect_case_events(summary))
+        logger.warning(
+            "PowerOutage: %d case(s) fetched, %d event(s) collected in total",
+            len(results), total_events,
+        )
 
         all_detailed_cases = []
         for case in results:
@@ -293,6 +390,13 @@ async def get_poweroutage(request: Request):
             all_detailed_cases.append(case)
 
         display_cases = get_ha_power_alerts(all_detailed_cases)
+        # Diagnostic (WARNING so it survives the default log level): if this
+        # ever goes back to "search > 0, display = 0", the filter -- not
+        # Ringer -- is the problem, and this line proves it in one look.
+        logger.warning(
+            "PowerOutage: %d case(s) with real outage events -> %d display row(s)",
+            len(all_detailed_cases), len(display_cases),
+        )
 
         with open(debug_path, "w", encoding="utf-8") as f:
             json.dump(display_cases, f, indent=4)
