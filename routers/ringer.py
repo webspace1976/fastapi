@@ -230,6 +230,8 @@ def get_ha_power_alerts(raw_data):
                     event["impacted_site"] = current_site
                     event["SiteNameShort"] = current_short
                     event["latest_record_id"] = event.get("record_id", 0)
+                    # group id, used by the BC Hydro feed check below
+                    event["hydro_id"] = h_id
                     # event["Update"] = event.get("Update")
                     outage_tracker[h_id] = event
 
@@ -289,6 +291,60 @@ def _merge_events(*event_lists) -> list:
             seen.add(key)
             merged.append(e)
     return merged
+
+
+# --- v4: BC Hydro's live feed is the source of truth ----------------------
+# Rule (changed 2026-11-10 at Vaco's request -- no time window involved):
+# a bchydro display row is kept ONLY if its outage id is present in
+# BC Hydro's live outage feed right now. If BC Hydro has cleared the
+# outage, it leaves this page on the next load, no matter how fresh or
+# old its Ringer events are, and no matter whether a "Restored" event
+# ever arrived in Ringer.
+# Safety: if the feed cannot be fetched, or comes back empty/unparseable,
+# NOTHING is dropped (fail open) -- the page behaves like v2 and the log
+# says the check was skipped. An empty feed must never empty the page.
+# FortisBC rows are not checked (no equivalent public feed found); they
+# still follow the Restored-event / ignore-list logic in get_ha_power_alerts.
+BCHYDRO_FEED_URL = "https://www.bchydro.com/power-outages/app/outages-map-data.json"
+
+
+def _fetch_bchydro_live_ids():
+    """Set of outage ids (as strings) currently on BC Hydro's public feed,
+    or None if the feed could not be fetched/parsed or was empty."""
+    try:
+        r = requests.get(BCHYDRO_FEED_URL, timeout=10)
+        r.raise_for_status()
+        items = r.json()
+        ids = {str(o["id"]) for o in items if isinstance(o, dict) and o.get("id")}
+        return ids or None
+    except Exception as e:
+        logger.warning("PowerOutage: BC Hydro live feed unavailable: %s", e)
+        return None
+
+
+async def _filter_by_bchydro_feed(display_cases):
+    """Keep a bchydro row iff BC Hydro's live feed still lists its id."""
+    if not display_cases:
+        return display_cases
+    if not any(str(c.get("hydro_id", "")).startswith("bchydro") for c in display_cases):
+        return display_cases
+    live_ids = await asyncio.to_thread(_fetch_bchydro_live_ids)
+    if live_ids is None:
+        logger.warning("PowerOutage: BC Hydro feed check skipped -- keeping all rows")
+        return display_cases
+    kept, dropped = [], []
+    for c in display_cases:
+        h_id = str(c.get("hydro_id", ""))
+        if h_id.startswith("bchydro"):
+            numeric = re.sub(r"\D", "", h_id)
+            (kept if numeric in live_ids else dropped).append(c if numeric in live_ids else h_id)
+        else:
+            kept.append(c)
+    logger.warning(
+        "PowerOutage: BC Hydro feed lists %d outage(s); kept %d row(s), dropped %d not in feed: %s",
+        len(live_ids), len(kept), len(dropped), dropped,
+    )
+    return kept
 
 
 @router.get("/opsapi/poweroutage", response_class=HTMLResponse)
@@ -390,6 +446,8 @@ async def get_poweroutage(request: Request):
             all_detailed_cases.append(case)
 
         display_cases = get_ha_power_alerts(all_detailed_cases)
+        # v4: BC Hydro live feed decides which bchydro rows stay (see above)
+        display_cases = await _filter_by_bchydro_feed(display_cases)
         # Diagnostic (WARNING so it survives the default log level): if this
         # ever goes back to "search > 0, display = 0", the filter -- not
         # Ringer -- is the problem, and this line proves it in one look.
