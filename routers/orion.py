@@ -6,7 +6,7 @@ import pandas as pd
 from time import perf_counter,time,ctime
 from datetime import datetime
 # from orionsdk import SwisClient
-from fastapi.responses import HTMLResponse, HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import APIRouter, Form, Request, Response
 # from pydantic import ValidationError
@@ -15,10 +15,11 @@ from typing import Any
 # Local imports
 import utils.fastapi_mymodule as mymodule
 import utils.orion_dashboard as orion_dashboard
+import utils.orion_status as orion_status
 import mainconfig as mainconfig
 import config.orion_config as orion_config
 # from mainpydantic import OrionCheckRequest, OrionResponse
-from utils.session_manager import OrionSession, update_session_audit
+from utils.session_manager import OrionSession, update_session_audit, drop_cached_client
 from utils.orion_db_manager import sync_orion_data
 from utils.orion_db_manager import OrionDatabaseManager
 from utils.analysis_sqlite import sync_syslog_to_routing_db
@@ -74,6 +75,63 @@ async def get_orion_dashboard_tabs(request: Request):
 async def get_device_output_form(request: Request):
     return templates.TemplateResponse("orion_login.html", {"request": request})
 
+
+@router.get("/server_status", response_class=JSONResponse)
+async def orion_server_status():
+    """Public Orion server availability (no login required).
+
+    MUST stay public: the login page fetches it before the user logs
+    in. Returns up/down per configured server, checked against the
+    SWIS endpoint without credentials (any HTTP response counts as
+    up). Do not add an auth dependency to this route.
+    """
+    return JSONResponse(content=await asyncio.to_thread(orion_status.get_server_status))
+
+def _server_host(server):
+    """Host part of a server entry, for dedup (ignores scheme/port)."""
+    s = (server or "").strip().lower()
+    s = s.replace("https://", "").replace("http://", "")
+    return s.split(":")[0].split("/")[0]
+
+
+def _candidate_servers(entered):
+    """Servers to try in order: the one the user typed first, then the
+    configured failover list, deduplicated by host (20261118)."""
+    seen = set()
+    out = []
+    for s in [entered, *getattr(orion_config, "ORION_FAILOVER_SERVERS", ())]:
+        host = _server_host(s)
+        if host and host not in seen:
+            seen.add(host)
+            out.append(s.strip())
+    return out
+
+
+def _is_connection_error(e):
+    """True when an exception (possibly wrapped several layers deep by
+    requests/urllib3) is a network/connectivity failure rather than an
+    auth failure. Decides between the 401 page and the stale-page/503
+    path when every server fails."""
+    seen = set()
+    cur = e
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        if isinstance(cur, (ConnectionError, OSError, TimeoutError)):
+            return True
+        if type(cur).__name__ in (
+            "ConnectionError", "ConnectTimeoutError", "MaxRetryError",
+            "NewConnectionError", "ProtocolError", "RetryError",
+        ):
+            return True
+        cur = cur.__cause__ or cur.__context__
+    msg = str(e).lower()
+    return any(x in msg for x in (
+        "max retries exceeded", "connection aborted", "connection refused",
+        "connection reset", "name or service not known", "timed out",
+        "temporary failure in name resolution",
+    ))
+
+
 @router.post("/check_output", response_class=HTMLResponse)
 async def run_orioncheck_route(
     request: Request,
@@ -84,65 +142,150 @@ async def run_orioncheck_route(
 ):
     npm_server = npm_server.strip()
     npm_uname = npm_uname.strip()
-    # 20260211 Create/Retrieve persistent session
-    manager = OrionSession(npm_server, npm_uname, npm_passwd)
 
-    try:
-        # FIX: get_client() performs a blocking SWIS login/handshake. It was
-        # previously called directly inside this async def, which could
-        # freeze the whole event loop (single worker) if the Orion server is
-        # slow to respond to login. Now offloaded to a thread.
-        swis_client, session_id = await asyncio.to_thread(manager.get_client)
+    # 20261118 Try each Orion server in turn: the one the user typed
+    # first, then the configured failover list (orion_config.
+    # ORION_FAILOVER_SERVERS). get_client() does no I/O for a fresh
+    # server, so each candidate is verified with a cheap probe query
+    # before the dashboard is generated against it -- a server that
+    # resets every connection fails the probe and we move on
+    # (2026-11-18 09:07). The probe also warms the pooled connection,
+    # so a stale keep-alive RST is absorbed here (via the v2 retry
+    # adapter) instead of failing every table module (09:00:54).
+    last_error = None
+    saw_connection_error = False
+    loop = asyncio.get_running_loop()
+
+    for server in _candidate_servers(npm_server):
+        manager = OrionSession(server, npm_uname, npm_passwd)
+        try:
+            # FIX: get_client() performs a blocking SWIS login/handshake. It was
+            # previously called directly inside this async def, which could
+            # freeze the whole event loop (single worker) if the Orion server is
+            # slow to respond to login. Now offloaded to a thread.
+            swis_client, session_id = await asyncio.to_thread(manager.get_client)
+        except Exception as e:
+            logger.warning(f"Orion client setup failed for {server}: {e}")
+            last_error = e
+            saw_connection_error = saw_connection_error or _is_connection_error(e)
+            continue
+
+        try:
+            await asyncio.to_thread(
+                swis_client.query, "SELECT TOP 1 NodeID FROM Orion.Nodes"
+            )
+        except Exception as e:
+            logger.warning(f"Orion server {server} failed probe, trying next server: {e}")
+            last_error = e
+            saw_connection_error = saw_connection_error or _is_connection_error(e)
+            drop_cached_client(server, npm_uname)
+            continue
+
+        if server != npm_server:
+            logger.warning(f"Orion dashboard failing over to {server} (entered server {npm_server} unusable)")
 
         # AUDIT LOG: Capture the login event
-    # Update the audit log with duration tracking
-        update_session_audit(
-            session_id=session_id,
-            username=npm_uname,
-            npm_server=npm_server,
-            ip_address=request.client.host
-        )
+        # Update the audit log with duration tracking
+        try:
+            update_session_audit(
+                session_id=session_id,
+                username=npm_uname,
+                npm_server=server,
+                ip_address=request.client.host
+            )
+        except Exception as e:
+            # An audit-write failure must not block the dashboard
+            logger.warning(f"Session audit update failed for {npm_uname}: {e}")
 
-        loop = asyncio.get_running_loop()
+        # Dashboard generation against this server, retrying once with a
+        # fresh client (same-server retry from v1).
+        rendered_html = None
+        final_session_id = session_id
+        for attempt in (1, 2):
+            try:
+                # 2. Execute the heavy lifting in a thread pool
+                # get_orion_dashboard_html will now find/create the pickle based on this hash
+                rendered_html, final_session_id = await loop.run_in_executor(
+                    None,
+                    orion_dashboard.get_orion_dashboard_html,
+                    request,
+                    server,
+                    npm_uname,
+                    swis_client,      # <-- pass the cached, already-validated client 
+                    session_id,
+                )
+                break
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Dashboard generation attempt {attempt} on {server} failed for {npm_uname}: {e}")
+                if attempt == 1:
+                    # The pooled SWIS connection may be dead (server closed
+                    # it); drop the cached client and rebuild fresh, then retry.
+                    drop_cached_client(server, npm_uname)
+                    try:
+                        swis_client, session_id = await asyncio.to_thread(manager.get_client)
+                    except Exception as e2:
+                        logger.error(f"Retry login failed for {npm_uname} on {server}: {e2}")
+                        break
 
-        # 2. Execute the heavy lifting in a thread pool
-        # get_orion_dashboard_html will now find/create the pickle based on this hash
-        rendered_html, final_session_id = await loop.run_in_executor(
-            None,
-            # get_orion_dashboard_html,
-            orion_dashboard.get_orion_dashboard_html,
-            request,
-            npm_server,
-            npm_uname,
-            swis_client,      # <-- pass the cached, already-validated client 
-            session_id,
-        )
+        if rendered_html is not None:
+            # 3. Attach the hash-based session_id to the cookie
+            # Setting httponly=True and samesite='lax' for security
+            response = HTMLResponse(content=rendered_html)
+            response.set_cookie(
+                key="session_id", 
+                value=final_session_id, 
+                httponly=True, 
+                path="/",
+                samesite="lax"
+            )
+            return response
 
-        # 3. Attach the hash-based session_id to the cookie
-        # Setting httponly=True and samesite='lax' for security
-        response = HTMLResponse(content=rendered_html)
-        response.set_cookie(
-            key="session_id", 
-            value=final_session_id, 
-            httponly=True, 
-            path="/",
-            samesite="lax"
-        )
-        
-        return response
+        # Generation failed on this (live) server even after retry:
+        # try the next server.
+        if last_error is not None:
+            saw_connection_error = saw_connection_error or _is_connection_error(last_error)
+        logger.warning(f"Dashboard generation failed on {server}, trying next server")
 
-    except ConnectionError as ce:
-        # Handle failed logins or unreachable servers
-        logger.error(f"Login failed for {npm_uname}: {ce}")
+    # Every server failed.
+    if not saw_connection_error:
+        # No connectivity failure anywhere: the credentials were most
+        # likely rejected by every server.
+        logger.error(f"Login failed for {npm_uname} on all Orion servers: {last_error}")
         return HTMLResponse(content=f"""
             <script>
-                alert("ACCESS DENIED / SERVER DOWN\\n\\nError: {html.escape(str(ce))}");
+                alert("ACCESS DENIED / SERVER DOWN\\n\\nError: {html.escape(str(last_error))}");
                 window.location.href = "/check_form"; 
             </script>
         """, status_code=401)
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        return HTMLResponse(content="<h2>An unexpected error occurred.</h2>", status_code=500)
+
+    # Connectivity failure: serve the last good dashboard page the app
+    # saves on every successful run, so the SOC still sees data (the
+    # page header shows its generation time, so staleness is visible).
+    # No session cookie here: no server session exists.
+    last_good = None
+    for candidate in (
+        os.path.join(str(mainconfig.DATA_DIR), "last_orion_dashboard.html"),
+        "data/last_orion_dashboard.html",
+    ):
+        if os.path.exists(candidate):
+            try:
+                with open(candidate, "r", encoding="utf-8") as f:
+                    last_good = f.read()
+                break
+            except Exception as e:
+                logger.warning(f"Could not read last good dashboard {candidate}: {e}")
+    if last_good is not None:
+        logger.warning(f"Serving last good dashboard page after all Orion servers failed for {npm_uname}: {last_error}")
+        return HTMLResponse(content=last_good)
+    logger.error(f"Dashboard generation failed for {npm_uname}, all Orion servers unusable: {last_error}")
+    return HTMLResponse(content=f"""
+        <h2>Dashboard unavailable</h2>
+        <p>The Orion dashboard could not be generated. None of the Orion
+        servers could be reached.</p>
+        <p>Error: {html.escape(str(last_error))}</p>
+        <p><a href="/check_form">Try again</a></p>
+    """, status_code=503)
 
 @router.get("/map_data")
 async def get_map_data(site: str = None):

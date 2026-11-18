@@ -1,5 +1,7 @@
 # utils/session_manager.py
 import os, hashlib, requests, pickle, json
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from datetime import datetime
 import mainconfig as mainconfig
 from orionsdk import SwisClient
@@ -35,6 +37,19 @@ def _make_swis_client(npm_server, username, password, session=None):
     client = SwisClient(host, username, password, session=session)
     client.url = f"https://{host_port}/SolarWinds/InformationService/v3/Json/"
     return client
+
+
+def drop_cached_client(npm_server, username):
+    """Drop the in-memory SwisClient for this server/user so the next
+    get_client() builds a fresh one. Called after a connection error
+    (e.g. the Orion server closed a pooled keep-alive connection) so a
+    retry does not reuse the same dead client (2026-11-18)."""
+    session_id = get_deterministic_session_id(
+        _bare_host_and_port(npm_server).split(":")[0], username
+    )
+    if session_id and session_id in ACTIVE_SESSIONS:
+        del ACTIVE_SESSIONS[session_id]
+        logger.info(f"Dropped cached SWIS client for session {session_id}")
 
 
 class OrionSession:
@@ -78,6 +93,26 @@ class OrionSession:
         http_session = requests.Session()
         http_session.verify = False 
         http_session.auth = (self.username, self.password)
+
+        # 20261118 Retry each SWIS query once on a dropped connection.
+        # Orion (or a firewall in front of it) closes idle pooled
+        # keep-alive connections; the first query on a stale connection
+        # then gets RST (10054) and every dashboard module fails on its
+        # own (2026-11-18 09:00: node, interface, alert and syslog all
+        # failed in the same second). urllib3 only retries idempotent
+        # methods by default and SWIS queries are POSTs, so POST must be
+        # allowed explicitly. Safe here: this app only ever issues
+        # read-only .query() calls (no invoke/create/update/delete
+        # anywhere in the repo), so a retried POST just re-runs the
+        # same SELECT on a fresh connection.
+        # NOTE: deliberately NOT mounted in _create_new_session(), whose
+        # session is pickled to disk -- a mounted adapter must not go
+        # through pickle. get_client() sessions live in memory only.
+        http_session.mount("https://", HTTPAdapter(max_retries=Retry(
+            total=1, connect=1, read=1,
+            allowed_methods={"POST"},
+            backoff_factor=0.3,
+        )))
 
         client = _make_swis_client(self.npm_server, self.username, self.password, session=http_session)
         # client = SwisClient(self.npm_server, self.username, self.password, session=http_session)

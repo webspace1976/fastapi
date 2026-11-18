@@ -139,6 +139,53 @@ def check_orion_status(swis_client):
 def safe_escape(value: Any) -> str:
     return html.escape(str(value or ""))
 
+# 20261110 --- BC Hydro live-feed verification for the OUTAGE tags ---
+# The tags in generate_node_table come from data/debug_active_poweroutages.json,
+# a file the Ringer power-outage route rewrites only when it runs. A stale
+# copy kept tags alive after BC Hydro had already cleared the outage, so
+# verify each entry against BC Hydro's live feed -- the same source of
+# truth the power-outage page itself now uses.
+_BCHYDRO_FEED_URL = "https://www.bchydro.com/power-outages/app/outages-map-data.json"
+_bchydro_feed_cache = {"ts": 0, "ids": None}
+
+def _bchydro_live_ids():
+    """Ids currently on BC Hydro's live outage feed (cached 5 min).
+    Returns None when the feed can't be fetched -- callers fail open."""
+    now = time.time()
+    if _bchydro_feed_cache["ids"] is not None and now - _bchydro_feed_cache["ts"] < 300:
+        return _bchydro_feed_cache["ids"]
+    try:
+        from urllib.request import urlopen
+        with urlopen(_BCHYDRO_FEED_URL, timeout=10) as resp:
+            items = json.loads(resp.read().decode("utf-8"))
+        ids = {str(o["id"]) for o in items if isinstance(o, dict) and o.get("id")}
+        if ids:
+            _bchydro_feed_cache.update({"ts": now, "ids": ids})
+            return ids
+    except Exception as e:
+        logger.warning(f"BC Hydro feed check for OUTAGE tags unavailable: {e}")
+    return None
+
+def _verify_power_lookup(power_lookup):
+    """Drop site->URL entries whose BC Hydro outage is no longer on the
+    live feed. Entries whose URL carries no bchydro outage id (e.g.
+    Fortis) are left untouched, and if the feed is unavailable the
+    lookup is returned unchanged (fail open)."""
+    live = _bchydro_live_ids()
+    if live is None:
+        return power_lookup
+    verified = {}
+    for site, url in power_lookup.items():
+        oid = ""
+        if url and "outage=" in url:
+            oid = "".join(ch for ch in url.split("outage=", 1)[1] if ch.isdigit())
+        if oid and oid not in live:
+            logger.info(f"OUTAGE tag suppressed for {site}: bchydro{oid} not in BC Hydro live feed")
+            continue
+        verified[site] = url
+    return verified
+
+
 def generate_node_table(session):
     sitedown_list = []
     nodedown_list = []
@@ -170,6 +217,10 @@ def generate_node_table(session):
                         power_lookup[site] = url
         except Exception as e:
             logger.error(f"Error loading power data for tags: {e}")
+
+    # 20261110 Verify the loaded entries against BC Hydro's live feed, so a
+    # stale debug file can't tag a site whose outage BC Hydro already cleared
+    power_lookup = _verify_power_lookup(power_lookup)
     # ----------------------------------------------------
 
     query_sitenodes = swis_nodeduration_2026
@@ -953,16 +1004,30 @@ def get_orion_dashboard_html(request, npm_server, username, swis_client, session
             "syslog_table": syslog_table[1]  # upsert_syslog filters new-only internally
         }
 
-        from sqlalchemy import text as _sa_text
-        with _orion_read_engine.connect() as _tmp_conn:
-            count = _tmp_conn.execute(_sa_text(
-                "SELECT COUNT(*) FROM [Orion.NodesCustomProperties]"
-            )).scalar()
-        if count != 8835:   # run full load if count doesn't match expected (orion 2026-05-10)
-            logger.debug("Performing Initial Full Load...")
-            swis_result = swis_client.query(orion_config.swis_ncp)   # <-- use swis_client, not session
-            if swis_result and swis_result.get("results"):
-                data_for_db["NodesCustomProperties"] = swis_result.get("results")
+        # 20261118 A failed NCP refresh must never kill the whole dashboard.
+        # The old trigger (count != 8835, a hardcoded May 2026 node count)
+        # ran this heavy SWIS query on nearly every load once the count
+        # drifted, and one dead connection then failed the entire page
+        # (2026-11-18 06:52). Now the full load runs only when the local
+        # table is EMPTY (a true first run), and any failure is logged
+        # and skipped -- the page renders without the refresh.
+        ncp_count = None
+        try:
+            from sqlalchemy import text as _sa_text
+            with _orion_read_engine.connect() as _tmp_conn:
+                ncp_count = _tmp_conn.execute(_sa_text(
+                    "SELECT COUNT(*) FROM [Orion.NodesCustomProperties]"
+                )).scalar()
+        except Exception as e:
+            logger.warning(f"Could not count NodesCustomProperties, skipping NCP refresh: {e}")
+        if ncp_count == 0:
+            try:
+                logger.debug("Performing Initial Full Load (NodesCustomProperties empty)...")
+                swis_result = swis_client.query(orion_config.swis_ncp)   # <-- use swis_client, not session
+                if swis_result and swis_result.get("results"):
+                    data_for_db["NodesCustomProperties"] = swis_result.get("results")
+            except Exception as e:
+                logger.warning(f"NCP full load failed, continuing without refresh: {e}")
 
         sync_orion_data(data_for_db)
         db_manager.close()  # FIX: always close the write connection
@@ -977,4 +1042,8 @@ def get_orion_dashboard_html(request, npm_server, username, swis_client, session
         print(f"Dashboard generation failed: {e}")
         print(f"DEBUG TRACE:\n{error_details}")
         logger.error(f"Dashboard generation failed: {e} DEBUG TRACE:\n{error_details}")
-        raise ConnectionError(str(e))
+        # 20261118 Re-raise the ORIGINAL exception (not ConnectionError):
+        # the route distinguishes a login failure from a mid-generation
+        # failure, and converting everything to ConnectionError made a
+        # dead Orion connection look like "ACCESS DENIED" (2026-11-18).
+        raise

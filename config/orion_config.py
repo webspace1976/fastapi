@@ -56,6 +56,23 @@ orion_prefix = "https://orion.net.mgmt"
 OrionRCS_prefix = "https://samsw.phsa.ca"
 ORION_SWIS_PORT = int(os.getenv("ORION_SWIS_PORT", 17778))  # SWIS REST/JSON API port, 17774 (not works on KDC 10.248.x.x) or 17778
 
+# 20261118 Orion servers to try in turn when one has a login/connection
+# problem (10.248.217.101 is the dedicated API server). The dashboard
+# login tries the server the user typed first, then these in order; the
+# first server that answers a probe query serves the page.
+# Ports: 10.248.217.101 is DOWN on both ports right now (2026-11-18):
+# its 17774 TLS binding is broken (handshake RST, confirmed by Test-Tls;
+# the 2026-11-17 cert renewal is the likely cause) and 17778 answers TLS
+# but has NO SWIS endpoint (Query 404s). It stays in the list as a bare
+# IP so it rejoins failover automatically once the admin fixes the 17774
+# binding -- the probe just fails fast on it until then. The 142.71 pair
+# carries no port, so they use the 17774 default.
+ORION_FAILOVER_SERVERS = (
+    "10.248.217.101",
+    "142.71.111.67",
+    "142.71.111.72",
+)
+
 swis_test='SELECT TOP 3 NodeID, DisplayName FROM Orion.Nodes'
 # swis_sitedown= 'SELECT SUM(1) as value, Site FROM (SELECT nodeid,DisplayName,CP.CustomProperties.Site,CP.CustomProperties.SiteType FROM Orion.Nodes CP WHERE CP.Status=2 ) GROUP by site order by value'
 swis_nodedown1='SELECT TOP 1000 nodeid,DisplayName,IPAddress,C.CustomProperties.Site,C.CustomProperties.SiteType,C.CustomProperties.DeviceType,location, C.CustomProperties.address, StatusDescription,DetailsUrl, LastBoot FROM Orion.Nodes C WHERE StatusDescription like \'%Node status is Down%\' AND not C.CustomProperties.Site=\'PPN\' ORDER BY C.CustomProperties.Site '

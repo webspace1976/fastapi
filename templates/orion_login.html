@@ -103,6 +103,20 @@
             font-size: 0.9rem;
             color: #004085;
         }
+        .server-status { cursor: pointer; }
+        .server-status:hover { text-decoration: underline; }
+        .status-dot {
+            display: inline-block;
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background: #adb5bd;
+            vertical-align: middle;
+        }
+        .status-dot.up { background: #28a745; }
+        .status-dot.down { background: #dc3545; }
+        .status-text { color: #6c757d; font-size: 0.85rem; }
+        .status-checked { color: #6c757d; font-size: 0.8rem; margin-top: 4px; }
         @media (max-width: 768px) {
             .form-section {
                 grid-template-columns: 1fr;
@@ -120,8 +134,8 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
                     <div class="form-group">
-                        <label for="npm_server">Orion API Server: 10.248.217.101 (20260812 RITM2390776)</label>
-                        <input type="text" name="npm_server" id="npm_server" placeholder="10.248.217.101" required>
+                        <label for="npm_server">Orion API Server: 142.71.111.67 (10.248.217.101 API down (SSL Cert renew) 2026-11-18: 17774 TLS binding broken, no SWIS on 17778)</label>
+                        <input type="text" name="npm_server" id="npm_server" placeholder="142.71.111.67" required>
                     </div>
 
                     <div class="form-group">
@@ -151,13 +165,13 @@
             <div class="info-section">
                 <h2>📌 Connection Info</h2>
                 <ul>
-                    <li><strong>Orion Servers:</strong>
-                        <ul>
-                            <li>10.248.217.101 - Dedicated API server</li>
-                            <li>142.71.111.67</li>
-                            <li>142.71.111.72</li>
-
+                    <li><strong>Orion Servers:</strong> <span style="color:#6c757d; font-weight: normal; font-size: 0.85rem;">(click one to use it)</span>
+                        <ul id="orion-server-list">
+                            <li class="server-status" data-server="10.248.217.101" title="Click to use this server"><span class="status-dot"></span>10.248.217.101 - Dedicated API server <span class="status-text">checking&hellip;</span></li>
+                            <li class="server-status" data-server="142.71.111.67" title="Click to use this server"><span class="status-dot"></span>142.71.111.67 <span class="status-text">checking&hellip;</span></li>
+                            <li class="server-status" data-server="142.71.111.72" title="Click to use this server"><span class="status-dot"></span>142.71.111.72 <span class="status-text">checking&hellip;</span></li>
                         </ul>
+                        <div class="status-checked" id="server-status-checked"></div>
                     </li>
                     <li><strong>Monitoring:</strong> Node & interface status (excluding UP/Unmanaged/Muted)</li>
                     <li><strong>Features:</strong> OCI Netpath, PowerOutage tracking, Syslog integration</li>
@@ -202,6 +216,51 @@
         } else {
             updateOrionLink();
         }
+
+        // 20261118 Server availability (no login needed): the app checks
+        // each Orion server's SWIS endpoint without credentials -- any
+        // HTTP response counts as up. Dots refresh every 60s.
+        var STATUS_URL = '/api/orion/server_status';
+        var DEFAULT_SWIS_PORT = 17774;
+        var serverPorts = {};
+        function refreshServerStatus() {
+            fetch(STATUS_URL)
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    var checked = document.getElementById('server-status-checked');
+                    if (checked && data.checked_at) {
+                        checked.textContent = 'Checked ' + data.checked_at + ' (refreshes every 120s)';
+                    }
+                    (data.servers || []).forEach(function (s) {
+                        var li = document.querySelector('.server-status[data-server="' + s.server + '"]');
+                        if (!li) return;
+                        var dot = li.querySelector('.status-dot');
+                        var text = li.querySelector('.status-text');
+                        serverPorts[s.server] = s.port;
+                        if (s.status === 'up') {
+                            dot.classList.add('up');
+                            dot.classList.remove('down');
+                            text.textContent = 'UP :' + s.port + (s.latency_ms != null ? ' ' + s.latency_ms + 'ms' : '');
+                        } else {
+                            dot.classList.add('down');
+                            dot.classList.remove('up');
+                            text.textContent = 'DOWN';
+                        }
+                    });
+                })
+                .catch(function () { /* leave dots grey; login still works */ });
+        }
+        document.querySelectorAll('.server-status').forEach(function (li) {
+            li.addEventListener('click', function () {
+                var input = document.getElementById('npm_server');
+                var host = li.getAttribute('data-server');
+                var port = serverPorts[host];
+                input.value = (port && port !== DEFAULT_SWIS_PORT) ? host + ':' + port : host;
+                trimServerInput();
+            });
+        });
+        refreshServerStatus();
+        setInterval(refreshServerStatus, 60000);
     </script>
 </body>
 </html>
